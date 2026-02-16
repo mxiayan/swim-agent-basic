@@ -11,6 +11,7 @@ import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import 'admin_activity_creator_widget.dart' show AdminActivityCreatorWidget;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -27,39 +28,41 @@ class AdminActivityCreatorModel
 
   ///  State fields for stateful widgets in this component.
 
+  // State field(s) for ActivityTypeDropDown widget.
+  String? activityTypeDropDownValue;
+  FormFieldController<String>? activityTypeDropDownValueController;
   // State field(s) for ChoiceChips widget.
   FormFieldController<List<String>>? choiceChipsValueController;
   List<String>? get choiceChipsValues => choiceChipsValueController?.value;
   set choiceChipsValues(List<String>? val) =>
       choiceChipsValueController?.value = val;
-  // State field(s) for ActivityTypeDropDown widget.
-  String? activityTypeDropDownValue;
-  FormFieldController<String>? activityTypeDropDownValueController;
   // State field(s) for Location widget.
-  FocusNode? locationFocusNode1;
-  TextEditingController? locationTextController1;
-  String? Function(BuildContext, String?)? locationTextController1Validator;
+  FocusNode? locationFocusNode;
+  TextEditingController? locationTextController;
+  String? Function(BuildContext, String?)? locationTextControllerValidator;
+  DateTime? datePicked1;
+  DateTime? datePicked2;
+  // State field(s) for si widget.
+  FocusNode? siFocusNode;
+  TextEditingController? siTextController;
+  String? Function(BuildContext, String?)? siTextControllerValidator;
   // State field(s) for TextField widget.
   FocusNode? textFieldFocusNode;
-  TextEditingController? textController2;
-  String? Function(BuildContext, String?)? textController2Validator;
-  // State field(s) for Location widget.
-  FocusNode? locationFocusNode2;
-  TextEditingController? locationTextController2;
-  String? Function(BuildContext, String?)? locationTextController2Validator;
+  TextEditingController? textController3;
+  String? Function(BuildContext, String?)? textController3Validator;
 
   @override
   void initState(BuildContext context) {}
 
   @override
   void dispose() {
-    locationFocusNode1?.dispose();
-    locationTextController1?.dispose();
+    locationFocusNode?.dispose();
+    locationTextController?.dispose();
+
+    siFocusNode?.dispose();
+    siTextController?.dispose();
 
     textFieldFocusNode?.dispose();
-    textController2?.dispose();
-
-    locationFocusNode2?.dispose();
-    locationTextController2?.dispose();
+    textController3?.dispose();
   }
 }
