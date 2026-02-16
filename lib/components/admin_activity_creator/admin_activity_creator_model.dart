@@ -42,14 +42,14 @@ class AdminActivityCreatorModel
   String? Function(BuildContext, String?)? locationTextControllerValidator;
   DateTime? datePicked1;
   DateTime? datePicked2;
-  // State field(s) for si widget.
-  FocusNode? siFocusNode;
-  TextEditingController? siTextController;
-  String? Function(BuildContext, String?)? siTextControllerValidator;
-  // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode;
-  TextEditingController? textController3;
-  String? Function(BuildContext, String?)? textController3Validator;
+  // State field(s) for singupURL widget.
+  FocusNode? singupURLFocusNode;
+  TextEditingController? singupURLTextController;
+  String? Function(BuildContext, String?)? singupURLTextControllerValidator;
+  // State field(s) for description widget.
+  FocusNode? descriptionFocusNode;
+  TextEditingController? descriptionTextController;
+  String? Function(BuildContext, String?)? descriptionTextControllerValidator;
 
   @override
   void initState(BuildContext context) {}
@@ -59,10 +59,10 @@ class AdminActivityCreatorModel
     locationFocusNode?.dispose();
     locationTextController?.dispose();
 
-    siFocusNode?.dispose();
-    siTextController?.dispose();
+    singupURLFocusNode?.dispose();
+    singupURLTextController?.dispose();
 
-    textFieldFocusNode?.dispose();
-    textController3?.dispose();
+    descriptionFocusNode?.dispose();
+    descriptionTextController?.dispose();
   }
 }

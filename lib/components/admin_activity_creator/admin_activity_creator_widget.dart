@@ -54,11 +54,11 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
     _model.locationTextController ??= TextEditingController();
     _model.locationFocusNode ??= FocusNode();
 
-    _model.siTextController ??= TextEditingController();
-    _model.siFocusNode ??= FocusNode();
+    _model.singupURLTextController ??= TextEditingController();
+    _model.singupURLFocusNode ??= FocusNode();
 
-    _model.textController3 ??= TextEditingController();
-    _model.textFieldFocusNode ??= FocusNode();
+    _model.descriptionTextController ??= TextEditingController();
+    _model.descriptionFocusNode ??= FocusNode();
 
     animationsMap.addAll({
       'containerOnPageLoadAnimation': AnimationInfo(
@@ -714,7 +714,8 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                             },
                                             child: Text(
                                               valueOrDefault<String>(
-                                                _model.tmpStartTime?.toString(),
+                                                dateTimeFormat("EEE, MMM d, y",
+                                                    _model.tmpStartTime),
                                                 'Select time',
                                               ),
                                               style:
@@ -913,7 +914,8 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                             },
                                             child: Text(
                                               valueOrDefault<String>(
-                                                _model.tmpEndTime?.toString(),
+                                                dateTimeFormat("EEE, MMM d, y",
+                                                    _model.tmpEndTime),
                                                 'Select time',
                                               ),
                                               style:
@@ -987,8 +989,8 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                   ),
                         ),
                         TextFormField(
-                          controller: _model.siTextController,
-                          focusNode: _model.siFocusNode,
+                          controller: _model.singupURLTextController,
+                          focusNode: _model.singupURLFocusNode,
                           autofocus: true,
                           obscureText: false,
                           decoration: InputDecoration(
@@ -1083,7 +1085,7 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                         .fontStyle,
                                   ),
                           cursorColor: FlutterFlowTheme.of(context).primary,
-                          validator: _model.siTextControllerValidator
+                          validator: _model.singupURLTextControllerValidator
                               .asValidator(context),
                         ),
                       ].divide(SizedBox(height: 8.0)),
@@ -1114,8 +1116,8 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                   ),
                         ),
                         TextFormField(
-                          controller: _model.textController3,
-                          focusNode: _model.textFieldFocusNode,
+                          controller: _model.descriptionTextController,
+                          focusNode: _model.descriptionFocusNode,
                           autofocus: false,
                           enabled: true,
                           obscureText: false,
@@ -1207,7 +1209,7 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                           maxLines: 4,
                           cursorColor: FlutterFlowTheme.of(context).primaryText,
                           enableInteractiveSelection: true,
-                          validator: _model.textController3Validator
+                          validator: _model.descriptionTextControllerValidator
                               .asValidator(context),
                         ),
                       ].divide(SizedBox(height: 8.0)),
@@ -1274,74 +1276,110 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                           Align(
                             alignment: AlignmentDirectional(0.0, 0.05),
                             child: FFButtonWidget(
-                              onPressed: () async {
-                                await showDialog(
-                                  context: context,
-                                  builder: (alertDialogContext) {
-                                    return AlertDialog(
-                                      title: Text('ssss'),
-                                      content:
-                                          Text('Checking the activityRef !'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(alertDialogContext),
-                                          child: Text('Ok'),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                                if (widget!.activityRef != null) {
-                                  await showDialog(
-                                    context: context,
-                                    builder: (alertDialogContext) {
-                                      return AlertDialog(
-                                        content:
-                                            Text('The activityRef is set!'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(
-                                                alertDialogContext),
-                                            child: Text('Ok'),
-                                          ),
-                                        ],
+                              onPressed: (((_model.activityTypeDropDownValue ==
+                                                  null ||
+                                              _model.activityTypeDropDownValue ==
+                                                  '') ||
+                                          (_model.locationTextController.text ==
+                                                  null ||
+                                              _model.locationTextController
+                                                      .text ==
+                                                  '') ||
+                                          (_model.choiceChipsValues?.length ==
+                                              0)) ||
+                                      (_model.tmpStartTime == null) ||
+                                      (_model.tmpEndTime == null))
+                                  ? null
+                                  : () async {
+                                      await showDialog(
+                                        context: context,
+                                        builder: (alertDialogContext) {
+                                          return AlertDialog(
+                                            title: Text('ssss'),
+                                            content: Text(
+                                                'Checking the activityRef !'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                    alertDialogContext),
+                                                child: Text('Ok'),
+                                              ),
+                                            ],
+                                          );
+                                        },
                                       );
-                                    },
-                                  );
+                                      if ((widget!.activityRef != null) &&
+                                          (_model.activityTypeDropDownValue !=
+                                                  null &&
+                                              _model.activityTypeDropDownValue !=
+                                                  '') &&
+                                          (_model.choiceChipsValues != null &&
+                                              (_model.choiceChipsValues)!
+                                                  .isNotEmpty) &&
+                                          (_model.locationTextController.text !=
+                                                  null &&
+                                              _model.locationTextController
+                                                      .text !=
+                                                  '') &&
+                                          (_model.tmpStartTime != null) &&
+                                          (_model.tmpEndTime != null)) {
+                                        await showDialog(
+                                          context: context,
+                                          builder: (alertDialogContext) {
+                                            return AlertDialog(
+                                              content: Text(
+                                                  'The activityRef is set!'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                          alertDialogContext),
+                                                  child: Text('Ok'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
 
-                                  await widget!.activityRef!
-                                      .update(createActivitiesRecordData(
-                                    type: _model.activityTypeDropDownValue,
-                                    locationName:
-                                        _model.locationTextController.text,
-                                    startTime: _model.tmpStartTime,
-                                  ));
-                                } else {
-                                  await showDialog(
-                                    context: context,
-                                    builder: (alertDialogContext) {
-                                      return AlertDialog(
-                                        content:
-                                            Text('The activityRef is NOT set!'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(
-                                                alertDialogContext),
-                                            child: Text('Ok'),
-                                          ),
-                                        ],
-                                      );
+                                        await widget!.activityRef!
+                                            .update(createActivitiesRecordData(
+                                          type:
+                                              _model.activityTypeDropDownValue,
+                                          locationName: _model
+                                              .locationTextController.text,
+                                          startTime: _model.tmpStartTime,
+                                        ));
+                                      } else {
+                                        await showDialog(
+                                          context: context,
+                                          builder: (alertDialogContext) {
+                                            return AlertDialog(
+                                              title:
+                                                  Text('Missing Information! '),
+                                              content: Text(
+                                                  'Please ensure you have selected a Type, Location, at least one Group, and a Start /End Time.'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                          alertDialogContext),
+                                                  child: Text('Ok'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                        await actions.batchCreateActivities(
+                                          _model.choiceChipsValues!.toList(),
+                                          _model.activityTypeDropDownValue!,
+                                          _model.locationTextController.text,
+                                          _model.tmpStartTime,
+                                          _model.tmpEndTime,
+                                          _model.singupURLTextController.text,
+                                          _model.descriptionTextController.text,
+                                        );
+                                      }
                                     },
-                                  );
-                                  await actions.batchCreateActivities(
-                                    _model.choiceChipsValues!.toList(),
-                                    _model.activityTypeDropDownValue!,
-                                    _model.locationTextController.text,
-                                    _model.tmpStartTime,
-                                  );
-                                }
-                              },
                               text: 'Save',
                               options: FFButtonOptions(
                                 height: 44.0,
@@ -1349,7 +1387,7 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                     24.0, 0.0, 24.0, 0.0),
                                 iconPadding: EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 0.0),
-                                color: FlutterFlowTheme.of(context).primary,
+                                color: FlutterFlowTheme.of(context).tertiary,
                                 textStyle: FlutterFlowTheme.of(context)
                                     .titleSmall
                                     .override(
@@ -1375,8 +1413,12 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                   width: 1.0,
                                 ),
                                 borderRadius: BorderRadius.circular(12.0),
+                                disabledColor: FlutterFlowTheme.of(context)
+                                    .primaryBackground,
+                                disabledTextColor:
+                                    FlutterFlowTheme.of(context).accent3,
                                 hoverColor:
-                                    FlutterFlowTheme.of(context).accent1,
+                                    FlutterFlowTheme.of(context).tertiary,
                                 hoverBorderSide: BorderSide(
                                   color: FlutterFlowTheme.of(context).primary,
                                   width: 1.0,

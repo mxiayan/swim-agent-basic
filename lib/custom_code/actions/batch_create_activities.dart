@@ -16,7 +16,10 @@ Future batchCreateActivities(
   List<String> groupList,
   String type,
   String location,
-  DateTime? startTime, // Changed to nullable DateTime?
+  DateTime? startTime,
+  DateTime? endTime, // ADDED
+  String? signupUrl, // ADDED
+  String? description, // ADDED
 ) async {
   // 1. Fallback: If startTime is null, use the current time
   final DateTime finalStartTime = startTime ?? DateTime.now();
@@ -24,23 +27,24 @@ Future batchCreateActivities(
   // 2. Reference to the Firestore Instance
   final firestore = FirebaseFirestore.instance;
 
-  // 3. Initialize a WriteBatch (Max 500 operations per batch)
+  // 3. Initialize a WriteBatch
   final WriteBatch batch = firestore.batch();
 
   // 4. Reference to your 'activities' collection
   final CollectionReference activities = firestore.collection('activities');
 
-  // 5. Loop through each selected group from your ChoiceChips
+  // 5. Loop through each selected group
   for (String group in groupList) {
-    // Generate a new document reference with a unique ID
     DocumentReference docRef = activities.doc();
 
-    // Add the "Set" operation to the batch
     batch.set(docRef, {
       'group_id': group,
       'type': type,
       'location_name': location,
-      'start_time': finalStartTime, // Use the non-nullable fallback variable
+      'start_time': finalStartTime,
+      'end_time': endTime, // Can stay null if not provided
+      'signup_url': signupUrl ?? '', // Fallback to empty string
+      'description': description ?? '', // Fallback to empty string
       'is_updated': false,
       'created_at': FieldValue.serverTimestamp(),
     });
@@ -49,7 +53,8 @@ Future batchCreateActivities(
   // 6. Atomic Commit
   try {
     await batch.commit();
-    print('QA Log: Successfully created ${groupList.length} activities.');
+    print(
+        'QA Log: Successfully created ${groupList.length} activities with full details.');
   } catch (e) {
     print('QA Log ERROR: Error creating batch activities: $e');
     rethrow;
