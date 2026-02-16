@@ -584,7 +584,7 @@ class _AdminDashboardWidgetState extends State<AdminDashboardWidget> {
                         },
                       ).then((value) => safeSetState(() {}));
                     },
-                    text: 'A Temp button',
+                    text: 'A New  Button',
                     icon: Icon(
                       Icons.add_rounded,
                       size: 15.0,
