@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "619843743622",
+    "project_id": "swimagentbasic-da546",
+    "storage_bucket": "swimagentbasic-da546.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:619843743622:android:7d58bbc946843c06d50607",
+        "android_client_info": {
+          "package_name": "com.swimagentbasic.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDr-5bD9l2DuW_pKOlsw5J5Pb32TFDlKng"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
