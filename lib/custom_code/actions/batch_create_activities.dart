@@ -1,5 +1,6 @@
 // Automatic FlutterFlow imports
 import '/backend/backend.dart';
+import '/backend/schema/structs/index.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'index.dart'; // Imports other custom actions
@@ -8,45 +9,49 @@ import 'package:flutter/material.dart';
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'index.dart'; // Imports other custom actions
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future batchCreateActivities(
   List<String> groupList,
   String type,
   String location,
-  DateTime startTime,
+  DateTime? startTime, // Changed to nullable DateTime?
 ) async {
-  // 1. Reference to the Firestore Instance
+  // 1. Fallback: If startTime is null, use the current time
+  final DateTime finalStartTime = startTime ?? DateTime.now();
+
+  // 2. Reference to the Firestore Instance
   final firestore = FirebaseFirestore.instance;
-  
-  // 2. Initialize a WriteBatch (Max 500 operations per batch)
+
+  // 3. Initialize a WriteBatch (Max 500 operations per batch)
   final WriteBatch batch = firestore.batch();
-  
-  // 3. Reference to your 'activities' collection
+
+  // 4. Reference to your 'activities' collection
   final CollectionReference activities = firestore.collection('activities');
 
-  // 4. Loop through each selected group from your ChoiceChips
+  // 5. Loop through each selected group from your ChoiceChips
   for (String group in groupList) {
     // Generate a new document reference with a unique ID
     DocumentReference docRef = activities.doc();
 
     // Add the "Set" operation to the batch
     batch.set(docRef, {
-      'group_id': group,           // e.g., 'junior_3'
-      'type': type,               // e.g., 'Practice'
-      'location_name': location,  // e.g., 'Soda Center'
-      'start_time': startTime,    // Firestore converts DateTime to Timestamp automatically
-      'is_updated': false,        // Default flag for your logic
-      'created_at': FieldValue.serverTimestamp(), // Tracks when you manually entered it
+      'group_id': group,
+      'type': type,
+      'location_name': location,
+      'start_time': finalStartTime, // Use the non-nullable fallback variable
+      'is_updated': false,
+      'created_at': FieldValue.serverTimestamp(),
     });
   }
 
-  // 5. Atomic Commit: All documents are created at the exact same time
+  // 6. Atomic Commit
   try {
     await batch.commit();
-    print('Successfully created ${groupList.length} activities.');
+    print('QA Log: Successfully created ${groupList.length} activities.');
   } catch (e) {
-    print('Error creating batch activities: $e');
-    rethrow; // Pass the error back to FlutterFlow for SnackBar handling
+    print('QA Log ERROR: Error creating batch activities: $e');
+    rethrow;
   }
 }

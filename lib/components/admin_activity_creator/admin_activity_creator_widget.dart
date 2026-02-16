@@ -8,6 +8,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
 import 'dart:math';
 import 'dart:ui';
+import '/custom_code/actions/index.dart' as actions;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -237,6 +238,33 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                     .headlineMedium
                                     .fontStyle,
                               ),
+                    ),
+                  ),
+                  Padding(
+                    padding:
+                        EdgeInsetsDirectional.fromSTEB(24.0, 4.0, 0.0, 0.0),
+                    child: Text(
+                      'debug activityRef:${valueOrDefault<String>(
+                        widget!.activityRef?.id,
+                        'EMPTY',
+                      )}',
+                      style: FlutterFlowTheme.of(context).labelMedium.override(
+                            font: GoogleFonts.sora(
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .labelMedium
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .labelMedium
+                                  .fontStyle,
+                            ),
+                            letterSpacing: 0.0,
+                            fontWeight: FlutterFlowTheme.of(context)
+                                .labelMedium
+                                .fontWeight,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .labelMedium
+                                .fontStyle,
+                          ),
                     ),
                   ),
                   Padding(
@@ -709,13 +737,50 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                           alignment: AlignmentDirectional(0.0, 0.05),
                           child: FFButtonWidget(
                             onPressed: () async {
+                              await showDialog(
+                                context: context,
+                                builder: (alertDialogContext) {
+                                  return AlertDialog(
+                                    title: Text('ssss'),
+                                    content: Text('Checking the activityRef !'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(alertDialogContext),
+                                        child: Text('Ok'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
                               if (widget!.activityRef != null) {
+                                await showDialog(
+                                  context: context,
+                                  builder: (alertDialogContext) {
+                                    return AlertDialog(
+                                      content: Text('The activityRef is set!'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(alertDialogContext),
+                                          child: Text('Ok'),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+
                                 await widget!.activityRef!
-                                    .update(createActivitiesRecordData());
+                                    .update(createActivitiesRecordData(
+                                  type: _model.activityTypeDropDownValue,
+                                  locationName:
+                                      _model.locationTextController1.text,
+                                  startTime: _model.tmpStartTime,
+                                ));
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      'Updated successfully!',
+                                      'Successfully added to${_model.choiceChipsValues?.length?.toString()}groups!',
                                       style: TextStyle(
                                         color: FlutterFlowTheme.of(context)
                                             .primaryText,
@@ -727,27 +792,27 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                   ),
                                 );
                               } else {
-                                await ActivitiesRecord.collection
-                                    .doc()
-                                    .set(createActivitiesRecordData(
-                                      groupId: widget!.passedGroup,
-                                      type: _model.activityTypeDropDownValue,
-                                      locationName: _model.textController2.text,
-                                      startTime: _model.tmpStartTime,
-                                    ));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Created successfully!',
-                                      style: TextStyle(
-                                        color: FlutterFlowTheme.of(context)
-                                            .primaryText,
-                                      ),
-                                    ),
-                                    duration: Duration(milliseconds: 4000),
-                                    backgroundColor:
-                                        FlutterFlowTheme.of(context).secondary,
-                                  ),
+                                await showDialog(
+                                  context: context,
+                                  builder: (alertDialogContext) {
+                                    return AlertDialog(
+                                      content:
+                                          Text('The activityRef is NOT set!'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(alertDialogContext),
+                                          child: Text('Ok'),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                                await actions.batchCreateActivities(
+                                  _model.choiceChipsValues!.toList(),
+                                  _model.activityTypeDropDownValue!,
+                                  _model.locationTextController1.text,
+                                  _model.tmpStartTime,
                                 );
                               }
                             },
