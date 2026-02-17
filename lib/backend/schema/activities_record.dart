@@ -66,6 +66,11 @@ class ActivitiesRecord extends FirestoreRecord {
   String get signupUrl => _signupUrl ?? '';
   bool hasSignupUrl() => _signupUrl != null;
 
+  // "deadline" field.
+  DateTime? _deadline;
+  DateTime? get deadline => _deadline;
+  bool hasDeadline() => _deadline != null;
+
   void _initializeFields() {
     _title = snapshotData['title'] as String?;
     _type = snapshotData['type'] as String?;
@@ -77,6 +82,7 @@ class ActivitiesRecord extends FirestoreRecord {
     _description = snapshotData['description'] as String?;
     _activityType = snapshotData['activity_type'] as String?;
     _signupUrl = snapshotData['signup_url'] as String?;
+    _deadline = snapshotData['deadline'] as DateTime?;
   }
 
   static CollectionReference get collection =>
@@ -124,6 +130,7 @@ Map<String, dynamic> createActivitiesRecordData({
   String? description,
   String? activityType,
   String? signupUrl,
+  DateTime? deadline,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -137,6 +144,7 @@ Map<String, dynamic> createActivitiesRecordData({
       'description': description,
       'activity_type': activityType,
       'signup_url': signupUrl,
+      'deadline': deadline,
     }.withoutNulls,
   );
 
@@ -157,7 +165,8 @@ class ActivitiesRecordDocumentEquality implements Equality<ActivitiesRecord> {
         e1?.locationName == e2?.locationName &&
         e1?.description == e2?.description &&
         e1?.activityType == e2?.activityType &&
-        e1?.signupUrl == e2?.signupUrl;
+        e1?.signupUrl == e2?.signupUrl &&
+        e1?.deadline == e2?.deadline;
   }
 
   @override
@@ -171,7 +180,8 @@ class ActivitiesRecordDocumentEquality implements Equality<ActivitiesRecord> {
         e?.locationName,
         e?.description,
         e?.activityType,
-        e?.signupUrl
+        e?.signupUrl,
+        e?.deadline
       ]);
 
   @override

@@ -17,34 +17,41 @@ Future batchCreateActivities(
   String type,
   String location,
   DateTime? startTime,
-  DateTime? endTime, // ADDED
-  String? signupUrl, // ADDED
-  String? description, // ADDED
+  DateTime? endTime,
+  String? signupUrl,
+  String? description,
+  DateTime? deadline,
 ) async {
-  // 1. Fallback: If startTime is null, use the current time
-  final DateTime finalStartTime = startTime ?? DateTime.now();
+  // 1. Normalize Start Time to Midnight
+  // This ensures consistent querying and avoids the "12:06:02 PM" precision bug.
+  final DateTime rawStart = startTime ?? DateTime.now();
+  final DateTime finalStartTime =
+      DateTime(rawStart.year, rawStart.month, rawStart.day);
 
   // 2. Reference to the Firestore Instance
   final firestore = FirebaseFirestore.instance;
 
-  // 3. Initialize a WriteBatch
+  // 3. Initialize a WriteBatch (Max 500 operations per batch)
   final WriteBatch batch = firestore.batch();
 
   // 4. Reference to your 'activities' collection
   final CollectionReference activities = firestore.collection('activities');
 
-  // 5. Loop through each selected group
+  // 5. Loop through each selected group from your ChoiceChips
   for (String group in groupList) {
+    // Generate a new document reference with a unique ID
     DocumentReference docRef = activities.doc();
 
+    // Add the "Set" operation to the batch
     batch.set(docRef, {
       'group_id': group,
       'type': type,
       'location_name': location,
       'start_time': finalStartTime,
-      'end_time': endTime, // Can stay null if not provided
-      'signup_url': signupUrl ?? '', // Fallback to empty string
-      'description': description ?? '', // Fallback to empty string
+      'end_time': endTime, // Can be null (standard practice)
+      'signup_url': signupUrl ?? '', // Ensure it's never a null-break in UI
+      'description': description ?? '', // Ensure it's never a null-break in UI
+      'deadline': deadline, // Can be null
       'is_updated': false,
       'created_at': FieldValue.serverTimestamp(),
     });
@@ -54,9 +61,10 @@ Future batchCreateActivities(
   try {
     await batch.commit();
     print(
-        'QA Log: Successfully created ${groupList.length} activities with full details.');
+        'QA Log: Successfully created ${groupList.length} activities for type: $type.');
   } catch (e) {
     print('QA Log ERROR: Error creating batch activities: $e');
+    // Rethrow allows FlutterFlow's "On Failure" action path to trigger
     rethrow;
   }
 }

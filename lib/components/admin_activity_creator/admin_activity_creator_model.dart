@@ -26,16 +26,29 @@ class AdminActivityCreatorModel
 
   DateTime? tmpEndTime;
 
+  DateTime? tmpDeadline;
+
   ///  State fields for stateful widgets in this component.
 
   // State field(s) for ActivityTypeDropDown widget.
   String? activityTypeDropDownValue;
   FormFieldController<String>? activityTypeDropDownValueController;
-  // State field(s) for ChoiceChips widget.
-  FormFieldController<List<String>>? choiceChipsValueController;
-  List<String>? get choiceChipsValues => choiceChipsValueController?.value;
-  set choiceChipsValues(List<String>? val) =>
-      choiceChipsValueController?.value = val;
+  // State field(s) for meetName widget.
+  FocusNode? meetNameFocusNode;
+  TextEditingController? meetNameTextController;
+  String? Function(BuildContext, String?)? meetNameTextControllerValidator;
+  // State field(s) for juniorGroupChoiceChips widget.
+  FormFieldController<List<String>>? juniorGroupChoiceChipsValueController;
+  List<String>? get juniorGroupChoiceChipsValues =>
+      juniorGroupChoiceChipsValueController?.value;
+  set juniorGroupChoiceChipsValues(List<String>? val) =>
+      juniorGroupChoiceChipsValueController?.value = val;
+  // State field(s) for seniorGroupChoiceChips widget.
+  FormFieldController<List<String>>? seniorGroupChoiceChipsValueController;
+  List<String>? get seniorGroupChoiceChipsValues =>
+      seniorGroupChoiceChipsValueController?.value;
+  set seniorGroupChoiceChipsValues(List<String>? val) =>
+      seniorGroupChoiceChipsValueController?.value = val;
   // State field(s) for Location widget.
   FocusNode? locationFocusNode;
   TextEditingController? locationTextController;
@@ -46,6 +59,7 @@ class AdminActivityCreatorModel
   FocusNode? singupURLFocusNode;
   TextEditingController? singupURLTextController;
   String? Function(BuildContext, String?)? singupURLTextControllerValidator;
+  DateTime? datePicked3;
   // State field(s) for description widget.
   FocusNode? descriptionFocusNode;
   TextEditingController? descriptionTextController;
@@ -56,6 +70,9 @@ class AdminActivityCreatorModel
 
   @override
   void dispose() {
+    meetNameFocusNode?.dispose();
+    meetNameTextController?.dispose();
+
     locationFocusNode?.dispose();
     locationTextController?.dispose();
 
