@@ -22,49 +22,61 @@ Future batchCreateActivities(
   String? description,
   DateTime? deadline,
 ) async {
-  // 1. Normalize Start Time to Midnight
-  // This ensures consistent querying and avoids the "12:06:02 PM" precision bug.
+  // 1. Setup Time Variables
   final DateTime rawStart = startTime ?? DateTime.now();
-  final DateTime finalStartTime =
+
+  // Normalize to Midnight for the 'start_time' field (best for daily filtering)
+  final DateTime normalizedDate =
       DateTime(rawStart.year, rawStart.month, rawStart.day);
 
-  // 2. Reference to the Firestore Instance
   final firestore = FirebaseFirestore.instance;
-
-  // 3. Initialize a WriteBatch (Max 500 operations per batch)
   final WriteBatch batch = firestore.batch();
-
-  // 4. Reference to your 'activities' collection
   final CollectionReference activities = firestore.collection('activities');
 
-  // 5. Loop through each selected group from your ChoiceChips
+  // 2. Loop through each group to create/update records
   for (String group in groupList) {
-    // Generate a new document reference with a unique ID
-    DocumentReference docRef = activities.doc();
+    // 3. Create a Deterministic ID to prevent duplicates
+    // Pattern: GroupID_Type_Location_Date_HourMinute
+    // Example: Jr1_Practice_Soda_2026216_0630
+    String rawId = "${group}_${type}_${location}_"
+        "${rawStart.year}${rawStart.month}${rawStart.day}_"
+        "${rawStart.hour}${rawStart.minute}";
 
-    // Add the "Set" operation to the batch
-    batch.set(docRef, {
-      'group_id': group,
-      'type': type,
-      'location_name': location,
-      'start_time': finalStartTime,
-      'end_time': endTime, // Can be null (standard practice)
-      'signup_url': signupUrl ?? '', // Ensure it's never a null-break in UI
-      'description': description ?? '', // Ensure it's never a null-break in UI
-      'deadline': deadline, // Can be null
-      'is_updated': false,
-      'created_at': FieldValue.serverTimestamp(),
-    });
+    // Sanitize ID (Remove spaces/special characters for Firestore compatibility)
+    String customId = rawId.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+
+    // 4. Reference the document with our specific ID
+    DocumentReference docRef = activities.doc(customId);
+
+    // 5. Add "Set" operation with "Merge"
+    // If this ID already exists, it will simply update the fields
+    // instead of creating a second identical entry.
+    batch.set(
+        docRef,
+        {
+          'group_id': group,
+          'type': type,
+          'location_name': location,
+          'start_time': normalizedDate, // Normalized for calendar views
+          'actual_start_time':
+              rawStart, // Exact time for specific practice logic
+          'end_time': endTime,
+          'signup_url': signupUrl ?? '',
+          'description': description ?? '',
+          'deadline': deadline,
+          'is_updated': false,
+          'created_at': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true));
   }
 
-  // 6. Atomic Commit
+  // 6. Commit the Batch
   try {
     await batch.commit();
     print(
-        'QA Log: Successfully created ${groupList.length} activities for type: $type.');
+        'QA Log: Successfully processed ${groupList.length} activities (ID-verified).');
   } catch (e) {
-    print('QA Log ERROR: Error creating batch activities: $e');
-    // Rethrow allows FlutterFlow's "On Failure" action path to trigger
+    print('QA Log ERROR: Batch commit failed: $e');
     rethrow;
   }
 }

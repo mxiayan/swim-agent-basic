@@ -63,3 +63,36 @@ bool showDateHeader(
       currentTime.month != previousTime.month ||
       currentTime.day != previousTime.day;
 }
+
+List<ActivitiesRecord>? filterActivitiesByGroup(
+  List<ActivitiesRecord>? allActivities,
+  List<String>? selectedGroupIds,
+) {
+  // 1. Log the Input Data
+  print('QA DEBUG: Input allActivities count: ${allActivities?.length ?? 0}');
+  print('QA DEBUG: Selected Group IDs: $selectedGroupIds');
+
+  // Handle null inputs safely
+  if (allActivities == null) {
+    print('QA DEBUG: allActivities is NULL. Returning empty list.');
+    return [];
+  }
+
+  // 2. Logic: If no chips selected, return everything
+  if (selectedGroupIds == null || selectedGroupIds.isEmpty) {
+    print('QA DEBUG: No groups selected. Returning full list.');
+    return allActivities;
+  }
+
+  // 3. Perform filtering
+  final filteredList = allActivities
+      .where(
+        (activity) => selectedGroupIds.contains(activity.groupId.toString()),
+      )
+      .toList();
+
+  // 4. Log the Output Data
+  print('QA DEBUG: Filtered list count: ${filteredList.length}');
+
+  return filteredList;
+}

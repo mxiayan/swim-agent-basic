@@ -1724,6 +1724,26 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                               _model.tmpDeadline,
                                             );
                                           }
+
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'The Record Created ',
+                                                style: TextStyle(
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .primaryText,
+                                                ),
+                                              ),
+                                              duration:
+                                                  Duration(milliseconds: 4000),
+                                              backgroundColor:
+                                                  FlutterFlowTheme.of(context)
+                                                      .secondary,
+                                            ),
+                                          );
                                         },
                                   text: 'Save',
                                   options: FFButtonOptions(
