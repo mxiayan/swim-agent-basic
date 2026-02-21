@@ -19,7 +19,7 @@ import 'package:provider/provider.dart';
 class SAScheduleModel extends FlutterFlowModel<SAScheduleWidget> {
   ///  Local state fields for this component.
 
-  String currentGroup = 'junior';
+  String currentGroup = 'junior_1';
 
   ///  State fields for stateful widgets in this component.
 

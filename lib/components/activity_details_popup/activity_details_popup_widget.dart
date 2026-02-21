@@ -1,29 +1,37 @@
-import '/components/ticket_field/ticket_field_widget.dart';
+import '/components/activity_detail_pop_up_sign_up_u_r_l/activity_detail_pop_up_sign_up_u_r_l_widget.dart';
+import '/components/activity_details_fields/activity_details_fields_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import 'dart:ui';
-import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'ticket_model.dart';
-export 'ticket_model.dart';
+import 'activity_details_popup_model.dart';
+export 'activity_details_popup_model.dart';
 
-class TicketWidget extends StatefulWidget {
-  const TicketWidget({
+class ActivityDetailsPopupWidget extends StatefulWidget {
+  const ActivityDetailsPopupWidget({
     super.key,
-    this.destination,
+    this.location,
+    this.startTime,
+    this.endTime,
+    this.signUpUrl,
   });
 
-  final String? destination;
+  final String? location;
+  final DateTime? startTime;
+  final DateTime? endTime;
+  final String? signUpUrl;
 
   @override
-  State<TicketWidget> createState() => _TicketWidgetState();
+  State<ActivityDetailsPopupWidget> createState() =>
+      _ActivityDetailsPopupWidgetState();
 }
 
-class _TicketWidgetState extends State<TicketWidget> {
-  late TicketModel _model;
+class _ActivityDetailsPopupWidgetState
+    extends State<ActivityDetailsPopupWidget> {
+  late ActivityDetailsPopupModel _model;
 
   @override
   void setState(VoidCallback callback) {
@@ -34,7 +42,7 @@ class _TicketWidgetState extends State<TicketWidget> {
   @override
   void initState() {
     super.initState();
-    _model = createModel(context, () => TicketModel());
+    _model = createModel(context, () => ActivityDetailsPopupModel());
 
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
@@ -53,8 +61,8 @@ class _TicketWidgetState extends State<TicketWidget> {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Container(
-          width: 330.0,
-          height: 394.4,
+          width: MediaQuery.sizeOf(context).width * 0.9,
+          height: MediaQuery.sizeOf(context).height * 0.5,
           decoration: BoxDecoration(
             color: FlutterFlowTheme.of(context).secondaryBackground,
             borderRadius: BorderRadius.only(
@@ -62,6 +70,9 @@ class _TicketWidgetState extends State<TicketWidget> {
               bottomRight: Radius.circular(0.0),
               topLeft: Radius.circular(20.0),
               topRight: Radius.circular(20.0),
+            ),
+            border: Border.all(
+              color: FlutterFlowTheme.of(context).alternate,
             ),
           ),
           child: Padding(
@@ -110,7 +121,7 @@ class _TicketWidgetState extends State<TicketWidget> {
                     mainAxisSize: MainAxisSize.max,
                     children: [
                       Text(
-                        'DESTINATION',
+                        'LOCATION',
                         style: FlutterFlowTheme.of(context).bodyMedium.override(
                               font: GoogleFonts.sora(
                                 fontWeight: FlutterFlowTheme.of(context)
@@ -140,7 +151,7 @@ class _TicketWidgetState extends State<TicketWidget> {
                     mainAxisSize: MainAxisSize.max,
                     children: [
                       Text(
-                        widget!.destination!,
+                        widget!.location!,
                         style:
                             FlutterFlowTheme.of(context).displaySmall.override(
                                   font: GoogleFonts.sora(
@@ -172,21 +183,47 @@ class _TicketWidgetState extends State<TicketWidget> {
                     children: [
                       Expanded(
                         child: wrapWithModel(
-                          model: _model.ticketFieldModel1,
+                          model: _model.activityDetailsFieldsModel1,
                           updateCallback: () => safeSetState(() {}),
-                          child: TicketFieldWidget(
+                          child: ActivityDetailsFieldsWidget(
                             title: 'DATE',
-                            value: 'July 14',
+                            value: valueOrDefault<String>(
+                              dateTimeFormat("MMMEd", widget!.startTime),
+                              '[DATE]',
+                            ),
                           ),
                         ),
                       ),
                       Expanded(
                         child: wrapWithModel(
-                          model: _model.ticketFieldModel2,
+                          model: _model.activityDetailsFieldsModel2,
                           updateCallback: () => safeSetState(() {}),
-                          child: TicketFieldWidget(
+                          child: ActivityDetailsFieldsWidget(
                             title: 'TIME',
-                            value: '10:02am',
+                            value: valueOrDefault<String>(
+                              dateTimeFormat("jm", widget!.startTime),
+                              '[TIME]',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding:
+                      EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 0.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.max,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        child: wrapWithModel(
+                          model: _model.activityDetailPopUpSignUpURLModel,
+                          updateCallback: () => safeSetState(() {}),
+                          child: ActivityDetailPopUpSignUpURLWidget(
+                            title: 'SIGN UP URL',
+                            singupURL: widget!.signUpUrl,
                           ),
                         ),
                       ),
@@ -202,19 +239,19 @@ class _TicketWidgetState extends State<TicketWidget> {
                     children: [
                       Expanded(
                         child: wrapWithModel(
-                          model: _model.ticketFieldModel3,
+                          model: _model.activityDetailsFieldsModel3,
                           updateCallback: () => safeSetState(() {}),
-                          child: TicketFieldWidget(
-                            title: 'GATE',
-                            value: 'D31',
+                          child: ActivityDetailsFieldsWidget(
+                            title: 'WARM UP TIME',
+                            value: '7:30 AM',
                           ),
                         ),
                       ),
                       Expanded(
                         child: wrapWithModel(
-                          model: _model.ticketFieldModel4,
+                          model: _model.activityDetailsFieldsModel4,
                           updateCallback: () => safeSetState(() {}),
-                          child: TicketFieldWidget(
+                          child: ActivityDetailsFieldsWidget(
                             title: 'SEAT',
                             value: '2A',
                           ),
@@ -224,38 +261,6 @@ class _TicketWidgetState extends State<TicketWidget> {
                   ),
                 ),
               ],
-            ),
-          ),
-        ),
-        Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 30.0),
-          child: Container(
-            width: 330.0,
-            height: 110.0,
-            decoration: BoxDecoration(
-              color: FlutterFlowTheme.of(context).secondaryBackground,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(20.0),
-                bottomRight: Radius.circular(20.0),
-                topLeft: Radius.circular(0.0),
-                topRight: Radius.circular(0.0),
-              ),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(30.0),
-              child: BarcodeWidget(
-                data: 'Barcode',
-                barcode: Barcode.code128(),
-                width: 100.0,
-                height: 70.0,
-                color: FlutterFlowTheme.of(context).primaryText,
-                backgroundColor: Colors.transparent,
-                errorBuilder: (_context, _error) => SizedBox(
-                  width: 100.0,
-                  height: 70.0,
-                ),
-                drawText: false,
-              ),
             ),
           ),
         ),

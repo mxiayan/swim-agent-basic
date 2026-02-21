@@ -254,7 +254,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                           child: NavItemWidget(
                             text: 'ADMIN',
                             selected: FFAppState().activeTab.toString() == '4',
-                            width: 65,
+                            width: 48,
                           ),
                         ),
                       ),

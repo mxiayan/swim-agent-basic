@@ -1,5 +1,5 @@
 import '/backend/backend.dart';
-import '/components/ticket/ticket_widget.dart';
+import '/components/activity_details_popup/activity_details_popup_widget.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';

@@ -1,5 +1,5 @@
 import '/backend/backend.dart';
-import '/components/ticket/ticket_widget.dart';
+import '/components/activity_details_popup/activity_details_popup_widget.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -253,9 +253,14 @@ class _SAActivityRowWidgetState extends State<SAActivityRowWidget>
                                   builder: (context) {
                                     return Padding(
                                       padding: MediaQuery.viewInsetsOf(context),
-                                      child: TicketWidget(
-                                        destination:
+                                      child: ActivityDetailsPopupWidget(
+                                        location:
                                             widget!.activityItem?.locationName,
+                                        startTime:
+                                            widget!.activityItem?.startTime,
+                                        endTime: widget!.activityItem?.endTime,
+                                        signUpUrl:
+                                            widget!.activityItem?.signupUrl,
                                       ),
                                     );
                                   },
@@ -282,6 +287,7 @@ class _SAActivityRowWidgetState extends State<SAActivityRowWidget>
                                         '[location]',
                                       ),
                                       textAlign: TextAlign.center,
+                                      maxLines: 1,
                                       style: FlutterFlowTheme.of(context)
                                           .bodyMedium
                                           .override(
@@ -308,6 +314,7 @@ class _SAActivityRowWidgetState extends State<SAActivityRowWidget>
                                                     .bodyMedium
                                                     .fontStyle,
                                           ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ),
@@ -316,61 +323,6 @@ class _SAActivityRowWidgetState extends State<SAActivityRowWidget>
                                 animationsMap[
                                     'containerOnActionTriggerAnimation']!,
                                 hasBeenTriggered: hasContainerTriggered),
-                          ),
-                          Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  5.0, 0.0, 0.0, 0.0),
-                              child: Container(
-                                height: 24.0,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(40.0),
-                                  border: Border.all(
-                                    color:
-                                        FlutterFlowTheme.of(context).lightGrey,
-                                    width: 1.0,
-                                  ),
-                                ),
-                                child: Align(
-                                  alignment: AlignmentDirectional(0.0, 0.0),
-                                  child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        10.0, 0.0, 10.0, 0.0),
-                                    child: Text(
-                                      'Map',
-                                      textAlign: TextAlign.center,
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.sora(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .lightGrey,
-                                            fontSize: 12.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
                           ),
                         ],
                       ),

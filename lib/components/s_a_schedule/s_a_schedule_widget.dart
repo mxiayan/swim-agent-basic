@@ -169,11 +169,19 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Padding(
                   padding: EdgeInsetsDirectional.fromSTEB(0.0, 70.0, 0.0, 0.0),
                   child: FlutterFlowChoiceChips(
-                    options: [ChipData('junior'), ChipData('senior')],
+                    options: [
+                      ChipData('junior_1'),
+                      ChipData('junior_2'),
+                      ChipData('junior_3'),
+                      ChipData('senior_2'),
+                      ChipData('senior_3'),
+                      ChipData('senior_4')
+                    ],
                     onChanged: (val) async {
                       safeSetState(
                           () => _model.chooseGroupValue = val?.firstOrNull);
@@ -206,6 +214,8 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
                       labelPadding:
                           EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                       elevation: 0.0,
+                      borderColor: FlutterFlowTheme.of(context).alternate,
+                      borderWidth: 2.0,
                       borderRadius: BorderRadius.circular(8.0),
                     ),
                     unselectedChipStyle: ChipStyle(
@@ -234,6 +244,8 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
                       iconColor: FlutterFlowTheme.of(context).secondaryText,
                       iconSize: 16.0,
                       elevation: 0.0,
+                      borderColor: FlutterFlowTheme.of(context).alternate,
+                      borderWidth: 0.5,
                       borderRadius: BorderRadius.circular(8.0),
                     ),
                     chipSpacing: 8.0,
@@ -371,7 +383,7 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
                     );
                   },
                 ),
-              ],
+              ].divide(SizedBox(height: 8.0)).addToStart(SizedBox(height: 2.0)),
             ),
           ),
         );

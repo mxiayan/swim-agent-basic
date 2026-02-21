@@ -844,7 +844,7 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                                     selectedDateTimeBackgroundColor:
                                                         FlutterFlowTheme.of(
                                                                 context)
-                                                            .primary,
+                                                            .tertiary,
                                                     selectedDateTimeForegroundColor:
                                                         FlutterFlowTheme.of(
                                                                 context)
@@ -858,12 +858,88 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                                 },
                                               );
 
+                                              TimeOfDay? _datePicked1Time;
                                               if (_datePicked1Date != null) {
+                                                _datePicked1Time =
+                                                    await showTimePicker(
+                                                  context: context,
+                                                  initialTime:
+                                                      TimeOfDay.fromDateTime(
+                                                          getCurrentTimestamp),
+                                                  builder: (context, child) {
+                                                    return wrapInMaterialTimePickerTheme(
+                                                      context,
+                                                      child!,
+                                                      headerBackgroundColor:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .primary,
+                                                      headerForegroundColor:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .info,
+                                                      headerTextStyle:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .headlineLarge
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .sora(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .headlineLarge
+                                                                      .fontStyle,
+                                                                ),
+                                                                fontSize: 32.0,
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .headlineLarge
+                                                                    .fontStyle,
+                                                              ),
+                                                      pickerBackgroundColor:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .secondaryBackground,
+                                                      pickerForegroundColor:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .primaryText,
+                                                      selectedDateTimeBackgroundColor:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .tertiary,
+                                                      selectedDateTimeForegroundColor:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .info,
+                                                      actionButtonForegroundColor:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .primaryText,
+                                                      iconSize: 24.0,
+                                                    );
+                                                  },
+                                                );
+                                              }
+
+                                              if (_datePicked1Date != null &&
+                                                  _datePicked1Time != null) {
                                                 safeSetState(() {
                                                   _model.datePicked1 = DateTime(
                                                     _datePicked1Date.year,
                                                     _datePicked1Date.month,
                                                     _datePicked1Date.day,
+                                                    _datePicked1Time!.hour,
+                                                    _datePicked1Time.minute,
                                                   );
                                                 });
                                               } else if (_model.datePicked1 !=
@@ -879,7 +955,8 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                             },
                                             child: Text(
                                               valueOrDefault<String>(
-                                                dateTimeFormat("EEE, MMM d, y",
+                                                dateTimeFormat(
+                                                    "EEE, MMM d, y, h:mm a",
                                                     _model.tmpStartTime),
                                                 'Select  time',
                                               ),

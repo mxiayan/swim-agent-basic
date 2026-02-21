@@ -2,12 +2,14 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import 'dart:ui';
-import 'ticket_field_widget.dart' show TicketFieldWidget;
+import 'activity_detail_pop_up_sign_up_u_r_l_widget.dart'
+    show ActivityDetailPopUpSignUpURLWidget;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-class TicketFieldModel extends FlutterFlowModel<TicketFieldWidget> {
+class ActivityDetailPopUpSignUpURLModel
+    extends FlutterFlowModel<ActivityDetailPopUpSignUpURLWidget> {
   @override
   void initState(BuildContext context) {}
 

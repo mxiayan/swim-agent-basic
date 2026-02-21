@@ -5,11 +5,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'ticket_field_model.dart';
-export 'ticket_field_model.dart';
+import 'activity_details_fields_model.dart';
+export 'activity_details_fields_model.dart';
 
-class TicketFieldWidget extends StatefulWidget {
-  const TicketFieldWidget({
+class ActivityDetailsFieldsWidget extends StatefulWidget {
+  const ActivityDetailsFieldsWidget({
     super.key,
     this.title,
     this.value,
@@ -19,11 +19,13 @@ class TicketFieldWidget extends StatefulWidget {
   final String? value;
 
   @override
-  State<TicketFieldWidget> createState() => _TicketFieldWidgetState();
+  State<ActivityDetailsFieldsWidget> createState() =>
+      _ActivityDetailsFieldsWidgetState();
 }
 
-class _TicketFieldWidgetState extends State<TicketFieldWidget> {
-  late TicketFieldModel _model;
+class _ActivityDetailsFieldsWidgetState
+    extends State<ActivityDetailsFieldsWidget> {
+  late ActivityDetailsFieldsModel _model;
 
   @override
   void setState(VoidCallback callback) {
@@ -34,7 +36,7 @@ class _TicketFieldWidgetState extends State<TicketFieldWidget> {
   @override
   void initState() {
     super.initState();
-    _model = createModel(context, () => TicketFieldModel());
+    _model = createModel(context, () => ActivityDetailsFieldsModel());
 
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
