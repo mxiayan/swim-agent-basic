@@ -45,6 +45,9 @@ class _AdminDashboardWidgetState extends State<AdminDashboardWidget> {
       _model.currentActivities =
           _model.componentLevelQueryActivies!.toList().cast<ActivitiesRecord>();
       safeSetState(() {});
+      _model.filteredActivities =
+          _model.componentLevelQueryActivies!.toList().cast<ActivitiesRecord>();
+      safeSetState(() {});
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
@@ -139,49 +142,13 @@ class _AdminDashboardWidgetState extends State<AdminDashboardWidget> {
                             onChanged: (val) async {
                               safeSetState(
                                   () => _model.swimGroupSelectorValues = val);
-                              if (_model.swimGroupSelectorValues?.length == 0) {
-                                await showDialog(
-                                  context: context,
-                                  builder: (alertDialogContext) {
-                                    return AlertDialog(
-                                      content:
-                                          Text('number of selected group is 0'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(alertDialogContext),
-                                          child: Text('Ok'),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                              } else {
-                                await showDialog(
-                                  context: context,
-                                  builder: (alertDialogContext) {
-                                    return AlertDialog(
-                                      content:
-                                          Text('Number of list items is not 0'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(alertDialogContext),
-                                          child: Text('Ok'),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                                _model.currentActivities = functions
-                                    .filterActivitiesByGroup(
-                                        _model.currentActivities.toList(),
-                                        _model.swimGroupSelectorValues
-                                            ?.toList())!
-                                    .toList()
-                                    .cast<ActivitiesRecord>();
-                                safeSetState(() {});
-                              }
+                              _model.filteredActivities = functions
+                                  .filterActivitiesByGroup(
+                                      _model.currentActivities.toList(),
+                                      _model.swimGroupSelectorValues?.toList())!
+                                  .toList()
+                                  .cast<ActivitiesRecord>();
+                              safeSetState(() {});
                             },
                             selectedChipStyle: ChipStyle(
                               backgroundColor:
@@ -259,86 +226,12 @@ class _AdminDashboardWidgetState extends State<AdminDashboardWidget> {
                         ),
                       ],
                     ),
-                    Text(
-                      valueOrDefault<String>(
-                        _model.swimGroupSelectorValues?.length?.toString(),
-                        'NO VALUE FOUND',
-                      ),
-                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                            font: GoogleFonts.sora(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
-                            ),
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                          ),
-                    ),
-                    Text(
-                      valueOrDefault<String>(
-                        _model.currentActivities.length.toString(),
-                        'CURRENT ACTIVITIES',
-                      ),
-                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                            font: GoogleFonts.sora(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
-                            ),
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                          ),
-                    ),
-                    Text(
-                      valueOrDefault<String>(
-                        functions
-                            .filterActivitiesByGroup(
-                                _model.currentActivities.toList(),
-                                _model.swimGroupSelectorValues?.toList())
-                            ?.length
-                            ?.toString(),
-                        'FILTERED RESULT',
-                      ),
-                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                            font: GoogleFonts.sora(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
-                            ),
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                          ),
-                    ),
                   ],
                 ),
                 Expanded(
                   child: Builder(
                     builder: (context) {
-                      final allActivities = _model.currentActivities.toList();
+                      final allActivities = _model.filteredActivities.toList();
 
                       return FlutterFlowDataTable<ActivitiesRecord>(
                         controller: _model.paginatedDataTableController,
@@ -571,6 +464,7 @@ class _AdminDashboardWidgetState extends State<AdminDashboardWidget> {
                         hidePaginator: false,
                         showFirstLastButtons: false,
                         width: MediaQuery.sizeOf(context).width * 1.0,
+                        height: MediaQuery.sizeOf(context).height * 0.8,
                         headingRowHeight: 56.0,
                         dataRowHeight: 48.0,
                         columnSpacing: 20.0,
@@ -585,12 +479,6 @@ class _AdminDashboardWidgetState extends State<AdminDashboardWidget> {
                         addVerticalDivider: false,
                       );
                     },
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.max,
-                    children: [],
                   ),
                 ),
                 Padding(
