@@ -16,21 +16,6 @@ class ActivitiesRecord extends FirestoreRecord {
     _initializeFields();
   }
 
-  // "title" field.
-  String? _title;
-  String get title => _title ?? '';
-  bool hasTitle() => _title != null;
-
-  // "type" field.
-  String? _type;
-  String get type => _type ?? '';
-  bool hasType() => _type != null;
-
-  // "group_id" field.
-  String? _groupId;
-  String get groupId => _groupId ?? '';
-  bool hasGroupId() => _groupId != null;
-
   // "team_id" field.
   String? _teamId;
   String get teamId => _teamId ?? '';
@@ -41,48 +26,35 @@ class ActivitiesRecord extends FirestoreRecord {
   DateTime? get startTime => _startTime;
   bool hasStartTime() => _startTime != null;
 
-  // "end_time" field.
-  DateTime? _endTime;
-  DateTime? get endTime => _endTime;
-  bool hasEndTime() => _endTime != null;
-
-  // "location_name" field.
-  String? _locationName;
-  String get locationName => _locationName ?? '';
-  bool hasLocationName() => _locationName != null;
-
-  // "description" field.
-  String? _description;
-  String get description => _description ?? '';
-  bool hasDescription() => _description != null;
-
   // "activity_type" field.
   String? _activityType;
   String get activityType => _activityType ?? '';
   bool hasActivityType() => _activityType != null;
 
-  // "signup_url" field.
-  String? _signupUrl;
-  String get signupUrl => _signupUrl ?? '';
-  bool hasSignupUrl() => _signupUrl != null;
+  // "group_ids" field.
+  List<String>? _groupIds;
+  List<String> get groupIds => _groupIds ?? const [];
+  bool hasGroupIds() => _groupIds != null;
 
-  // "deadline" field.
-  DateTime? _deadline;
-  DateTime? get deadline => _deadline;
-  bool hasDeadline() => _deadline != null;
+  // "sports_type" field.
+  String? _sportsType;
+  String get sportsType => _sportsType ?? '';
+  bool hasSportsType() => _sportsType != null;
+
+  // "details" field.
+  ActivityDetailsStruct? _details;
+  ActivityDetailsStruct get details => _details ?? ActivityDetailsStruct();
+  bool hasDetails() => _details != null;
 
   void _initializeFields() {
-    _title = snapshotData['title'] as String?;
-    _type = snapshotData['type'] as String?;
-    _groupId = snapshotData['group_id'] as String?;
     _teamId = snapshotData['team_id'] as String?;
     _startTime = snapshotData['start_time'] as DateTime?;
-    _endTime = snapshotData['end_time'] as DateTime?;
-    _locationName = snapshotData['location_name'] as String?;
-    _description = snapshotData['description'] as String?;
     _activityType = snapshotData['activity_type'] as String?;
-    _signupUrl = snapshotData['signup_url'] as String?;
-    _deadline = snapshotData['deadline'] as DateTime?;
+    _groupIds = getDataList(snapshotData['group_ids']);
+    _sportsType = snapshotData['sports_type'] as String?;
+    _details = snapshotData['details'] is ActivityDetailsStruct
+        ? snapshotData['details']
+        : ActivityDetailsStruct.maybeFromMap(snapshotData['details']);
   }
 
   static CollectionReference get collection =>
@@ -120,33 +92,24 @@ class ActivitiesRecord extends FirestoreRecord {
 }
 
 Map<String, dynamic> createActivitiesRecordData({
-  String? title,
-  String? type,
-  String? groupId,
   String? teamId,
   DateTime? startTime,
-  DateTime? endTime,
-  String? locationName,
-  String? description,
   String? activityType,
-  String? signupUrl,
-  DateTime? deadline,
+  String? sportsType,
+  ActivityDetailsStruct? details,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
-      'title': title,
-      'type': type,
-      'group_id': groupId,
       'team_id': teamId,
       'start_time': startTime,
-      'end_time': endTime,
-      'location_name': locationName,
-      'description': description,
       'activity_type': activityType,
-      'signup_url': signupUrl,
-      'deadline': deadline,
+      'sports_type': sportsType,
+      'details': ActivityDetailsStruct().toMap(),
     }.withoutNulls,
   );
+
+  // Handle nested data for "details" field.
+  addActivityDetailsStructData(firestoreData, details, 'details');
 
   return firestoreData;
 }
@@ -156,32 +119,23 @@ class ActivitiesRecordDocumentEquality implements Equality<ActivitiesRecord> {
 
   @override
   bool equals(ActivitiesRecord? e1, ActivitiesRecord? e2) {
-    return e1?.title == e2?.title &&
-        e1?.type == e2?.type &&
-        e1?.groupId == e2?.groupId &&
-        e1?.teamId == e2?.teamId &&
+    const listEquality = ListEquality();
+    return e1?.teamId == e2?.teamId &&
         e1?.startTime == e2?.startTime &&
-        e1?.endTime == e2?.endTime &&
-        e1?.locationName == e2?.locationName &&
-        e1?.description == e2?.description &&
         e1?.activityType == e2?.activityType &&
-        e1?.signupUrl == e2?.signupUrl &&
-        e1?.deadline == e2?.deadline;
+        listEquality.equals(e1?.groupIds, e2?.groupIds) &&
+        e1?.sportsType == e2?.sportsType &&
+        e1?.details == e2?.details;
   }
 
   @override
   int hash(ActivitiesRecord? e) => const ListEquality().hash([
-        e?.title,
-        e?.type,
-        e?.groupId,
         e?.teamId,
         e?.startTime,
-        e?.endTime,
-        e?.locationName,
-        e?.description,
         e?.activityType,
-        e?.signupUrl,
-        e?.deadline
+        e?.groupIds,
+        e?.sportsType,
+        e?.details
       ]);
 
   @override

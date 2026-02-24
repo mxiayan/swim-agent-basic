@@ -68,11 +68,12 @@ class _ActivityDetailsPopupWidgetState
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(0.0),
               bottomRight: Radius.circular(0.0),
-              topLeft: Radius.circular(20.0),
-              topRight: Radius.circular(20.0),
+              topLeft: Radius.circular(10.0),
+              topRight: Radius.circular(10.0),
             ),
             border: Border.all(
-              color: FlutterFlowTheme.of(context).alternate,
+              color: FlutterFlowTheme.of(context).tertiary,
+              width: 10.0,
             ),
           ),
           child: Padding(

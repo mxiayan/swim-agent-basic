@@ -1778,11 +1778,8 @@ class _AdminActivityCreatorWidgetState extends State<AdminActivityCreatorWidget>
                                               (_model.tmpEndTime != null)) {
                                             await widget!.activityRef!.update(
                                                 createActivitiesRecordData(
-                                              type: _model
-                                                  .activityTypeDropDownValue,
-                                              locationName: _model
-                                                  .locationTextController.text,
                                               startTime: _model.tmpStartTime,
+                                              activityType: '',
                                             ));
                                           } else {
                                             await actions.batchCreateActivities(

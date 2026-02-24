@@ -83,103 +83,169 @@ class _SAActivityRowWidgetState extends State<SAActivityRowWidget>
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
+      borderRadius: BorderRadius.circular(0.0),
       child: Container(
-        width: 360.0,
-        height: 120.0,
-        decoration: BoxDecoration(),
-        child: Row(
+        width: MediaQuery.sizeOf(context).width * 0.9,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(0.0),
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.max,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 50.0,
-              height: 120.0,
-              child: Stack(
-                alignment: AlignmentDirectional(0.0, -1.0),
-                children: [
-                  if (widget!.index != 0)
-                    Align(
-                      alignment: AlignmentDirectional(0.0, -1.0),
-                      child: Container(
-                        width: 2.0,
-                        height: 20.0,
-                        decoration: BoxDecoration(
-                          color: FlutterFlowTheme.of(context).lineColor,
-                        ),
-                      ),
-                    ),
-                  if (widget!.index != -1)
-                    Align(
-                      alignment: AlignmentDirectional(0.0, 1.0),
-                      child: Container(
-                        width: 2.0,
-                        height: 50.0,
-                        decoration: BoxDecoration(
-                          color: FlutterFlowTheme.of(context).lineColor,
-                        ),
-                      ),
-                    ),
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(0.0, 20.0, 0.0, 0.0),
-                    child: Container(
-                      width: 50.0,
-                      height: 50.0,
-                      child: Stack(
-                        children: [
-                          if (widget!.complete ?? true)
-                            Container(
-                              width: 50.0,
-                              height: 50.0,
-                              decoration: BoxDecoration(
-                                color: FlutterFlowTheme.of(context).tertiary,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.check,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                size: 24.0,
-                              ),
-                            ),
-                          if (!widget!.complete!)
-                            Container(
-                              width: 50.0,
-                              height: 50.0,
-                              decoration: BoxDecoration(
-                                color: Color(0x6A94DDBC),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: FlutterFlowTheme.of(context).tertiary,
-                                  width: 1.0,
+            Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 0.0),
+              child: Builder(
+                builder: (context) {
+                  final groups = widget!.activityItem?.groupIds?.toList() ?? [];
+
+                  return Wrap(
+                    spacing: 2.0,
+                    runSpacing: 2.0,
+                    alignment: WrapAlignment.start,
+                    crossAxisAlignment: WrapCrossAlignment.start,
+                    direction: Axis.horizontal,
+                    runAlignment: WrapAlignment.start,
+                    verticalDirection: VerticalDirection.down,
+                    clipBehavior: Clip.none,
+                    children: List.generate(groups.length, (groupsIndex) {
+                      final groupsItem = groups[groupsIndex];
+                      return Padding(
+                        padding:
+                            EdgeInsetsDirectional.fromSTEB(2.0, 4.0, 20.0, 4.0),
+                        child: Container(
+                          width: 100.0,
+                          height: 18.0,
+                          decoration: BoxDecoration(
+                            color: FlutterFlowTheme.of(context).tertiary,
+                            borderRadius: BorderRadius.circular(20.0),
+                          ),
+                          child: Text(
+                            groupsItem,
+                            textAlign: TextAlign.center,
+                            style: FlutterFlowTheme.of(context)
+                                .labelMedium
+                                .override(
+                                  font: GoogleFonts.sora(
+                                    fontWeight: FlutterFlowTheme.of(context)
+                                        .labelMedium
+                                        .fontWeight,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .labelMedium
+                                        .fontStyle,
+                                  ),
+                                  letterSpacing: 0.0,
+                                  fontWeight: FlutterFlowTheme.of(context)
+                                      .labelMedium
+                                      .fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .labelMedium
+                                      .fontStyle,
                                 ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                          ),
+                        ),
+                      );
+                    }),
+                  );
+                },
               ),
             ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 5.0, 0.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 28.0, 0.0, 0.0),
-                      child: Text(
-                        valueOrDefault<String>(
-                          widget!.activityItem?.type,
-                          '[Activity Type]',
+            Row(
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 50.0,
+                  height: 120.0,
+                  child: Stack(
+                    alignment: AlignmentDirectional(0.0, -1.0),
+                    children: [
+                      if (widget!.index != 0)
+                        Align(
+                          alignment: AlignmentDirectional(0.0, -1.0),
+                          child: Container(
+                            width: 2.0,
+                            height: 20.0,
+                            decoration: BoxDecoration(
+                              color: FlutterFlowTheme.of(context).lineColor,
+                            ),
+                          ),
                         ),
-                        style:
-                            FlutterFlowTheme.of(context).headlineSmall.override(
+                      if (widget!.index != -1)
+                        Align(
+                          alignment: AlignmentDirectional(0.0, 1.0),
+                          child: Container(
+                            width: 2.0,
+                            height: 50.0,
+                            decoration: BoxDecoration(
+                              color: FlutterFlowTheme.of(context).lineColor,
+                            ),
+                          ),
+                        ),
+                      Padding(
+                        padding:
+                            EdgeInsetsDirectional.fromSTEB(0.0, 20.0, 0.0, 0.0),
+                        child: Container(
+                          width: 50.0,
+                          height: 50.0,
+                          child: Stack(
+                            children: [
+                              if (widget!.complete ?? true)
+                                Container(
+                                  width: 50.0,
+                                  height: 50.0,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        FlutterFlowTheme.of(context).tertiary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.check,
+                                    color: FlutterFlowTheme.of(context)
+                                        .secondaryBackground,
+                                    size: 24.0,
+                                  ),
+                                ),
+                              if (!widget!.complete!)
+                                Container(
+                                  width: 50.0,
+                                  height: 50.0,
+                                  decoration: BoxDecoration(
+                                    color: Color(0x6A94DDBC),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color:
+                                          FlutterFlowTheme.of(context).tertiary,
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding:
+                        EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 5.0, 0.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: EdgeInsetsDirectional.fromSTEB(
+                              0.0, 28.0, 0.0, 0.0),
+                          child: Text(
+                            valueOrDefault<String>(
+                              widget!.activityItem?.activityType,
+                              '[Activity Type]',
+                            ),
+                            style: FlutterFlowTheme.of(context)
+                                .headlineSmall
+                                .override(
                                   font: GoogleFonts.sora(
                                     fontWeight: FlutterFlowTheme.of(context)
                                         .headlineSmall
@@ -197,149 +263,161 @@ class _SAActivityRowWidgetState extends State<SAActivityRowWidget>
                                       .headlineSmall
                                       .fontStyle,
                                 ),
-                      ),
-                    ),
-                    Text(
-                      '${dateTimeFormat("H:mm", widget!.activityItem?.startTime)}-${dateTimeFormat("H:mm", widget!.activityItem?.endTime)}',
-                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                            font: GoogleFonts.sora(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
                           ),
-                    ),
-                    Padding(
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 8.0, 0.0, 0.0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: InkWell(
-                              splashColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              onTap: () async {
-                                if (animationsMap[
-                                        'containerOnActionTriggerAnimation'] !=
-                                    null) {
-                                  safeSetState(
-                                      () => hasContainerTriggered = true);
-                                  SchedulerBinding.instance.addPostFrameCallback(
-                                      (_) async => await animationsMap[
-                                              'containerOnActionTriggerAnimation']!
-                                          .controller
-                                          .forward(from: 0.0));
-                                }
-                                await showModalBottomSheet(
-                                  isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
-                                  barrierColor: Color(0x00000000),
-                                  context: context,
-                                  builder: (context) {
-                                    return Padding(
-                                      padding: MediaQuery.viewInsetsOf(context),
-                                      child: ActivityDetailsPopupWidget(
-                                        location:
-                                            widget!.activityItem?.locationName,
-                                        startTime:
-                                            widget!.activityItem?.startTime,
-                                        endTime: widget!.activityItem?.endTime,
-                                        signUpUrl:
-                                            widget!.activityItem?.signupUrl,
-                                      ),
-                                    );
-                                  },
-                                ).then((value) => safeSetState(() {}));
-                              },
-                              child: Container(
-                                height: 24.0,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(40.0),
-                                  border: Border.all(
-                                    color:
-                                        FlutterFlowTheme.of(context).lightGrey,
-                                    width: 1.0,
-                                  ),
+                        ),
+                        Text(
+                          '${dateTimeFormat("H:mm", widget!.activityItem?.startTime)}-${widget!.activityItem?.details?.endTime?.toString()}',
+                          style: FlutterFlowTheme.of(context)
+                              .bodyMedium
+                              .override(
+                                font: GoogleFonts.sora(
+                                  fontWeight: FlutterFlowTheme.of(context)
+                                      .bodyMedium
+                                      .fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .bodyMedium
+                                      .fontStyle,
                                 ),
-                                child: Align(
-                                  alignment: AlignmentDirectional(0.0, 0.0),
-                                  child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        10.0, 0.0, 10.0, 0.0),
-                                    child: Text(
-                                      valueOrDefault<String>(
-                                        widget!.activityItem?.locationName,
-                                        '[location]',
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.sora(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .lightGrey,
-                                            fontSize: 12.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
+                                color: FlutterFlowTheme.of(context).primaryText,
+                                letterSpacing: 0.0,
+                                fontWeight: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .fontWeight,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .fontStyle,
+                              ),
+                        ),
+                        Padding(
+                          padding: EdgeInsetsDirectional.fromSTEB(
+                              0.0, 8.0, 0.0, 0.0),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.max,
+                            children: [
+                              Align(
+                                alignment: AlignmentDirectional(0.0, 0.0),
+                                child: InkWell(
+                                  splashColor: Colors.transparent,
+                                  focusColor: Colors.transparent,
+                                  hoverColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                  onTap: () async {
+                                    if (animationsMap[
+                                            'containerOnActionTriggerAnimation'] !=
+                                        null) {
+                                      safeSetState(
+                                          () => hasContainerTriggered = true);
+                                      SchedulerBinding.instance
+                                          .addPostFrameCallback((_) async =>
+                                              await animationsMap[
+                                                      'containerOnActionTriggerAnimation']!
+                                                  .controller
+                                                  .forward(from: 0.0));
+                                    }
+                                    await showModalBottomSheet(
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      barrierColor: Color(0x00000000),
+                                      isDismissible: false,
+                                      context: context,
+                                      builder: (context) {
+                                        return Padding(
+                                          padding:
+                                              MediaQuery.viewInsetsOf(context),
+                                          child: ActivityDetailsPopupWidget(
+                                            location: widget!.activityItem
+                                                ?.details?.locationName,
+                                            startTime:
+                                                widget!.activityItem?.startTime,
+                                            endTime: widget!
+                                                .activityItem?.details?.endTime,
+                                            signUpUrl: widget!.activityItem
+                                                ?.details?.signupUrl,
                                           ),
-                                      overflow: TextOverflow.ellipsis,
+                                        );
+                                      },
+                                    ).then((value) => safeSetState(() {}));
+                                  },
+                                  child: Container(
+                                    height: 24.0,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(40.0),
+                                      border: Border.all(
+                                        color: FlutterFlowTheme.of(context)
+                                            .lightGrey,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    child: Align(
+                                      alignment: AlignmentDirectional(0.0, 0.0),
+                                      child: Padding(
+                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                            10.0, 0.0, 10.0, 0.0),
+                                        child: Text(
+                                          valueOrDefault<String>(
+                                            widget!.activityItem?.details
+                                                ?.locationName,
+                                            '[location]',
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          style: FlutterFlowTheme.of(context)
+                                              .bodyMedium
+                                              .override(
+                                                font: GoogleFonts.sora(
+                                                  fontWeight:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .bodyMedium
+                                                          .fontWeight,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .bodyMedium
+                                                          .fontStyle,
+                                                ),
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .lightGrey,
+                                                fontSize: 12.0,
+                                                letterSpacing: 0.0,
+                                                fontWeight:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontWeight,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontStyle,
+                                              ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ).animateOnActionTrigger(
+                                    animationsMap[
+                                        'containerOnActionTriggerAnimation']!,
+                                    hasBeenTriggered: hasContainerTriggered),
                               ),
-                            ).animateOnActionTrigger(
-                                animationsMap[
-                                    'containerOnActionTriggerAnimation']!,
-                                hasBeenTriggered: hasContainerTriggered),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                Padding(
+                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 35.0, 0.0, 0.0),
+                  child: Icon(
+                    Icons.pool,
+                    color: FlutterFlowTheme.of(context).lightGrey,
+                    size: 20.0,
+                  ),
+                ),
+              ],
             ),
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(0.0, 35.0, 0.0, 0.0),
-              child: Icon(
-                Icons.pool,
-                color: FlutterFlowTheme.of(context).lightGrey,
-                size: 20.0,
-              ),
-            ),
-          ],
+          ].divide(SizedBox(height: 1.0)),
         ),
       ),
     );

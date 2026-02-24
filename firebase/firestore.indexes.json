@@ -5,8 +5,22 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "group_id",
+          "fieldPath": "team_id",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "start_time",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "activities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "group_ids",
+          "arrayConfig": "CONTAINS"
         },
         {
           "fieldPath": "start_time",

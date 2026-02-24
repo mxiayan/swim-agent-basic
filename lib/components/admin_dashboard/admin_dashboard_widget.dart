@@ -365,7 +365,7 @@ class _AdminDashboardWidgetState extends State<AdminDashboardWidget> {
                           ),
                           cells: [
                             Text(
-                              allActivitiesItem.groupId,
+                              '',
                               style: FlutterFlowTheme.of(context)
                                   .bodyMedium
                                   .override(
@@ -387,7 +387,7 @@ class _AdminDashboardWidgetState extends State<AdminDashboardWidget> {
                                   ),
                             ),
                             Text(
-                              allActivitiesItem.type,
+                              allActivitiesItem.activityType,
                               style: FlutterFlowTheme.of(context)
                                   .bodyMedium
                                   .override(

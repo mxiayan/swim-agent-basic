@@ -14,19 +14,19 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 's_a_schedule_model.dart';
-export 's_a_schedule_model.dart';
+import 's_a_schedule_copy_model.dart';
+export 's_a_schedule_copy_model.dart';
 
-class SAScheduleWidget extends StatefulWidget {
-  const SAScheduleWidget({super.key});
+class SAScheduleCopyWidget extends StatefulWidget {
+  const SAScheduleCopyWidget({super.key});
 
   @override
-  State<SAScheduleWidget> createState() => _SAScheduleWidgetState();
+  State<SAScheduleCopyWidget> createState() => _SAScheduleCopyWidgetState();
 }
 
-class _SAScheduleWidgetState extends State<SAScheduleWidget>
+class _SAScheduleCopyWidgetState extends State<SAScheduleCopyWidget>
     with TickerProviderStateMixin {
-  late SAScheduleModel _model;
+  late SAScheduleCopyModel _model;
 
   final animationsMap = <String, AnimationInfo>{};
 
@@ -39,7 +39,7 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
   @override
   void initState() {
     super.initState();
-    _model = createModel(context, () => SAScheduleModel());
+    _model = createModel(context, () => SAScheduleCopyModel());
 
     animationsMap.addAll({
       'rowOnPageLoadAnimation': AnimationInfo(
@@ -81,7 +81,7 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
           ),
         ],
       ),
-      'sAActivityRowOnPageLoadAnimation': AnimationInfo(
+      'sAActivityRowOnPageLoadAnimation1': AnimationInfo(
         trigger: AnimationTrigger.onPageLoad,
         effectsBuilder: () => [
           FadeEffect(
@@ -94,6 +94,26 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
           MoveEffect(
             curve: Curves.easeInOut,
             delay: 550.0.ms,
+            duration: 300.0.ms,
+            begin: Offset(0.0, -20.0),
+            end: Offset(0.0, 0.0),
+          ),
+        ],
+      ),
+      'sAActivityRowOnPageLoadAnimation2': AnimationInfo(
+        trigger: AnimationTrigger.onPageLoad,
+        effectsBuilder: () => [
+          VisibilityEffect(duration: 650.ms),
+          FadeEffect(
+            curve: Curves.easeInOut,
+            delay: 650.0.ms,
+            duration: 300.0.ms,
+            begin: 0.0,
+            end: 1.0,
+          ),
+          MoveEffect(
+            curve: Curves.easeInOut,
+            delay: 650.0.ms,
             duration: 300.0.ms,
             begin: Offset(0.0, -20.0),
             end: Offset(0.0, 0.0),
@@ -118,10 +138,10 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
       stream: queryActivitiesRecord(
         queryBuilder: (activitiesRecord) => activitiesRecord
             .where(
-              'team_id',
-              isEqualTo: 'oapb',
+              'group_ids',
+              arrayContains: _model.chooseGroupValue,
             )
-            .orderBy('start_time', descending: true),
+            .orderBy('start_time'),
       ),
       builder: (context, snapshot) {
         // Customize what your widget looks like when it's loading.
@@ -322,10 +342,10 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
                                       ),
                                     )
                                   ],
-                                  borderRadius: BorderRadius.circular(10.0),
+                                  borderRadius: BorderRadius.circular(40.0),
                                   border: Border.all(
                                     color: activitiesItem.activityType == 'meet'
-                                        ? FlutterFlowTheme.of(context).alternate
+                                        ? FlutterFlowTheme.of(context).secondary
                                         : Color(0x00000000),
                                   ),
                                 ),
@@ -337,12 +357,20 @@ class _SAScheduleWidgetState extends State<SAScheduleWidget>
                                     children: [
                                       SAActivityRowWidget(
                                         key: Key(
-                                            'Keyqfs_${activitiesIndex}_of_${activities.length}'),
+                                            'Key9ni_${activitiesIndex}_of_${activities.length}'),
                                         complete: false,
                                         index: 1,
                                         activityItem: activitiesItem,
                                       ).animateOnPageLoad(animationsMap[
-                                          'sAActivityRowOnPageLoadAnimation']!),
+                                          'sAActivityRowOnPageLoadAnimation1']!),
+                                      SAActivityRowWidget(
+                                        key: Key(
+                                            'Keyfp0_${activitiesIndex}_of_${activities.length}'),
+                                        complete: false,
+                                        index: -1,
+                                        activityItem: activitiesItem,
+                                      ).animateOnPageLoad(animationsMap[
+                                          'sAActivityRowOnPageLoadAnimation2']!),
                                     ],
                                   ),
                                 ),

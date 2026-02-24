@@ -68,9 +68,9 @@ List<ActivitiesRecord>? filterActivitiesByGroup(
   List<ActivitiesRecord>? allActivities,
   List<String>? selectedGroupIds,
 ) {
-  // 1. Log the Input Data
+// 1. Log the Input Data
   print('QA DEBUG: Input allActivities count: ${allActivities?.length ?? 0}');
-  print('QA DEBUG: Selected Group IDs: $selectedGroupIds');
+  print('QA DEBUG: User selected chips: $selectedGroupIds');
 
   // Handle null inputs safely
   if (allActivities == null) {
@@ -85,11 +85,15 @@ List<ActivitiesRecord>? filterActivitiesByGroup(
   }
 
   // 3. Perform filtering
-  final filteredList = allActivities
-      .where(
-        (activity) => selectedGroupIds.contains(activity.groupId.toString()),
-      )
-      .toList();
+  // We check if at least one group in the activity's list (groupIds)
+  // is present in the user's selected list (selectedGroupIds).
+  final filteredList = allActivities.where((activity) {
+    // Access the new list field 'groupIds'
+    final activityGroups = activity.groupIds ?? [];
+
+    // Check for intersection: returns true if any element matches
+    return activityGroups.any((group) => selectedGroupIds.contains(group));
+  }).toList();
 
   // 4. Log the Output Data
   print('QA DEBUG: Filtered list count: ${filteredList.length}');

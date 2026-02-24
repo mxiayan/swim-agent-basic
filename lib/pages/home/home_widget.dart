@@ -74,7 +74,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'McRoskey',
+                          'Oridan Aquatics',
                           style: FlutterFlowTheme.of(context)
                               .displaySmall
                               .override(
@@ -97,7 +97,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                               ),
                         ),
                         Text(
-                          'FAMILY VACATION 2023',
+                          'Swim Season 2025 - 2026',
                           style: FlutterFlowTheme.of(context)
                               .titleMedium
                               .override(
