@@ -1,9 +1,9 @@
-import '/components/accommodations/accommodations_widget.dart';
-import '/components/activities/activities_widget.dart';
-import '/components/admin_dashboard/admin_dashboard_widget.dart';
-import '/components/job/job_widget.dart';
+import '/components/m01_activity/m01_activity_widget.dart';
+import '/components/m02_meet/m02_meet_widget.dart';
+import '/components/m03_job/m03_job_widget.dart';
+import '/components/m04_swimmer/m04_swimmer_widget.dart';
+import '/components/m05_activity_dashboard/m05_activity_dashboard_widget.dart';
 import '/components/nav_item/nav_item_widget.dart';
-import '/components/s_a_schedule/s_a_schedule_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -16,52 +16,53 @@ import 'package:provider/provider.dart';
 class HomeModel extends FlutterFlowModel<HomeWidget> {
   ///  State fields for stateful widgets in this page.
 
-  // Model for NavItem component.
-  late NavItemModel navItemModel1;
-  // Model for NavItem component.
-  late NavItemModel navItemModel2;
-  // Model for NavItem component.
-  late NavItemModel navItemModel3;
-  // Model for NavItem component.
-  late NavItemModel navItemModel4;
-  // Model for NavItem component.
-  late NavItemModel navItemModel5;
-  // Model for SASchedule component.
-  late SAScheduleModel sAScheduleModel;
-  // Model for Accommodations component.
-  late AccommodationsModel accommodationsModel;
-  // Model for Activities component.
-  late ActivitiesModel activitiesModel;
-  // Model for Job component.
-  late JobModel jobModel;
-  // Model for AdminDashboard component.
-  late AdminDashboardModel adminDashboardModel;
+  // Model for Activities.
+  late NavItemModel activitiesModel;
+  // Model for Meets.
+  late NavItemModel meetsModel;
+  // Model for Jobs.
+  late NavItemModel jobsModel;
+  // Model for Swimmer.
+  late NavItemModel swimmerModel;
+  // Model for Admin.
+  late NavItemModel adminModel;
+  // Model for m01_activity component.
+  late M01ActivityModel m01ActivityModel;
+  // Model for m02_meet component.
+  late M02MeetModel m02MeetModel;
+  // Model for m03_job component.
+  late M03JobModel m03JobModel;
+  // Model for m04_swimmer component.
+  late M04SwimmerModel m04SwimmerModel;
+  // Model for m05_activity_dashboard component.
+  late M05ActivityDashboardModel m05ActivityDashboardModel;
 
   @override
   void initState(BuildContext context) {
-    navItemModel1 = createModel(context, () => NavItemModel());
-    navItemModel2 = createModel(context, () => NavItemModel());
-    navItemModel3 = createModel(context, () => NavItemModel());
-    navItemModel4 = createModel(context, () => NavItemModel());
-    navItemModel5 = createModel(context, () => NavItemModel());
-    sAScheduleModel = createModel(context, () => SAScheduleModel());
-    accommodationsModel = createModel(context, () => AccommodationsModel());
-    activitiesModel = createModel(context, () => ActivitiesModel());
-    jobModel = createModel(context, () => JobModel());
-    adminDashboardModel = createModel(context, () => AdminDashboardModel());
+    activitiesModel = createModel(context, () => NavItemModel());
+    meetsModel = createModel(context, () => NavItemModel());
+    jobsModel = createModel(context, () => NavItemModel());
+    swimmerModel = createModel(context, () => NavItemModel());
+    adminModel = createModel(context, () => NavItemModel());
+    m01ActivityModel = createModel(context, () => M01ActivityModel());
+    m02MeetModel = createModel(context, () => M02MeetModel());
+    m03JobModel = createModel(context, () => M03JobModel());
+    m04SwimmerModel = createModel(context, () => M04SwimmerModel());
+    m05ActivityDashboardModel =
+        createModel(context, () => M05ActivityDashboardModel());
   }
 
   @override
   void dispose() {
-    navItemModel1.dispose();
-    navItemModel2.dispose();
-    navItemModel3.dispose();
-    navItemModel4.dispose();
-    navItemModel5.dispose();
-    sAScheduleModel.dispose();
-    accommodationsModel.dispose();
     activitiesModel.dispose();
-    jobModel.dispose();
-    adminDashboardModel.dispose();
+    meetsModel.dispose();
+    jobsModel.dispose();
+    swimmerModel.dispose();
+    adminModel.dispose();
+    m01ActivityModel.dispose();
+    m02MeetModel.dispose();
+    m03JobModel.dispose();
+    m04SwimmerModel.dispose();
+    m05ActivityDashboardModel.dispose();
   }
 }

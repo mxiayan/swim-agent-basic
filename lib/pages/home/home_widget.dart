@@ -1,9 +1,9 @@
-import '/components/accommodations/accommodations_widget.dart';
-import '/components/activities/activities_widget.dart';
-import '/components/admin_dashboard/admin_dashboard_widget.dart';
-import '/components/job/job_widget.dart';
+import '/components/m01_activity/m01_activity_widget.dart';
+import '/components/m02_meet/m02_meet_widget.dart';
+import '/components/m03_job/m03_job_widget.dart';
+import '/components/m04_swimmer/m04_swimmer_widget.dart';
+import '/components/m05_activity_dashboard/m05_activity_dashboard_widget.dart';
 import '/components/nav_item/nav_item_widget.dart';
-import '/components/s_a_schedule/s_a_schedule_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -173,7 +173,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                           FFAppState().update(() {});
                         },
                         child: wrapWithModel(
-                          model: _model.navItemModel1,
+                          model: _model.activitiesModel,
                           updateCallback: () => safeSetState(() {}),
                           child: NavItemWidget(
                             text: 'SCHEDULE',
@@ -192,7 +192,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                           FFAppState().update(() {});
                         },
                         child: wrapWithModel(
-                          model: _model.navItemModel2,
+                          model: _model.meetsModel,
                           updateCallback: () => safeSetState(() {}),
                           child: NavItemWidget(
                             text: 'MEETS',
@@ -211,7 +211,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                           FFAppState().update(() {});
                         },
                         child: wrapWithModel(
-                          model: _model.navItemModel3,
+                          model: _model.jobsModel,
                           updateCallback: () => safeSetState(() {}),
                           child: NavItemWidget(
                             text: 'JOBS',
@@ -230,7 +230,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                           FFAppState().update(() {});
                         },
                         child: wrapWithModel(
-                          model: _model.navItemModel4,
+                          model: _model.swimmerModel,
                           updateCallback: () => safeSetState(() {}),
                           child: NavItemWidget(
                             text: 'SWIMMER',
@@ -249,7 +249,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                           FFAppState().update(() {});
                         },
                         child: wrapWithModel(
-                          model: _model.navItemModel5,
+                          model: _model.adminModel,
                           updateCallback: () => safeSetState(() {}),
                           child: NavItemWidget(
                             text: 'ADMIN',
@@ -271,19 +271,9 @@ class _HomeWidgetState extends State<HomeWidget> {
                         padding:
                             EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
                         child: wrapWithModel(
-                          model: _model.sAScheduleModel,
+                          model: _model.m01ActivityModel,
                           updateCallback: () => safeSetState(() {}),
-                          child: SAScheduleWidget(),
-                        ),
-                      ),
-                    if (FFAppState().activeTab == 1)
-                      Padding(
-                        padding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
-                        child: wrapWithModel(
-                          model: _model.accommodationsModel,
-                          updateCallback: () => safeSetState(() {}),
-                          child: AccommodationsWidget(),
+                          child: M01ActivityWidget(),
                         ),
                       ),
                     if (FFAppState().activeTab == 2)
@@ -291,10 +281,36 @@ class _HomeWidgetState extends State<HomeWidget> {
                         padding:
                             EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
                         child: wrapWithModel(
-                          model: _model.activitiesModel,
+                          model: _model.m02MeetModel,
                           updateCallback: () => safeSetState(() {}),
-                          child: ActivitiesWidget(),
+                          child: M02MeetWidget(),
                         ),
+                      ),
+                    if (FFAppState().activeTab == 3)
+                      Padding(
+                        padding:
+                            EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
+                        child: wrapWithModel(
+                          model: _model.m03JobModel,
+                          updateCallback: () => safeSetState(() {}),
+                          child: M03JobWidget(),
+                        ),
+                      ),
+                    if (FFAppState().activeTab == 1)
+                      Padding(
+                        padding:
+                            EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
+                        child: wrapWithModel(
+                          model: _model.m04SwimmerModel,
+                          updateCallback: () => safeSetState(() {}),
+                          child: M04SwimmerWidget(),
+                        ),
+                      ),
+                    if (FFAppState().activeTab == 4)
+                      wrapWithModel(
+                        model: _model.m05ActivityDashboardModel,
+                        updateCallback: () => safeSetState(() {}),
+                        child: M05ActivityDashboardWidget(),
                       ),
                     Container(
                       width: MediaQuery.sizeOf(context).width * 1.0,
@@ -311,16 +327,6 @@ class _HomeWidgetState extends State<HomeWidget> {
                         ),
                       ),
                     ),
-                    if (FFAppState().activeTab == 3)
-                      Padding(
-                        padding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
-                        child: wrapWithModel(
-                          model: _model.jobModel,
-                          updateCallback: () => safeSetState(() {}),
-                          child: JobWidget(),
-                        ),
-                      ),
                     Container(
                       width: MediaQuery.sizeOf(context).width * 1.0,
                       height: 40.0,
@@ -336,12 +342,6 @@ class _HomeWidgetState extends State<HomeWidget> {
                         ),
                       ),
                     ),
-                    if (FFAppState().activeTab == 4)
-                      wrapWithModel(
-                        model: _model.adminDashboardModel,
-                        updateCallback: () => safeSetState(() {}),
-                        child: AdminDashboardWidget(),
-                      ),
                   ],
                 ),
               ),
