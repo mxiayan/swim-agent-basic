@@ -17,12 +17,28 @@ class FFAppState extends ChangeNotifier {
     _instance = FFAppState._internal();
   }
 
-  Future initializePersistedState() async {}
+  Future initializePersistedState() async {
+    prefs = await SharedPreferences.getInstance();
+    _safeInit(() {
+      _currentSwimmerGroup =
+          prefs.getString('ff_currentSwimmerGroup') ?? _currentSwimmerGroup;
+    });
+    _safeInit(() {
+      _currentSwimmerZone =
+          prefs.getString('ff_currentSwimmerZone') ?? _currentSwimmerZone;
+    });
+    _safeInit(() {
+      _currentSwimmerName =
+          prefs.getString('ff_currentSwimmerName') ?? _currentSwimmerName;
+    });
+  }
 
   void update(VoidCallback callback) {
     callback();
     notifyListeners();
   }
+
+  late SharedPreferences prefs;
 
   int _galleryHeight = 350;
   int get galleryHeight => _galleryHeight;
@@ -159,4 +175,37 @@ class FFAppState extends ChangeNotifier {
   set userLSC(String value) {
     _userLSC = value;
   }
+
+  String _currentSwimmerGroup = '';
+  String get currentSwimmerGroup => _currentSwimmerGroup;
+  set currentSwimmerGroup(String value) {
+    _currentSwimmerGroup = value;
+    prefs.setString('ff_currentSwimmerGroup', value);
+  }
+
+  String _currentSwimmerZone = '';
+  String get currentSwimmerZone => _currentSwimmerZone;
+  set currentSwimmerZone(String value) {
+    _currentSwimmerZone = value;
+    prefs.setString('ff_currentSwimmerZone', value);
+  }
+
+  String _currentSwimmerName = '';
+  String get currentSwimmerName => _currentSwimmerName;
+  set currentSwimmerName(String value) {
+    _currentSwimmerName = value;
+    prefs.setString('ff_currentSwimmerName', value);
+  }
+}
+
+void _safeInit(Function() initializeField) {
+  try {
+    initializeField();
+  } catch (_) {}
+}
+
+Future _safeInitAsync(Function() initializeField) async {
+  try {
+    await initializeField();
+  } catch (_) {}
 }

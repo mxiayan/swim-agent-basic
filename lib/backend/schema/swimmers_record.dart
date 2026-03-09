@@ -36,11 +36,17 @@ class SwimmersRecord extends FirestoreRecord {
   bool get isActive => _isActive ?? false;
   bool hasIsActive() => _isActive != null;
 
+  // "name" field.
+  String? _name;
+  String get name => _name ?? '';
+  bool hasName() => _name != null;
+
   void _initializeFields() {
     _group = snapshotData['group'] as String?;
     _zone = snapshotData['zone'] as String?;
     _ownerId = snapshotData['owner_id'] as DocumentReference?;
     _isActive = snapshotData['is_active'] as bool?;
+    _name = snapshotData['name'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -82,6 +88,7 @@ Map<String, dynamic> createSwimmersRecordData({
   String? zone,
   DocumentReference? ownerId,
   bool? isActive,
+  String? name,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -89,6 +96,7 @@ Map<String, dynamic> createSwimmersRecordData({
       'zone': zone,
       'owner_id': ownerId,
       'is_active': isActive,
+      'name': name,
     }.withoutNulls,
   );
 
@@ -103,12 +111,13 @@ class SwimmersRecordDocumentEquality implements Equality<SwimmersRecord> {
     return e1?.group == e2?.group &&
         e1?.zone == e2?.zone &&
         e1?.ownerId == e2?.ownerId &&
-        e1?.isActive == e2?.isActive;
+        e1?.isActive == e2?.isActive &&
+        e1?.name == e2?.name;
   }
 
   @override
-  int hash(SwimmersRecord? e) =>
-      const ListEquality().hash([e?.group, e?.zone, e?.ownerId, e?.isActive]);
+  int hash(SwimmersRecord? e) => const ListEquality()
+      .hash([e?.group, e?.zone, e?.ownerId, e?.isActive, e?.name]);
 
   @override
   bool isValidKey(Object? o) => o is SwimmersRecord;

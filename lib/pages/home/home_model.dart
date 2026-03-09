@@ -1,3 +1,4 @@
+import '/backend/backend.dart';
 import '/components/m01_activity/m01_activity_widget.dart';
 import '/components/m02_meet/m02_meet_widget.dart';
 import '/components/m03_job/m03_job_widget.dart';
