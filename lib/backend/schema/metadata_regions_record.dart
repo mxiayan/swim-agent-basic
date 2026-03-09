@@ -1,0 +1,134 @@
+import 'dart:async';
+
+import 'package:collection/collection.dart';
+
+import '/backend/schema/util/firestore_util.dart';
+import '/backend/schema/util/schema_util.dart';
+
+import 'index.dart';
+import '/flutter_flow/flutter_flow_util.dart';
+
+class MetadataRegionsRecord extends FirestoreRecord {
+  MetadataRegionsRecord._(
+    DocumentReference reference,
+    Map<String, dynamic> data,
+  ) : super(reference, data) {
+    _initializeFields();
+  }
+
+  // "region_id" field.
+  String? _regionId;
+  String get regionId => _regionId ?? '';
+  bool hasRegionId() => _regionId != null;
+
+  // "display_name" field.
+  String? _displayName;
+  String get displayName => _displayName ?? '';
+  bool hasDisplayName() => _displayName != null;
+
+  // "lsc_code" field.
+  String? _lscCode;
+  String get lscCode => _lscCode ?? '';
+  bool hasLscCode() => _lscCode != null;
+
+  // "lsc_name" field.
+  String? _lscName;
+  String get lscName => _lscName ?? '';
+  bool hasLscName() => _lscName != null;
+
+  // "type" field.
+  String? _type;
+  String get type => _type ?? '';
+  bool hasType() => _type != null;
+
+  // "order" field.
+  int? _order;
+  int get order => _order ?? 0;
+  bool hasOrder() => _order != null;
+
+  void _initializeFields() {
+    _regionId = snapshotData['region_id'] as String?;
+    _displayName = snapshotData['display_name'] as String?;
+    _lscCode = snapshotData['lsc_code'] as String?;
+    _lscName = snapshotData['lsc_name'] as String?;
+    _type = snapshotData['type'] as String?;
+    _order = castToType<int>(snapshotData['order']);
+  }
+
+  static CollectionReference get collection =>
+      FirebaseFirestore.instance.collection('metadata_regions');
+
+  static Stream<MetadataRegionsRecord> getDocument(DocumentReference ref) =>
+      ref.snapshots().map((s) => MetadataRegionsRecord.fromSnapshot(s));
+
+  static Future<MetadataRegionsRecord> getDocumentOnce(DocumentReference ref) =>
+      ref.get().then((s) => MetadataRegionsRecord.fromSnapshot(s));
+
+  static MetadataRegionsRecord fromSnapshot(DocumentSnapshot snapshot) =>
+      MetadataRegionsRecord._(
+        snapshot.reference,
+        mapFromFirestore(snapshot.data() as Map<String, dynamic>),
+      );
+
+  static MetadataRegionsRecord getDocumentFromData(
+    Map<String, dynamic> data,
+    DocumentReference reference,
+  ) =>
+      MetadataRegionsRecord._(reference, mapFromFirestore(data));
+
+  @override
+  String toString() =>
+      'MetadataRegionsRecord(reference: ${reference.path}, data: $snapshotData)';
+
+  @override
+  int get hashCode => reference.path.hashCode;
+
+  @override
+  bool operator ==(other) =>
+      other is MetadataRegionsRecord &&
+      reference.path.hashCode == other.reference.path.hashCode;
+}
+
+Map<String, dynamic> createMetadataRegionsRecordData({
+  String? regionId,
+  String? displayName,
+  String? lscCode,
+  String? lscName,
+  String? type,
+  int? order,
+}) {
+  final firestoreData = mapToFirestore(
+    <String, dynamic>{
+      'region_id': regionId,
+      'display_name': displayName,
+      'lsc_code': lscCode,
+      'lsc_name': lscName,
+      'type': type,
+      'order': order,
+    }.withoutNulls,
+  );
+
+  return firestoreData;
+}
+
+class MetadataRegionsRecordDocumentEquality
+    implements Equality<MetadataRegionsRecord> {
+  const MetadataRegionsRecordDocumentEquality();
+
+  @override
+  bool equals(MetadataRegionsRecord? e1, MetadataRegionsRecord? e2) {
+    return e1?.regionId == e2?.regionId &&
+        e1?.displayName == e2?.displayName &&
+        e1?.lscCode == e2?.lscCode &&
+        e1?.lscName == e2?.lscName &&
+        e1?.type == e2?.type &&
+        e1?.order == e2?.order;
+  }
+
+  @override
+  int hash(MetadataRegionsRecord? e) => const ListEquality().hash(
+      [e?.regionId, e?.displayName, e?.lscCode, e?.lscName, e?.type, e?.order]);
+
+  @override
+  bool isValidKey(Object? o) => o is MetadataRegionsRecord;
+}

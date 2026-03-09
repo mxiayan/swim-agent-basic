@@ -312,36 +312,6 @@ class _HomeWidgetState extends State<HomeWidget> {
                         updateCallback: () => safeSetState(() {}),
                         child: M05ActivityDashboardWidget(),
                       ),
-                    Container(
-                      width: MediaQuery.sizeOf(context).width * 1.0,
-                      height: 70.0,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            FlutterFlowTheme.of(context).primaryBackground,
-                            Color(0x00F1F4F8)
-                          ],
-                          stops: [0.2, 1.0],
-                          begin: AlignmentDirectional(0.0, -1.0),
-                          end: AlignmentDirectional(0, 1.0),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: MediaQuery.sizeOf(context).width * 1.0,
-                      height: 40.0,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            FlutterFlowTheme.of(context).primaryBackground,
-                            Color(0x00F1F4F8)
-                          ],
-                          stops: [0.2, 1.0],
-                          begin: AlignmentDirectional(0.0, -1.0),
-                          end: AlignmentDirectional(0, 1.0),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

@@ -78,6 +78,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: LandingWidget.routeName,
               path: LandingWidget.routePath,
               builder: (context, params) => LandingWidget(),
+            ),
+            FFRoute(
+              name: Home07InvoicesWidget.routeName,
+              path: Home07InvoicesWidget.routePath,
+              builder: (context, params) => Home07InvoicesWidget(),
             )
           ].map((r) => r.toRoute(appStateNotifier)).toList(),
         ),

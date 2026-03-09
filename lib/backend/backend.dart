@@ -8,6 +8,8 @@ import 'schema/activities_record.dart';
 import 'schema/groups_record.dart';
 import 'schema/monitored_meets_record.dart';
 import 'schema/users_record.dart';
+import 'schema/swimmers_record.dart';
+import 'schema/metadata_regions_record.dart';
 
 export 'dart:async' show StreamSubscription;
 export 'package:cloud_firestore/cloud_firestore.dart' hide Order;
@@ -21,6 +23,8 @@ export 'schema/activities_record.dart';
 export 'schema/groups_record.dart';
 export 'schema/monitored_meets_record.dart';
 export 'schema/users_record.dart';
+export 'schema/swimmers_record.dart';
+export 'schema/metadata_regions_record.dart';
 
 /// Functions to query TeamsRecords (as a Stream and as a Future).
 Future<int> queryTeamsRecordCount({
@@ -202,6 +206,80 @@ Future<List<UsersRecord>> queryUsersRecordOnce({
     queryCollectionOnce(
       UsersRecord.collection,
       UsersRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Functions to query SwimmersRecords (as a Stream and as a Future).
+Future<int> querySwimmersRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      SwimmersRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<SwimmersRecord>> querySwimmersRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      SwimmersRecord.collection,
+      SwimmersRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<SwimmersRecord>> querySwimmersRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      SwimmersRecord.collection,
+      SwimmersRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Functions to query MetadataRegionsRecords (as a Stream and as a Future).
+Future<int> queryMetadataRegionsRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      MetadataRegionsRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<MetadataRegionsRecord>> queryMetadataRegionsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      MetadataRegionsRecord.collection,
+      MetadataRegionsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<MetadataRegionsRecord>> queryMetadataRegionsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      MetadataRegionsRecord.collection,
+      MetadataRegionsRecord.fromSnapshot,
       queryBuilder: queryBuilder,
       limit: limit,
       singleRecord: singleRecord,

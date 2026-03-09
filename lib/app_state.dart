@@ -152,4 +152,11 @@ class FFAppState extends ChangeNotifier {
   void insertAtIndexInCookSelected(int index, bool value) {
     cookSelected.insert(index, value);
   }
+
+  /// User's local swimming club
+  String _userLSC = 'Pacific';
+  String get userLSC => _userLSC;
+  set userLSC(String value) {
+    _userLSC = value;
+  }
 }

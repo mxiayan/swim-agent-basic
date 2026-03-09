@@ -66,6 +66,11 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String get name => _name ?? '';
   bool hasName() => _name != null;
 
+  // "region_id" field.
+  String? _regionId;
+  String get regionId => _regionId ?? '';
+  bool hasRegionId() => _regionId != null;
+
   void _initializeFields() {
     _provider = snapshotData['provider'] as String?;
     _fastswimUrl = snapshotData['fastswim_url'] as String?;
@@ -77,6 +82,7 @@ class MonitoredMeetsRecord extends FirestoreRecord {
     _notes = snapshotData['notes'] as String?;
     _startDate = snapshotData['start_date'] as String?;
     _name = snapshotData['name'] as String?;
+    _regionId = snapshotData['region_id'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -123,6 +129,7 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
   String? notes,
   String? startDate,
   String? name,
+  String? regionId,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -135,6 +142,7 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
       'notes': notes,
       'start_date': startDate,
       'name': name,
+      'region_id': regionId,
     }.withoutNulls,
   );
 
@@ -157,7 +165,8 @@ class MonitoredMeetsRecordDocumentEquality
         e1?.regionName == e2?.regionName &&
         e1?.notes == e2?.notes &&
         e1?.startDate == e2?.startDate &&
-        e1?.name == e2?.name;
+        e1?.name == e2?.name &&
+        e1?.regionId == e2?.regionId;
   }
 
   @override
@@ -171,7 +180,8 @@ class MonitoredMeetsRecordDocumentEquality
         e?.regionName,
         e?.notes,
         e?.startDate,
-        e?.name
+        e?.name,
+        e?.regionId
       ]);
 
   @override
