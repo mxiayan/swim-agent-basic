@@ -71,6 +71,16 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String get regionId => _regionId ?? '';
   bool hasRegionId() => _regionId != null;
 
+  // "is_approved" field.
+  bool? _isApproved;
+  bool get isApproved => _isApproved ?? false;
+  bool hasIsApproved() => _isApproved != null;
+
+  // "approved_groups" field.
+  List<String>? _approvedGroups;
+  List<String> get approvedGroups => _approvedGroups ?? const [];
+  bool hasApprovedGroups() => _approvedGroups != null;
+
   void _initializeFields() {
     _provider = snapshotData['provider'] as String?;
     _fastswimUrl = snapshotData['fastswim_url'] as String?;
@@ -83,6 +93,8 @@ class MonitoredMeetsRecord extends FirestoreRecord {
     _startDate = snapshotData['start_date'] as String?;
     _name = snapshotData['name'] as String?;
     _regionId = snapshotData['region_id'] as String?;
+    _isApproved = snapshotData['is_approved'] as bool?;
+    _approvedGroups = getDataList(snapshotData['approved_groups']);
   }
 
   static CollectionReference get collection =>
@@ -130,6 +142,7 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
   String? startDate,
   String? name,
   String? regionId,
+  bool? isApproved,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -143,6 +156,7 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
       'start_date': startDate,
       'name': name,
       'region_id': regionId,
+      'is_approved': isApproved,
     }.withoutNulls,
   );
 
@@ -166,7 +180,9 @@ class MonitoredMeetsRecordDocumentEquality
         e1?.notes == e2?.notes &&
         e1?.startDate == e2?.startDate &&
         e1?.name == e2?.name &&
-        e1?.regionId == e2?.regionId;
+        e1?.regionId == e2?.regionId &&
+        e1?.isApproved == e2?.isApproved &&
+        listEquality.equals(e1?.approvedGroups, e2?.approvedGroups);
   }
 
   @override
@@ -181,7 +197,9 @@ class MonitoredMeetsRecordDocumentEquality
         e?.notes,
         e?.startDate,
         e?.name,
-        e?.regionId
+        e?.regionId,
+        e?.isApproved,
+        e?.approvedGroups
       ]);
 
   @override

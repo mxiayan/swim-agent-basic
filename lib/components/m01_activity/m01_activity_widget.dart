@@ -1,11 +1,9 @@
 import '/backend/backend.dart';
 import '/components/m01_activity_card/m01_activity_card_widget.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
-import '/flutter_flow/flutter_flow_choice_chips.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import '/flutter_flow/form_field_controller.dart';
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -140,92 +138,6 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                   mainAxisSize: MainAxisSize.max,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    FlutterFlowChoiceChips(
-                      options: [
-                        ChipData('junior_1'),
-                        ChipData('junior_2'),
-                        ChipData('junior_3'),
-                        ChipData('senior_2'),
-                        ChipData('senior_3'),
-                        ChipData('senior_4')
-                      ],
-                      onChanged: (val) async {
-                        safeSetState(
-                            () => _model.chooseGroupValue = val?.firstOrNull);
-                        _model.currentGroup = _model.chooseGroupValue!;
-                        safeSetState(() {});
-                      },
-                      selectedChipStyle: ChipStyle(
-                        backgroundColor: FlutterFlowTheme.of(context).tertiary,
-                        textStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.override(
-                                  font: GoogleFonts.sora(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                                  color: FlutterFlowTheme.of(context).info,
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
-                                ),
-                        iconColor: FlutterFlowTheme.of(context).info,
-                        iconSize: 16.0,
-                        labelPadding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                        elevation: 0.0,
-                        borderColor: FlutterFlowTheme.of(context).alternate,
-                        borderWidth: 2.0,
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      unselectedChipStyle: ChipStyle(
-                        backgroundColor:
-                            FlutterFlowTheme.of(context).secondaryBackground,
-                        textStyle: FlutterFlowTheme.of(context)
-                            .bodyMedium
-                            .override(
-                              font: GoogleFonts.sora(
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontStyle,
-                              ),
-                              color: FlutterFlowTheme.of(context).secondaryText,
-                              letterSpacing: 0.0,
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
-                            ),
-                        iconColor: FlutterFlowTheme.of(context).secondaryText,
-                        iconSize: 16.0,
-                        elevation: 0.0,
-                        borderColor: FlutterFlowTheme.of(context).alternate,
-                        borderWidth: 0.5,
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      chipSpacing: 8.0,
-                      rowSpacing: 8.0,
-                      multiselect: false,
-                      initialized: _model.chooseGroupValue != null,
-                      alignment: WrapAlignment.start,
-                      controller: _model.chooseGroupValueController ??=
-                          FormFieldController<List<String>>(
-                        [_model.currentGroup],
-                      ),
-                      wrapped: true,
-                    ),
                     Builder(
                       builder: (context) {
                         final activities = containerActivitiesRecordList

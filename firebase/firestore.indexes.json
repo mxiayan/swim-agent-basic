@@ -15,6 +15,20 @@
       ]
     },
     {
+      "collectionGroup": "monitored_meets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "region_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "start_date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "activities",
       "queryScope": "COLLECTION",
       "fields": [

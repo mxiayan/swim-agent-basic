@@ -7,6 +7,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
 import 'dart:math';
 import 'dart:ui';
+import '/custom_code/actions/index.dart' as actions;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -44,8 +45,9 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
     super.initState();
     _model = createModel(context, () => M04SwimmerModel());
 
-    _model.textController ??= TextEditingController();
-    _model.textFieldFocusNode ??= FocusNode();
+    _model.nameEditorTextController ??=
+        TextEditingController(text: FFAppState().currentSwimmerName);
+    _model.nameEditorFocusNode ??= FocusNode();
 
     animationsMap.addAll({
       'containerOnPageLoadAnimation': AnimationInfo(
@@ -89,6 +91,8 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
 
   @override
   Widget build(BuildContext context) {
+    context.watch<FFAppState>();
+
     return Container(
       width: MediaQuery.sizeOf(context).width * 1.0,
       height: MediaQuery.sizeOf(context).height * 1.0,
@@ -280,62 +284,94 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                                   .fontStyle,
                                         ),
                                   ),
-                                  FlutterFlowDropDown<String>(
-                                    controller:
-                                        _model.dropDownValueController1 ??=
-                                            FormFieldController<String>(
-                                      _model.dropDownValue1 ??=
-                                          widget!.swimmerRecord?.zone,
+                                  StreamBuilder<List<MetadataRegionsRecord>>(
+                                    stream: queryMetadataRegionsRecord(
+                                      queryBuilder: (metadataRegionsRecord) =>
+                                          metadataRegionsRecord
+                                              .orderBy('order'),
                                     ),
-                                    options: [
-                                      'Option 1',
-                                      'Option 2',
-                                      'Option 3'
-                                    ],
-                                    onChanged: (val) => safeSetState(
-                                        () => _model.dropDownValue1 = val),
-                                    height: 50.0,
-                                    textStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.sora(
-                                            fontWeight:
+                                    builder: (context, snapshot) {
+                                      // Customize what your widget looks like when it's loading.
+                                      if (!snapshot.hasData) {
+                                        return Center(
+                                          child: SizedBox(
+                                            width: 50.0,
+                                            height: 50.0,
+                                            child: CircularProgressIndicator(
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
                                                 FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
+                                                    .primary,
+                                              ),
+                                            ),
                                           ),
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
+                                        );
+                                      }
+                                      List<MetadataRegionsRecord>
+                                          zoneSelectorMetadataRegionsRecordList =
+                                          snapshot.data!;
+
+                                      return FlutterFlowDropDown<String>(
+                                        controller: _model
+                                                .zoneSelectorValueController ??=
+                                            FormFieldController<String>(
+                                          _model.zoneSelectorValue ??=
+                                              FFAppState().currentSwimmerZone,
                                         ),
-                                    hintText: 'Select...',
-                                    icon: Icon(
-                                      Icons.keyboard_arrow_down_rounded,
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryText,
-                                      size: 24.0,
-                                    ),
-                                    fillColor: Color(0xFFF5F7FA),
-                                    elevation: 2.0,
-                                    borderColor: Color(0xFFE0E3E7),
-                                    borderWidth: 1.0,
-                                    borderRadius: 8.0,
-                                    margin: EdgeInsetsDirectional.fromSTEB(
-                                        12.0, 0.0, 12.0, 0.0),
-                                    hidesUnderline: true,
-                                    isOverButton: false,
-                                    isSearchable: false,
-                                    isMultiSelect: false,
+                                        options: List<String>.from(
+                                            zoneSelectorMetadataRegionsRecordList
+                                                .map((e) => e.regionId)
+                                                .toList()),
+                                        optionLabels:
+                                            zoneSelectorMetadataRegionsRecordList
+                                                .map((e) => e.displayName)
+                                                .toList(),
+                                        onChanged: (val) => safeSetState(() =>
+                                            _model.zoneSelectorValue = val),
+                                        height: 50.0,
+                                        textStyle: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .override(
+                                              font: GoogleFonts.sora(
+                                                fontWeight:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontWeight,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontStyle,
+                                              ),
+                                              letterSpacing: 0.0,
+                                              fontWeight:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .fontWeight,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .fontStyle,
+                                            ),
+                                        hintText: 'Select...',
+                                        icon: Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          color: FlutterFlowTheme.of(context)
+                                              .secondaryText,
+                                          size: 24.0,
+                                        ),
+                                        fillColor: Color(0xFFF5F7FA),
+                                        elevation: 2.0,
+                                        borderColor: Color(0xFFE0E3E7),
+                                        borderWidth: 1.0,
+                                        borderRadius: 8.0,
+                                        margin: EdgeInsetsDirectional.fromSTEB(
+                                            12.0, 0.0, 12.0, 0.0),
+                                        hidesUnderline: true,
+                                        isOverButton: false,
+                                        isSearchable: false,
+                                        isMultiSelect: false,
+                                      );
+                                    },
                                   ),
                                 ].divide(SizedBox(height: 6.0)),
                               ),
@@ -371,62 +407,93 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                                   .fontStyle,
                                         ),
                                   ),
-                                  FlutterFlowDropDown<String>(
-                                    controller:
-                                        _model.dropDownValueController2 ??=
-                                            FormFieldController<String>(
-                                      _model.dropDownValue2 ??=
-                                          widget!.swimmerRecord?.group,
+                                  StreamBuilder<List<MetadataGroupsRecord>>(
+                                    stream: queryMetadataGroupsRecord(
+                                      queryBuilder: (metadataGroupsRecord) =>
+                                          metadataGroupsRecord.orderBy('order'),
                                     ),
-                                    options: [
-                                      'Option 1',
-                                      'Option 2',
-                                      'Option 3'
-                                    ],
-                                    onChanged: (val) => safeSetState(
-                                        () => _model.dropDownValue2 = val),
-                                    height: 50.0,
-                                    textStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.sora(
-                                            fontWeight:
+                                    builder: (context, snapshot) {
+                                      // Customize what your widget looks like when it's loading.
+                                      if (!snapshot.hasData) {
+                                        return Center(
+                                          child: SizedBox(
+                                            width: 50.0,
+                                            height: 50.0,
+                                            child: CircularProgressIndicator(
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
                                                 FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
+                                                    .primary,
+                                              ),
+                                            ),
                                           ),
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
+                                        );
+                                      }
+                                      List<MetadataGroupsRecord>
+                                          groupSelectorMetadataGroupsRecordList =
+                                          snapshot.data!;
+
+                                      return FlutterFlowDropDown<String>(
+                                        controller: _model
+                                                .groupSelectorValueController ??=
+                                            FormFieldController<String>(
+                                          _model.groupSelectorValue ??=
+                                              FFAppState().currentSwimmerGroup,
                                         ),
-                                    hintText: 'Select...',
-                                    icon: Icon(
-                                      Icons.keyboard_arrow_down_rounded,
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryText,
-                                      size: 24.0,
-                                    ),
-                                    fillColor: Color(0xFFF5F7FA),
-                                    elevation: 2.0,
-                                    borderColor: Color(0xFFE0E3E7),
-                                    borderWidth: 1.0,
-                                    borderRadius: 8.0,
-                                    margin: EdgeInsetsDirectional.fromSTEB(
-                                        12.0, 0.0, 12.0, 0.0),
-                                    hidesUnderline: true,
-                                    isOverButton: false,
-                                    isSearchable: false,
-                                    isMultiSelect: false,
+                                        options: List<String>.from(
+                                            groupSelectorMetadataGroupsRecordList
+                                                .map((e) => e.groupId)
+                                                .toList()),
+                                        optionLabels:
+                                            groupSelectorMetadataGroupsRecordList
+                                                .map((e) => e.displayName)
+                                                .toList(),
+                                        onChanged: (val) => safeSetState(() =>
+                                            _model.groupSelectorValue = val),
+                                        height: 50.0,
+                                        textStyle: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .override(
+                                              font: GoogleFonts.sora(
+                                                fontWeight:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontWeight,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontStyle,
+                                              ),
+                                              letterSpacing: 0.0,
+                                              fontWeight:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .fontWeight,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .fontStyle,
+                                            ),
+                                        hintText: 'Select...',
+                                        icon: Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          color: FlutterFlowTheme.of(context)
+                                              .secondaryText,
+                                          size: 24.0,
+                                        ),
+                                        fillColor: Color(0xFFF5F7FA),
+                                        elevation: 2.0,
+                                        borderColor: Color(0xFFE0E3E7),
+                                        borderWidth: 1.0,
+                                        borderRadius: 8.0,
+                                        margin: EdgeInsetsDirectional.fromSTEB(
+                                            12.0, 0.0, 12.0, 0.0),
+                                        hidesUnderline: true,
+                                        isOverButton: false,
+                                        isSearchable: false,
+                                        isMultiSelect: false,
+                                      );
+                                    },
                                   ),
                                 ].divide(SizedBox(height: 6.0)),
                               ),
@@ -435,7 +502,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Swim Team Name',
+                                    'Swimmer Name',
                                     style: FlutterFlowTheme.of(context)
                                         .labelMedium
                                         .override(
@@ -463,13 +530,12 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                         ),
                                   ),
                                   TextFormField(
-                                    controller: _model.textController,
-                                    focusNode: _model.textFieldFocusNode,
+                                    controller: _model.nameEditorTextController,
+                                    focusNode: _model.nameEditorFocusNode,
                                     autofocus: false,
                                     textInputAction: TextInputAction.done,
                                     obscureText: false,
                                     decoration: InputDecoration(
-                                      hintText: 'e.g. Aqua Sharks',
                                       hintStyle: FlutterFlowTheme.of(context)
                                           .bodyMedium
                                           .override(
@@ -552,7 +618,8 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                                   .fontStyle,
                                         ),
                                     minLines: 1,
-                                    validator: _model.textControllerValidator
+                                    validator: _model
+                                        .nameEditorTextControllerValidator
                                         .asValidator(context),
                                   ),
                                 ].divide(SizedBox(height: 6.0)),
@@ -659,8 +726,13 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                 ],
                               ),
                               FFButtonWidget(
-                                onPressed: () {
-                                  print('Button pressed ...');
+                                onPressed: () async {
+                                  await actions.updateSwimmerAndSync(
+                                    widget!.swimmerRecord!.reference,
+                                    _model.nameEditorTextController.text,
+                                    _model.groupSelectorValue!,
+                                    _model.zoneSelectorValue!,
+                                  );
                                 },
                                 text: 'Update Profile',
                                 options: FFButtonOptions(

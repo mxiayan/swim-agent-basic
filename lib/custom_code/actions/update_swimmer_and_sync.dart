@@ -9,14 +9,29 @@ import 'package:flutter/material.dart';
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'index.dart'; // Imports other custom actions
+
 Future updateSwimmerAndSync(
   DocumentReference swimmerRef,
   String newName,
   String newGroup,
   String newZone,
 ) async {
-  // We leave this empty for now.
-  // This satisfies the "Declaration" requirement so we can Save.
+  // Update swimmer document in Firestore
+  await swimmerRef.update({
+    'name': newName,
+    'group': newGroup,
+    'zone': newZone,
+    'is_active': true,
+  });
+
+  // Sync and refresh App State
+  FFAppState().update(() {
+    FFAppState().currentSwimmerName = newName;
+    FFAppState().currentSwimmerGroup = newGroup;
+    FFAppState().currentSwimmerZone = newZone;
+  });
+
   return;
 }
 // Set your action name, define your arguments and return parameter,

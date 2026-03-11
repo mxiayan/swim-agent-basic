@@ -12,6 +12,8 @@ import 'schema/monitored_meets_record.dart';
 import 'schema/users_record.dart';
 import 'schema/swimmers_record.dart';
 import 'schema/metadata_regions_record.dart';
+import 'schema/metadata_groups_record.dart';
+import 'schema/entered_meets_record.dart';
 
 export 'dart:async' show StreamSubscription;
 export 'package:cloud_firestore/cloud_firestore.dart' hide Order;
@@ -27,6 +29,8 @@ export 'schema/monitored_meets_record.dart';
 export 'schema/users_record.dart';
 export 'schema/swimmers_record.dart';
 export 'schema/metadata_regions_record.dart';
+export 'schema/metadata_groups_record.dart';
+export 'schema/entered_meets_record.dart';
 
 /// Functions to query TeamsRecords (as a Stream and as a Future).
 Future<int> queryTeamsRecordCount({
@@ -282,6 +286,83 @@ Future<List<MetadataRegionsRecord>> queryMetadataRegionsRecordOnce({
     queryCollectionOnce(
       MetadataRegionsRecord.collection,
       MetadataRegionsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Functions to query MetadataGroupsRecords (as a Stream and as a Future).
+Future<int> queryMetadataGroupsRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      MetadataGroupsRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<MetadataGroupsRecord>> queryMetadataGroupsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      MetadataGroupsRecord.collection,
+      MetadataGroupsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<MetadataGroupsRecord>> queryMetadataGroupsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      MetadataGroupsRecord.collection,
+      MetadataGroupsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Functions to query EnteredMeetsRecords (as a Stream and as a Future).
+Future<int> queryEnteredMeetsRecordCount({
+  DocumentReference? parent,
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      EnteredMeetsRecord.collection(parent),
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<EnteredMeetsRecord>> queryEnteredMeetsRecord({
+  DocumentReference? parent,
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      EnteredMeetsRecord.collection(parent),
+      EnteredMeetsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<EnteredMeetsRecord>> queryEnteredMeetsRecordOnce({
+  DocumentReference? parent,
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      EnteredMeetsRecord.collection(parent),
+      EnteredMeetsRecord.fromSnapshot,
       queryBuilder: queryBuilder,
       limit: limit,
       singleRecord: singleRecord,
