@@ -1,3 +1,4 @@
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/m01_activity/m01_activity_widget.dart';
 import '/components/m02_meet/m02_meet_widget.dart';
@@ -49,10 +50,8 @@ class _HomeWidgetState extends State<HomeWidget> {
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
 
-    return StreamBuilder<List<SwimmersRecord>>(
-      stream: querySwimmersRecord(
-        singleRecord: true,
-      ),
+    return StreamBuilder<UsersRecord>(
+      stream: UsersRecord.getDocument(currentUserReference!),
       builder: (context, snapshot) {
         // Customize what your widget looks like when it's loading.
         if (!snapshot.hasData) {
@@ -71,14 +70,8 @@ class _HomeWidgetState extends State<HomeWidget> {
             ),
           );
         }
-        List<SwimmersRecord> homeSwimmersRecordList = snapshot.data!;
-        // Return an empty Container when the item does not exist.
-        if (snapshot.data!.isEmpty) {
-          return Container();
-        }
-        final homeSwimmersRecord = homeSwimmersRecordList.isNotEmpty
-            ? homeSwimmersRecordList.first
-            : null;
+
+        final homeUsersRecord = snapshot.data!;
 
         return GestureDetector(
           onTap: () {
@@ -341,9 +334,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                             child: wrapWithModel(
                               model: _model.m04SwimmerModel,
                               updateCallback: () => safeSetState(() {}),
-                              child: M04SwimmerWidget(
-                                swimmerRecord: homeSwimmersRecord!,
-                              ),
+                              child: M04SwimmerWidget(),
                             ),
                           ),
                         if (FFAppState().activeTab == 4)

@@ -1,15 +1,11 @@
 import '/backend/backend.dart';
-import '/components/m02_meet_card/m02_meet_card_widget.dart';
-import '/flutter_flow/flutter_flow_animations.dart';
+import '/components/m02_meet_entered/m02_meet_entered_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'm02_meet_model.dart';
@@ -22,11 +18,8 @@ class M02MeetWidget extends StatefulWidget {
   State<M02MeetWidget> createState() => _M02MeetWidgetState();
 }
 
-class _M02MeetWidgetState extends State<M02MeetWidget>
-    with TickerProviderStateMixin {
+class _M02MeetWidgetState extends State<M02MeetWidget> {
   late M02MeetModel _model;
-
-  final animationsMap = <String, AnimationInfo>{};
 
   @override
   void setState(VoidCallback callback) {
@@ -38,36 +31,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget>
   void initState() {
     super.initState();
     _model = createModel(context, () => M02MeetModel());
-
-    animationsMap.addAll({
-      'm02MeetCardOnPageLoadAnimation': AnimationInfo(
-        trigger: AnimationTrigger.onPageLoad,
-        effectsBuilder: () => [
-          VisibilityEffect(duration: 1.ms),
-          MoveEffect(
-            curve: Curves.easeInOut,
-            delay: 0.0.ms,
-            duration: 300.0.ms,
-            begin: Offset(0.0, 75.0),
-            end: Offset(0.0, 0.0),
-          ),
-          FadeEffect(
-            curve: Curves.easeInOut,
-            delay: 0.0.ms,
-            duration: 300.0.ms,
-            begin: 0.0,
-            end: 1.0,
-          ),
-          ScaleEffect(
-            curve: Curves.easeInOut,
-            delay: 150.0.ms,
-            duration: 300.0.ms,
-            begin: Offset(0.8, 1.0),
-            end: Offset(1.0, 1.0),
-          ),
-        ],
-      ),
-    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
@@ -292,7 +255,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget>
                     'region_id',
                     isEqualTo: FFAppState().currentSwimmerZone,
                   )
-                  .orderBy('start_date'),
+                  .where(
+                    'end_date',
+                    isGreaterThanOrEqualTo: getCurrentTimestamp,
+                  )
+                  .orderBy('end_date'),
             ),
             builder: (context, snapshot) {
               // Customize what your widget looks like when it's loading.
@@ -319,34 +286,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget>
                       (columnIndex) {
                     final columnMonitoredMeetsRecord =
                         columnMonitoredMeetsRecordList[columnIndex];
-                    return InkWell(
-                      splashColor: Colors.transparent,
-                      focusColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      onTap: () async {
-                        if (FFAppState().showDetails1 == true) {
-                          FFAppState().showDetails1 = false;
-                          FFAppState().update(() {});
-                        } else {
-                          FFAppState().showDetails1 = true;
-                          FFAppState().update(() {});
-                        }
-                      },
-                      child: M02MeetCardWidget(
-                        key: Key(
-                            'Keyw9w_${columnIndex}_of_${columnMonitoredMeetsRecordList.length}'),
-                        title: '',
-                        subtitle: '',
-                        description: '',
-                        expanded: FFAppState().showDetails1,
-                        image: '',
-                        favorite: FFAppState().favorites.elementAtOrNull(0),
-                        index: 0,
-                        meetDoc: columnMonitoredMeetsRecord,
-                      ),
-                    ).animateOnPageLoad(
-                        animationsMap['m02MeetCardOnPageLoadAnimation']!);
+                    return M02MeetEnteredWidget(
+                      key: Key(
+                          'Key3vc_${columnIndex}_of_${columnMonitoredMeetsRecordList.length}'),
+                      meetDoc: columnMonitoredMeetsRecord,
+                    );
                   }),
                 ),
               );

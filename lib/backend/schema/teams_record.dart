@@ -46,6 +46,21 @@ class TeamsRecord extends FirestoreRecord {
   String get sport => _sport ?? '';
   bool hasSport() => _sport != null;
 
+  // "lsc_name" field.
+  String? _lscName;
+  String get lscName => _lscName ?? '';
+  bool hasLscName() => _lscName != null;
+
+  // "club_code" field.
+  String? _clubCode;
+  String get clubCode => _clubCode ?? '';
+  bool hasClubCode() => _clubCode != null;
+
+  // "display_name" field.
+  String? _displayName;
+  String get displayName => _displayName ?? '';
+  bool hasDisplayName() => _displayName != null;
+
   void _initializeFields() {
     _name = snapshotData['name'] as String?;
     _createdAt = snapshotData['created_at'] as DateTime?;
@@ -55,6 +70,9 @@ class TeamsRecord extends FirestoreRecord {
         : BrandingStructStruct.maybeFromMap(snapshotData['branding']);
     _groups = getDataList(snapshotData['groups']);
     _sport = snapshotData['sport'] as String?;
+    _lscName = snapshotData['lsc_name'] as String?;
+    _clubCode = snapshotData['club_code'] as String?;
+    _displayName = snapshotData['display_name'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -96,6 +114,9 @@ Map<String, dynamic> createTeamsRecordData({
   String? location,
   BrandingStructStruct? branding,
   String? sport,
+  String? lscName,
+  String? clubCode,
+  String? displayName,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -104,6 +125,9 @@ Map<String, dynamic> createTeamsRecordData({
       'location': location,
       'branding': BrandingStructStruct().toMap(),
       'sport': sport,
+      'lsc_name': lscName,
+      'club_code': clubCode,
+      'display_name': displayName,
     }.withoutNulls,
   );
 
@@ -124,12 +148,24 @@ class TeamsRecordDocumentEquality implements Equality<TeamsRecord> {
         e1?.location == e2?.location &&
         e1?.branding == e2?.branding &&
         listEquality.equals(e1?.groups, e2?.groups) &&
-        e1?.sport == e2?.sport;
+        e1?.sport == e2?.sport &&
+        e1?.lscName == e2?.lscName &&
+        e1?.clubCode == e2?.clubCode &&
+        e1?.displayName == e2?.displayName;
   }
 
   @override
-  int hash(TeamsRecord? e) => const ListEquality().hash(
-      [e?.name, e?.createdAt, e?.location, e?.branding, e?.groups, e?.sport]);
+  int hash(TeamsRecord? e) => const ListEquality().hash([
+        e?.name,
+        e?.createdAt,
+        e?.location,
+        e?.branding,
+        e?.groups,
+        e?.sport,
+        e?.lscName,
+        e?.clubCode,
+        e?.displayName
+      ]);
 
   @override
   bool isValidKey(Object? o) => o is TeamsRecord;

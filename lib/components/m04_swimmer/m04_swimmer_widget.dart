@@ -19,7 +19,7 @@ export 'm04_swimmer_model.dart';
 class M04SwimmerWidget extends StatefulWidget {
   const M04SwimmerWidget({
     super.key,
-    required this.swimmerRecord,
+    this.swimmerRecord,
   });
 
   final SwimmersRecord? swimmerRecord;
@@ -316,13 +316,9 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                                 .zoneSelectorValueController ??=
                                             FormFieldController<String>(
                                           _model.zoneSelectorValue ??=
-                                              FFAppState().currentSwimmerZone,
+                                              widget!.swimmerRecord?.lscName,
                                         ),
-                                        options: List<String>.from(
-                                            zoneSelectorMetadataRegionsRecordList
-                                                .map((e) => e.regionId)
-                                                .toList()),
-                                        optionLabels:
+                                        options:
                                             zoneSelectorMetadataRegionsRecordList
                                                 .map((e) => e.displayName)
                                                 .toList(),

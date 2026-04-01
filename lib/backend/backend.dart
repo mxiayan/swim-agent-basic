@@ -14,6 +14,8 @@ import 'schema/swimmers_record.dart';
 import 'schema/metadata_regions_record.dart';
 import 'schema/metadata_groups_record.dart';
 import 'schema/entered_meets_record.dart';
+import 'schema/hidden_meets_record.dart';
+import 'schema/metadata_clubs_record.dart';
 
 export 'dart:async' show StreamSubscription;
 export 'package:cloud_firestore/cloud_firestore.dart' hide Order;
@@ -31,6 +33,8 @@ export 'schema/swimmers_record.dart';
 export 'schema/metadata_regions_record.dart';
 export 'schema/metadata_groups_record.dart';
 export 'schema/entered_meets_record.dart';
+export 'schema/hidden_meets_record.dart';
+export 'schema/metadata_clubs_record.dart';
 
 /// Functions to query TeamsRecords (as a Stream and as a Future).
 Future<int> queryTeamsRecordCount({
@@ -363,6 +367,83 @@ Future<List<EnteredMeetsRecord>> queryEnteredMeetsRecordOnce({
     queryCollectionOnce(
       EnteredMeetsRecord.collection(parent),
       EnteredMeetsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Functions to query HiddenMeetsRecords (as a Stream and as a Future).
+Future<int> queryHiddenMeetsRecordCount({
+  DocumentReference? parent,
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      HiddenMeetsRecord.collection(parent),
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<HiddenMeetsRecord>> queryHiddenMeetsRecord({
+  DocumentReference? parent,
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      HiddenMeetsRecord.collection(parent),
+      HiddenMeetsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<HiddenMeetsRecord>> queryHiddenMeetsRecordOnce({
+  DocumentReference? parent,
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      HiddenMeetsRecord.collection(parent),
+      HiddenMeetsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Functions to query MetadataClubsRecords (as a Stream and as a Future).
+Future<int> queryMetadataClubsRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      MetadataClubsRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<MetadataClubsRecord>> queryMetadataClubsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      MetadataClubsRecord.collection,
+      MetadataClubsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<MetadataClubsRecord>> queryMetadataClubsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      MetadataClubsRecord.collection,
+      MetadataClubsRecord.fromSnapshot,
       queryBuilder: queryBuilder,
       limit: limit,
       singleRecord: singleRecord,

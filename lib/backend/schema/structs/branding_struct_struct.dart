@@ -179,7 +179,7 @@ Map<String, dynamic> getBrandingStructFirestoreData(
   final firestoreData = mapToFirestore(brandingStruct.toMap());
 
   // Add any Firestore field values
-  brandingStruct.firestoreUtilData.fieldValues
+  mapToFirestore(brandingStruct.firestoreUtilData.fieldValues)
       .forEach((k, v) => firestoreData[k] = v);
 
   return forFieldValue ? mergeNestedFields(firestoreData) : firestoreData;

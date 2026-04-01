@@ -51,10 +51,15 @@ class UsersRecord extends FirestoreRecord {
   String get fcmToken => _fcmToken ?? '';
   bool hasFcmToken() => _fcmToken != null;
 
-  // "lsc_region" field.
-  String? _lscRegion;
-  String get lscRegion => _lscRegion ?? '';
-  bool hasLscRegion() => _lscRegion != null;
+  // "lsc_name" field.
+  String? _lscName;
+  String get lscName => _lscName ?? '';
+  bool hasLscName() => _lscName != null;
+
+  // "club_code" field.
+  String? _clubCode;
+  String get clubCode => _clubCode ?? '';
+  bool hasClubCode() => _clubCode != null;
 
   void _initializeFields() {
     _email = snapshotData['email'] as String?;
@@ -64,7 +69,8 @@ class UsersRecord extends FirestoreRecord {
     _createdTime = snapshotData['created_time'] as DateTime?;
     _phoneNumber = snapshotData['phone_number'] as String?;
     _fcmToken = snapshotData['fcm_token'] as String?;
-    _lscRegion = snapshotData['lsc_region'] as String?;
+    _lscName = snapshotData['lsc_name'] as String?;
+    _clubCode = snapshotData['club_code'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -108,7 +114,8 @@ Map<String, dynamic> createUsersRecordData({
   DateTime? createdTime,
   String? phoneNumber,
   String? fcmToken,
-  String? lscRegion,
+  String? lscName,
+  String? clubCode,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -119,7 +126,8 @@ Map<String, dynamic> createUsersRecordData({
       'created_time': createdTime,
       'phone_number': phoneNumber,
       'fcm_token': fcmToken,
-      'lsc_region': lscRegion,
+      'lsc_name': lscName,
+      'club_code': clubCode,
     }.withoutNulls,
   );
 
@@ -138,7 +146,8 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e1?.createdTime == e2?.createdTime &&
         e1?.phoneNumber == e2?.phoneNumber &&
         e1?.fcmToken == e2?.fcmToken &&
-        e1?.lscRegion == e2?.lscRegion;
+        e1?.lscName == e2?.lscName &&
+        e1?.clubCode == e2?.clubCode;
   }
 
   @override
@@ -150,7 +159,8 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e?.createdTime,
         e?.phoneNumber,
         e?.fcmToken,
-        e?.lscRegion
+        e?.lscName,
+        e?.clubCode
       ]);
 
   @override

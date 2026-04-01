@@ -56,11 +56,6 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String get notes => _notes ?? '';
   bool hasNotes() => _notes != null;
 
-  // "start_date" field.
-  String? _startDate;
-  String get startDate => _startDate ?? '';
-  bool hasStartDate() => _startDate != null;
-
   // "name" field.
   String? _name;
   String get name => _name ?? '';
@@ -81,6 +76,21 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   List<String> get approvedGroups => _approvedGroups ?? const [];
   bool hasApprovedGroups() => _approvedGroups != null;
 
+  // "start_date" field.
+  DateTime? _startDate;
+  DateTime? get startDate => _startDate;
+  bool hasStartDate() => _startDate != null;
+
+  // "end_date" field.
+  DateTime? _endDate;
+  DateTime? get endDate => _endDate;
+  bool hasEndDate() => _endDate != null;
+
+  // "entry_url" field.
+  String? _entryUrl;
+  String get entryUrl => _entryUrl ?? '';
+  bool hasEntryUrl() => _entryUrl != null;
+
   void _initializeFields() {
     _provider = snapshotData['provider'] as String?;
     _fastswimUrl = snapshotData['fastswim_url'] as String?;
@@ -90,11 +100,13 @@ class MonitoredMeetsRecord extends FirestoreRecord {
     _location = snapshotData['location'] as String?;
     _regionName = snapshotData['region_name'] as String?;
     _notes = snapshotData['notes'] as String?;
-    _startDate = snapshotData['start_date'] as String?;
     _name = snapshotData['name'] as String?;
     _regionId = snapshotData['region_id'] as String?;
     _isApproved = snapshotData['is_approved'] as bool?;
     _approvedGroups = getDataList(snapshotData['approved_groups']);
+    _startDate = snapshotData['start_date'] as DateTime?;
+    _endDate = snapshotData['end_date'] as DateTime?;
+    _entryUrl = snapshotData['entry_url'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -139,10 +151,12 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
   String? location,
   String? regionName,
   String? notes,
-  String? startDate,
   String? name,
   String? regionId,
   bool? isApproved,
+  DateTime? startDate,
+  DateTime? endDate,
+  String? entryUrl,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -153,10 +167,12 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
       'location': location,
       'region_name': regionName,
       'notes': notes,
-      'start_date': startDate,
       'name': name,
       'region_id': regionId,
       'is_approved': isApproved,
+      'start_date': startDate,
+      'end_date': endDate,
+      'entry_url': entryUrl,
     }.withoutNulls,
   );
 
@@ -178,11 +194,13 @@ class MonitoredMeetsRecordDocumentEquality
         e1?.location == e2?.location &&
         e1?.regionName == e2?.regionName &&
         e1?.notes == e2?.notes &&
-        e1?.startDate == e2?.startDate &&
         e1?.name == e2?.name &&
         e1?.regionId == e2?.regionId &&
         e1?.isApproved == e2?.isApproved &&
-        listEquality.equals(e1?.approvedGroups, e2?.approvedGroups);
+        listEquality.equals(e1?.approvedGroups, e2?.approvedGroups) &&
+        e1?.startDate == e2?.startDate &&
+        e1?.endDate == e2?.endDate &&
+        e1?.entryUrl == e2?.entryUrl;
   }
 
   @override
@@ -195,11 +213,13 @@ class MonitoredMeetsRecordDocumentEquality
         e?.location,
         e?.regionName,
         e?.notes,
-        e?.startDate,
         e?.name,
         e?.regionId,
         e?.isApproved,
-        e?.approvedGroups
+        e?.approvedGroups,
+        e?.startDate,
+        e?.endDate,
+        e?.entryUrl
       ]);
 
   @override

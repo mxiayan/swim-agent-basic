@@ -56,8 +56,6 @@ class _NoTrainingWidgetState extends State<NoTrainingWidget> {
           decoration: BoxDecoration(
             color: FlutterFlowTheme.of(context).secondaryBackground,
             borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(0.0),
-              bottomRight: Radius.circular(0.0),
               topLeft: Radius.circular(20.0),
               topRight: Radius.circular(20.0),
             ),
@@ -176,8 +174,6 @@ class _NoTrainingWidgetState extends State<NoTrainingWidget> {
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(20.0),
                 bottomRight: Radius.circular(20.0),
-                topLeft: Radius.circular(0.0),
-                topRight: Radius.circular(0.0),
               ),
             ),
           ),

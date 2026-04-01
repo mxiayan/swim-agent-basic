@@ -225,7 +225,7 @@ Map<String, dynamic> getActivityDetailsFirestoreData(
   final firestoreData = mapToFirestore(activityDetails.toMap());
 
   // Add any Firestore field values
-  activityDetails.firestoreUtilData.fieldValues
+  mapToFirestore(activityDetails.firestoreUtilData.fieldValues)
       .forEach((k, v) => firestoreData[k] = v);
 
   return forFieldValue ? mergeNestedFields(firestoreData) : firestoreData;

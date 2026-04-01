@@ -357,7 +357,8 @@ class _M02MeetCardWidgetState extends State<M02MeetCardWidget>
                                     children: [
                                       AutoSizeText(
                                         valueOrDefault<String>(
-                                          widget!.meetDoc?.startDate,
+                                          widget!.meetDoc?.startDate
+                                              ?.toString(),
                                           '[Start Date]',
                                         ),
                                         style: FlutterFlowTheme.of(context)
@@ -621,12 +622,7 @@ class _M02MeetCardWidgetState extends State<M02MeetCardWidget>
                   Container(
                     decoration: BoxDecoration(
                       color: Color(0xFFE6F4F1),
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(0.0),
-                        bottomRight: Radius.circular(0.0),
-                        topLeft: Radius.circular(0.0),
-                        topRight: Radius.circular(0.0),
-                      ),
+                      borderRadius: BorderRadius.only(),
                     ),
                     child: Padding(
                       padding:

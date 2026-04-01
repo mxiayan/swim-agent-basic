@@ -199,7 +199,7 @@ Map<String, dynamic> getPracticeFirestoreData(
   final firestoreData = mapToFirestore(practice.toMap());
 
   // Add any Firestore field values
-  practice.firestoreUtilData.fieldValues
+  mapToFirestore(practice.firestoreUtilData.fieldValues)
       .forEach((k, v) => firestoreData[k] = v);
 
   return forFieldValue ? mergeNestedFields(firestoreData) : firestoreData;

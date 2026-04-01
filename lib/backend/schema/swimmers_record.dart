@@ -21,11 +21,6 @@ class SwimmersRecord extends FirestoreRecord {
   String get group => _group ?? '';
   bool hasGroup() => _group != null;
 
-  // "zone" field.
-  String? _zone;
-  String get zone => _zone ?? '';
-  bool hasZone() => _zone != null;
-
   // "owner_id" field.
   DocumentReference? _ownerId;
   DocumentReference? get ownerId => _ownerId;
@@ -41,12 +36,23 @@ class SwimmersRecord extends FirestoreRecord {
   String get name => _name ?? '';
   bool hasName() => _name != null;
 
+  // "club_code" field.
+  String? _clubCode;
+  String get clubCode => _clubCode ?? '';
+  bool hasClubCode() => _clubCode != null;
+
+  // "lsc_name" field.
+  String? _lscName;
+  String get lscName => _lscName ?? '';
+  bool hasLscName() => _lscName != null;
+
   void _initializeFields() {
     _group = snapshotData['group'] as String?;
-    _zone = snapshotData['zone'] as String?;
     _ownerId = snapshotData['owner_id'] as DocumentReference?;
     _isActive = snapshotData['is_active'] as bool?;
     _name = snapshotData['name'] as String?;
+    _clubCode = snapshotData['club_code'] as String?;
+    _lscName = snapshotData['lsc_name'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -85,18 +91,20 @@ class SwimmersRecord extends FirestoreRecord {
 
 Map<String, dynamic> createSwimmersRecordData({
   String? group,
-  String? zone,
   DocumentReference? ownerId,
   bool? isActive,
   String? name,
+  String? clubCode,
+  String? lscName,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
       'group': group,
-      'zone': zone,
       'owner_id': ownerId,
       'is_active': isActive,
       'name': name,
+      'club_code': clubCode,
+      'lsc_name': lscName,
     }.withoutNulls,
   );
 
@@ -109,15 +117,16 @@ class SwimmersRecordDocumentEquality implements Equality<SwimmersRecord> {
   @override
   bool equals(SwimmersRecord? e1, SwimmersRecord? e2) {
     return e1?.group == e2?.group &&
-        e1?.zone == e2?.zone &&
         e1?.ownerId == e2?.ownerId &&
         e1?.isActive == e2?.isActive &&
-        e1?.name == e2?.name;
+        e1?.name == e2?.name &&
+        e1?.clubCode == e2?.clubCode &&
+        e1?.lscName == e2?.lscName;
   }
 
   @override
-  int hash(SwimmersRecord? e) => const ListEquality()
-      .hash([e?.group, e?.zone, e?.ownerId, e?.isActive, e?.name]);
+  int hash(SwimmersRecord? e) => const ListEquality().hash(
+      [e?.group, e?.ownerId, e?.isActive, e?.name, e?.clubCode, e?.lscName]);
 
   @override
   bool isValidKey(Object? o) => o is SwimmersRecord;

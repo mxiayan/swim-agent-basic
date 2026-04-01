@@ -1,3 +1,4 @@
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/m01_activity/m01_activity_widget.dart';
 import '/components/m02_meet/m02_meet_widget.dart';
