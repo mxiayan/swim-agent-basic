@@ -46,6 +46,17 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String get imageUrl => _imageUrl ?? '';
   bool hasImageUrl() => _imageUrl != null;
 
+  // ---- Legacy FlutterFlow UI aliases (m02 meet cards / lists) ----
+  String get name => title;
+  String get regionName => meetZone;
+  String get location => subtitle;
+  String get status => '';
+  DateTime? get startDate => startTime;
+  DateTime? get endDate => startTime;
+  String get notes => description;
+  bool get isApproved => false;
+  String get entryUrl => '';
+
   void _initializeFields() {
     _meetZone = _firstNonEmptyString(snapshotData, const [
       'meet_zone',

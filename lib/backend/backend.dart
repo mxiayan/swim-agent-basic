@@ -12,6 +12,8 @@ import 'schema/swimmer_record.dart';
 import 'schema/swimmers_record.dart';
 import 'schema/users_record.dart';
 import 'schema/metadata_clubs_record.dart';
+import 'schema/metadata_groups_record.dart';
+import 'schema/metadata_regions_record.dart';
 import 'schema/monitored_meets_record.dart';
 
 export 'dart:async' show StreamSubscription;
@@ -28,6 +30,8 @@ export 'schema/swimmer_record.dart';
 export 'schema/swimmers_record.dart';
 export 'schema/users_record.dart';
 export 'schema/metadata_clubs_record.dart';
+export 'schema/metadata_groups_record.dart';
+export 'schema/metadata_regions_record.dart';
 export 'schema/monitored_meets_record.dart';
 
 /// Functions to query TeamsRecords (as a Stream and as a Future).
@@ -247,6 +251,78 @@ Future<List<MetadataClubsRecord>> queryMetadataClubsRecordOnce({
     queryCollectionOnce(
       MetadataClubsRecord.collection,
       MetadataClubsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<int> queryMetadataRegionsRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      MetadataRegionsRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<MetadataRegionsRecord>> queryMetadataRegionsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      MetadataRegionsRecord.collection,
+      MetadataRegionsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<MetadataRegionsRecord>> queryMetadataRegionsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      MetadataRegionsRecord.collection,
+      MetadataRegionsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<int> queryMetadataGroupsRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      MetadataGroupsRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<MetadataGroupsRecord>> queryMetadataGroupsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      MetadataGroupsRecord.collection,
+      MetadataGroupsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<MetadataGroupsRecord>> queryMetadataGroupsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      MetadataGroupsRecord.collection,
+      MetadataGroupsRecord.fromSnapshot,
       queryBuilder: queryBuilder,
       limit: limit,
       singleRecord: singleRecord,

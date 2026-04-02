@@ -660,9 +660,6 @@ class _LoginWidgetState extends State<LoginWidget> {
                                     return;
                                   }
 
-                                  // prepareAuthEvent() set notifyOnAuthChange false; sync immediately so
-                                  // AppStateNotifier.loggedIn and GoRouter refresh before navigation.
-                                  // Global currentUser must match Firebase or auth_util stays "logged out".
                                   currentUser = user;
                                   final appNotifier =
                                       GoRouter.of(context).appState;
@@ -680,8 +677,6 @@ class _LoginWidgetState extends State<LoginWidget> {
                                     return;
                                   }
 
-                                  // Root `/` shows Home when logged in; global [redirect] in nav
-                                  // sends `/login` → `/` so we are never stuck on the login route.
                                   context.go('/');
 
                                   safeSetState(() {});
