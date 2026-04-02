@@ -1,14 +1,14 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'auth/firebase_auth/firebase_user_provider.dart';
-import 'auth/firebase_auth/auth_util.dart';
-
 import 'backend/firebase/firebase_config.dart';
+import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 import 'flutter_flow/nav/nav.dart';
@@ -20,6 +20,8 @@ void main() async {
   usePathUrlStrategy();
 
   await initFirebase();
+
+  await FlutterFlowTheme.initialize();
 
   final appState = FFAppState(); // Initialize FFAppState
   await appState.initializePersistedState();
@@ -48,10 +50,11 @@ class MyAppScrollBehavior extends MaterialScrollBehavior {
 }
 
 class _MyAppState extends State<MyApp> {
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = FlutterFlowTheme.themeMode;
 
   late AppStateNotifier _appStateNotifier;
   late GoRouter _router;
+  StreamSubscription<User?>? _authSwimmerSub;
   String getRoute([RouteMatch? routeMatch]) {
     final RouteMatch lastMatch =
         routeMatch ?? _router.routerDelegate.currentConfiguration.last;
@@ -65,9 +68,7 @@ class _MyAppState extends State<MyApp> {
       _router.routerDelegate.currentConfiguration.matches
           .map((e) => getRoute(e))
           .toList();
-  late Stream<BaseAuthUser> userStream;
-
-  final authUserSub = authenticatedUserStream.listen((_) {});
+  bool displaySplashImage = true;
 
   @override
   void initState() {
@@ -75,26 +76,31 @@ class _MyAppState extends State<MyApp> {
 
     _appStateNotifier = AppStateNotifier.instance;
     _router = createRouter(_appStateNotifier);
-    userStream = swimAgentBasicFirebaseUserStream()
-      ..listen((user) {
-        _appStateNotifier.update(user);
-      });
-    jwtTokenStream.listen((_) {});
-    Future.delayed(
-      Duration(milliseconds: 1000),
-      () => _appStateNotifier.stopShowingSplashImage(),
-    );
+
+    _authSwimmerSub =
+        FirebaseAuth.instance.authStateChanges().listen((user) async {
+      if (user != null) {
+        // Let ID token / Firestore auth propagate before first swimmer read.
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        await refreshSwimmerAppState();
+      } else {
+        await FFAppState().clearSwimmerContext();
+      }
+    });
+
+    Future.delayed(Duration(milliseconds: 1000),
+        () => safeSetState(() => _appStateNotifier.stopShowingSplashImage()));
   }
 
   @override
   void dispose() {
-    authUserSub.cancel();
-
+    _authSwimmerSub?.cancel();
     super.dispose();
   }
 
   void setThemeMode(ThemeMode mode) => safeSetState(() {
         _themeMode = mode;
+        FlutterFlowTheme.saveThemeMode(mode);
       });
 
   @override
@@ -111,6 +117,10 @@ class _MyAppState extends State<MyApp> {
       supportedLocales: const [Locale('en', '')],
       theme: ThemeData(
         brightness: Brightness.light,
+        useMaterial3: false,
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
         useMaterial3: false,
       ),
       themeMode: _themeMode,

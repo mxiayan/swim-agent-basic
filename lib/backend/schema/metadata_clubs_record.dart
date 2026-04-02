@@ -16,49 +16,92 @@ class MetadataClubsRecord extends FirestoreRecord {
     _initializeFields();
   }
 
-  // "lsc_name" field.
-  String? _lscName;
-  String get lscName => _lscName ?? '';
-  bool hasLscName() => _lscName != null;
+  String? _name;
+  String get name => _name ?? '';
+  bool hasName() => _name != null;
 
-  // "lsc_code" field.
-  String? _lscCode;
-  String get lscCode => _lscCode ?? '';
-  bool hasLscCode() => _lscCode != null;
-
-  // "club_name" field.
-  String? _clubName;
-  String get clubName => _clubName ?? '';
-  bool hasClubName() => _clubName != null;
-
-  // "club_code" field.
-  String? _clubCode;
-  String get clubCode => _clubCode ?? '';
-  bool hasClubCode() => _clubCode != null;
-
-  // "is_active" field.
-  bool? _isActive;
-  bool get isActive => _isActive ?? false;
-  bool hasIsActive() => _isActive != null;
-
-  // "zone_id" field.
   String? _zoneId;
   String get zoneId => _zoneId ?? '';
   bool hasZoneId() => _zoneId != null;
 
-  // "zone_display" field.
-  String? _zoneDisplay;
-  String get zoneDisplay => _zoneDisplay ?? '';
-  bool hasZoneDisplay() => _zoneDisplay != null;
+  String? _zoneDisplayName;
+  String get zoneDisplayName => _zoneDisplayName ?? '';
+  bool hasZoneDisplayName() => _zoneDisplayName != null;
 
   void _initializeFields() {
-    _lscName = snapshotData['lsc_name'] as String?;
-    _lscCode = snapshotData['lsc_code'] as String?;
-    _clubName = snapshotData['club_name'] as String?;
-    _clubCode = snapshotData['club_code'] as String?;
-    _isActive = snapshotData['is_active'] as bool?;
-    _zoneId = snapshotData['zone_id'] as String?;
-    _zoneDisplay = snapshotData['zone_display'] as String?;
+    _name = snapshotData['name'] as String?;
+    _zoneId = _asString(snapshotData['zone_id']);
+    _zoneDisplayName = _asString(snapshotData['zone_display_name']);
+  }
+
+  static String? _asString(dynamic v) {
+    if (v == null) {
+      return null;
+    }
+    if (v is String) {
+      return v;
+    }
+    if (v is num || v is bool) {
+      return v.toString();
+    }
+    return v.toString();
+  }
+
+  /// Match swimmer club keys to a metadata doc: by document id, then common field names.
+  static Future<MetadataClubsRecord?> findByClubLookup(String raw) async {
+    final key = raw.trim();
+    if (key.isEmpty) {
+      return null;
+    }
+
+    DocumentSnapshot? snap;
+
+    var doc = await collection.doc(key).get();
+    if (doc.exists) {
+      snap = doc;
+    }
+    if (snap == null) {
+      final upper = key.toUpperCase();
+      if (upper != key) {
+        doc = await collection.doc(upper).get();
+        if (doc.exists) {
+          snap = doc;
+        }
+      }
+    }
+    if (snap == null) {
+      for (final field in [
+        'club_code',
+        'code',
+        'lsc_club_code',
+        'team_code',
+        'club_id',
+      ]) {
+        final q = await collection.where(field, isEqualTo: key).limit(1).get();
+        if (q.docs.isNotEmpty) {
+          snap = q.docs.first;
+          break;
+        }
+      }
+    }
+    if (snap == null) {
+      final upper = key.toUpperCase();
+      if (upper != key) {
+        for (final field in ['club_code', 'code', 'lsc_club_code']) {
+          final q =
+              await collection.where(field, isEqualTo: upper).limit(1).get();
+          if (q.docs.isNotEmpty) {
+            snap = q.docs.first;
+            break;
+          }
+        }
+      }
+    }
+
+    if (snap == null || !snap.exists) {
+      return null;
+    }
+    return fromSnapshot(snap);
   }
 
   static CollectionReference get collection =>
@@ -96,23 +139,15 @@ class MetadataClubsRecord extends FirestoreRecord {
 }
 
 Map<String, dynamic> createMetadataClubsRecordData({
-  String? lscName,
-  String? lscCode,
-  String? clubName,
-  String? clubCode,
-  bool? isActive,
+  String? name,
   String? zoneId,
-  String? zoneDisplay,
+  String? zoneDisplayName,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
-      'lsc_name': lscName,
-      'lsc_code': lscCode,
-      'club_name': clubName,
-      'club_code': clubCode,
-      'is_active': isActive,
+      'name': name,
       'zone_id': zoneId,
-      'zone_display': zoneDisplay,
+      'zone_display_name': zoneDisplayName,
     }.withoutNulls,
   );
 
@@ -125,25 +160,14 @@ class MetadataClubsRecordDocumentEquality
 
   @override
   bool equals(MetadataClubsRecord? e1, MetadataClubsRecord? e2) {
-    return e1?.lscName == e2?.lscName &&
-        e1?.lscCode == e2?.lscCode &&
-        e1?.clubName == e2?.clubName &&
-        e1?.clubCode == e2?.clubCode &&
-        e1?.isActive == e2?.isActive &&
+    return e1?.name == e2?.name &&
         e1?.zoneId == e2?.zoneId &&
-        e1?.zoneDisplay == e2?.zoneDisplay;
+        e1?.zoneDisplayName == e2?.zoneDisplayName;
   }
 
   @override
-  int hash(MetadataClubsRecord? e) => const ListEquality().hash([
-        e?.lscName,
-        e?.lscCode,
-        e?.clubName,
-        e?.clubCode,
-        e?.isActive,
-        e?.zoneId,
-        e?.zoneDisplay
-      ]);
+  int hash(MetadataClubsRecord? e) =>
+      const ListEquality().hash([e?.name, e?.zoneId, e?.zoneDisplayName]);
 
   @override
   bool isValidKey(Object? o) => o is MetadataClubsRecord;

@@ -1,6 +1,6 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../auth/firebase_auth/auth_util.dart';
 
 import '../flutter_flow/flutter_flow_util.dart';
 import 'schema/util/firestore_util.dart';
@@ -8,14 +8,9 @@ import 'schema/util/firestore_util.dart';
 import 'schema/teams_record.dart';
 import 'schema/activities_record.dart';
 import 'schema/groups_record.dart';
-import 'schema/monitored_meets_record.dart';
-import 'schema/users_record.dart';
-import 'schema/swimmers_record.dart';
-import 'schema/metadata_regions_record.dart';
-import 'schema/metadata_groups_record.dart';
-import 'schema/entered_meets_record.dart';
-import 'schema/hidden_meets_record.dart';
+import 'schema/swimmer_record.dart';
 import 'schema/metadata_clubs_record.dart';
+import 'schema/monitored_meets_record.dart';
 
 export 'dart:async' show StreamSubscription;
 export 'package:cloud_firestore/cloud_firestore.dart' hide Order;
@@ -27,14 +22,9 @@ export 'schema/util/schema_util.dart';
 export 'schema/teams_record.dart';
 export 'schema/activities_record.dart';
 export 'schema/groups_record.dart';
-export 'schema/monitored_meets_record.dart';
-export 'schema/users_record.dart';
-export 'schema/swimmers_record.dart';
-export 'schema/metadata_regions_record.dart';
-export 'schema/metadata_groups_record.dart';
-export 'schema/entered_meets_record.dart';
-export 'schema/hidden_meets_record.dart';
+export 'schema/swimmer_record.dart';
 export 'schema/metadata_clubs_record.dart';
+export 'schema/monitored_meets_record.dart';
 
 /// Functions to query TeamsRecords (as a Stream and as a Future).
 Future<int> queryTeamsRecordCount({
@@ -147,7 +137,81 @@ Future<List<GroupsRecord>> queryGroupsRecordOnce({
       singleRecord: singleRecord,
     );
 
-/// Functions to query MonitoredMeetsRecords (as a Stream and as a Future).
+/// Swimmer profile (document id = Firebase Auth uid).
+Future<int> querySwimmerRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      SwimmerRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<SwimmerRecord>> querySwimmerRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      SwimmerRecord.collection,
+      SwimmerRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<SwimmerRecord>> querySwimmerRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      SwimmerRecord.collection,
+      SwimmerRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Pacific Swimming club → zone metadata.
+Future<int> queryMetadataClubsRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      MetadataClubsRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<MetadataClubsRecord>> queryMetadataClubsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      MetadataClubsRecord.collection,
+      MetadataClubsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<MetadataClubsRecord>> queryMetadataClubsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      MetadataClubsRecord.collection,
+      MetadataClubsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Monitored meets (filter by meet_zone in UI or queryBuilder).
 Future<int> queryMonitoredMeetsRecordCount({
   Query Function(Query)? queryBuilder,
   int limit = -1,
@@ -184,270 +248,163 @@ Future<List<MonitoredMeetsRecord>> queryMonitoredMeetsRecordOnce({
       singleRecord: singleRecord,
     );
 
-/// Functions to query UsersRecords (as a Stream and as a Future).
-Future<int> queryUsersRecordCount({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-}) =>
-    queryCollectionCount(
-      UsersRecord.collection,
-      queryBuilder: queryBuilder,
-      limit: limit,
-    );
+String _normZoneKey(String z) => z.trim().toUpperCase();
 
-Stream<List<UsersRecord>> queryUsersRecord({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollection(
-      UsersRecord.collection,
-      UsersRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
+/// Canonical Pacific zone so `Z2`, `Z02`, and parsed meet fields compare equal.
+String canonicalPacificZoneId(String z) {
+  final t = _normZoneKey(z);
+  final m = RegExp(r'^Z(\d+)([NSEW]?)$').firstMatch(t);
+  if (m == null) {
+    return t;
+  }
+  final n = int.tryParse(m.group(1)!);
+  if (n == null) {
+    return t;
+  }
+  return 'Z$n${m.group(2) ?? ''}';
+}
 
-Future<List<UsersRecord>> queryUsersRecordOnce({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollectionOnce(
-      UsersRecord.collection,
-      UsersRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
+/// Values for Firestore `whereIn('region_id', ...)` (max 10); matches PC_Z2, PC-Z2, etc.
+List<String> pacificZoneRegionIdsForWhereIn(String canonicalZone) {
+  final z = canonicalPacificZoneId(canonicalZone);
+  final m = RegExp(r'^Z(\d+)([NSEW]?)$').firstMatch(z);
+  if (m == null) {
+    return const [];
+  }
+  final n = m.group(1)!;
+  final suf = (m.group(2) ?? '').toUpperCase();
+  final mid = 'Z$n$suf';
+  return <String>{
+    'PC_$mid',
+    'PC-$mid',
+    'PC_$mid'.toLowerCase(),
+    'PC-$mid'.toLowerCase(),
+  }.toList();
+}
 
-/// Functions to query SwimmersRecords (as a Stream and as a Future).
-Future<int> querySwimmersRecordCount({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-}) =>
-    queryCollectionCount(
-      SwimmersRecord.collection,
-      queryBuilder: queryBuilder,
-      limit: limit,
-    );
+List<MonitoredMeetsRecord> _filterSortMeetsForZone(
+  Iterable<MonitoredMeetsRecord> meets, {
+  required String wantCanonical,
+  required String priorityHostGroup,
+}) {
+  final filtered = meets.where((m) {
+    final mz = canonicalPacificZoneId(m.meetZone);
+    return mz.isNotEmpty && mz == wantCanonical;
+  }).toList();
 
-Stream<List<SwimmersRecord>> querySwimmersRecord({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollection(
-      SwimmersRecord.collection,
-      SwimmersRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
+  final hostWant = priorityHostGroup.trim();
+  filtered.sort((a, b) {
+    final aHome =
+        hostWant.isNotEmpty && a.hostGroup.trim() == hostWant ? 0 : 1;
+    final bHome =
+        hostWant.isNotEmpty && b.hostGroup.trim() == hostWant ? 0 : 1;
+    if (aHome != bHome) {
+      return aHome.compareTo(bHome);
+    }
+    final ad = a.startTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bd = b.startTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return ad.compareTo(bd);
+  });
+  return filtered;
+}
 
-Future<List<SwimmersRecord>> querySwimmersRecordOnce({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollectionOnce(
-      SwimmersRecord.collection,
-      SwimmersRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
+Stream<List<MonitoredMeetsRecord>> _mergeMonitoredMeetStreams(
+  List<Stream<List<MonitoredMeetsRecord>>> streams,
+  List<MonitoredMeetsRecord> Function(List<MonitoredMeetsRecord> merged) project,
+) {
+  if (streams.isEmpty) {
+    return Stream.value(project(<MonitoredMeetsRecord>[]));
+  }
+  final latest = List<List<MonitoredMeetsRecord>?>.generate(
+      streams.length, (_) => null);
+  StreamController<List<MonitoredMeetsRecord>>? controller;
+  final subs = <StreamSubscription<List<MonitoredMeetsRecord>>>[];
 
-/// Functions to query MetadataRegionsRecords (as a Stream and as a Future).
-Future<int> queryMetadataRegionsRecordCount({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-}) =>
-    queryCollectionCount(
-      MetadataRegionsRecord.collection,
-      queryBuilder: queryBuilder,
-      limit: limit,
-    );
+  void emit(StreamController<List<MonitoredMeetsRecord>> c) {
+    final byPath = <String, MonitoredMeetsRecord>{};
+    for (final list in latest) {
+      if (list == null) {
+        continue;
+      }
+      for (final m in list) {
+        byPath[m.reference.path] = m;
+      }
+    }
+    if (!c.isClosed) {
+      c.add(project(byPath.values.toList()));
+    }
+  }
 
-Stream<List<MetadataRegionsRecord>> queryMetadataRegionsRecord({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollection(
-      MetadataRegionsRecord.collection,
-      MetadataRegionsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
+  controller = StreamController<List<MonitoredMeetsRecord>>(
+    onListen: () {
+      final c = controller;
+      if (c == null) {
+        return;
+      }
+      for (var i = 0; i < streams.length; i++) {
+        final idx = i;
+        subs.add(
+          streams[i].listen(
+            (data) {
+              latest[idx] = data;
+              emit(c);
+            },
+            onError: c.addError,
+          ),
+        );
+      }
+    },
+    onCancel: () {
+      for (final s in subs) {
+        s.cancel();
+      }
+      subs.clear();
+    },
+  );
+  return controller.stream;
+}
 
-Future<List<MetadataRegionsRecord>> queryMetadataRegionsRecordOnce({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollectionOnce(
-      MetadataRegionsRecord.collection,
-      MetadataRegionsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
+/// Meets for a zone, sorted: host group first, then by start time.
+///
+/// Uses server-side `region_id` / `meet_zone` filters when possible so Z2 meets
+/// are not dropped just because they are outside the first N collection docs.
+Stream<List<MonitoredMeetsRecord>> streamMonitoredMeetsForSwimmer({
+  required String zoneId,
+  required String priorityHostGroup,
+  int meetFetchLimit = 500,
+}) {
+  if (zoneId.isEmpty) {
+    return Stream.value(<MonitoredMeetsRecord>[]);
+  }
+  final want = canonicalPacificZoneId(zoneId);
+  final hostWant = priorityHostGroup.trim();
 
-/// Functions to query MetadataGroupsRecords (as a Stream and as a Future).
-Future<int> queryMetadataGroupsRecordCount({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-}) =>
-    queryCollectionCount(
-      MetadataGroupsRecord.collection,
-      queryBuilder: queryBuilder,
-      limit: limit,
-    );
+  List<MonitoredMeetsRecord> project(List<MonitoredMeetsRecord> merged) =>
+      _filterSortMeetsForZone(
+        merged,
+        wantCanonical: want,
+        priorityHostGroup: hostWant,
+      );
 
-Stream<List<MetadataGroupsRecord>> queryMetadataGroupsRecord({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollection(
-      MetadataGroupsRecord.collection,
-      MetadataGroupsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
+  final regionVals = pacificZoneRegionIdsForWhereIn(want);
+  if (regionVals.isEmpty) {
+    final cap = meetFetchLimit < 2500 ? 2500 : meetFetchLimit;
+    return queryMonitoredMeetsRecord(
+      limit: cap,
+    ).map(project);
+  }
 
-Future<List<MetadataGroupsRecord>> queryMetadataGroupsRecordOnce({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollectionOnce(
-      MetadataGroupsRecord.collection,
-      MetadataGroupsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
+  final byRegion = queryMonitoredMeetsRecord(
+    queryBuilder: (q) => q.where('region_id', whereIn: regionVals),
+    limit: meetFetchLimit,
+  );
+  final byMeetZone = queryMonitoredMeetsRecord(
+    queryBuilder: (q) => q.where('meet_zone', isEqualTo: want),
+    limit: meetFetchLimit,
+  );
 
-/// Functions to query EnteredMeetsRecords (as a Stream and as a Future).
-Future<int> queryEnteredMeetsRecordCount({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-}) =>
-    queryCollectionCount(
-      EnteredMeetsRecord.collection(parent),
-      queryBuilder: queryBuilder,
-      limit: limit,
-    );
-
-Stream<List<EnteredMeetsRecord>> queryEnteredMeetsRecord({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollection(
-      EnteredMeetsRecord.collection(parent),
-      EnteredMeetsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
-
-Future<List<EnteredMeetsRecord>> queryEnteredMeetsRecordOnce({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollectionOnce(
-      EnteredMeetsRecord.collection(parent),
-      EnteredMeetsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
-
-/// Functions to query HiddenMeetsRecords (as a Stream and as a Future).
-Future<int> queryHiddenMeetsRecordCount({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-}) =>
-    queryCollectionCount(
-      HiddenMeetsRecord.collection(parent),
-      queryBuilder: queryBuilder,
-      limit: limit,
-    );
-
-Stream<List<HiddenMeetsRecord>> queryHiddenMeetsRecord({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollection(
-      HiddenMeetsRecord.collection(parent),
-      HiddenMeetsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
-
-Future<List<HiddenMeetsRecord>> queryHiddenMeetsRecordOnce({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollectionOnce(
-      HiddenMeetsRecord.collection(parent),
-      HiddenMeetsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
-
-/// Functions to query MetadataClubsRecords (as a Stream and as a Future).
-Future<int> queryMetadataClubsRecordCount({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-}) =>
-    queryCollectionCount(
-      MetadataClubsRecord.collection,
-      queryBuilder: queryBuilder,
-      limit: limit,
-    );
-
-Stream<List<MetadataClubsRecord>> queryMetadataClubsRecord({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollection(
-      MetadataClubsRecord.collection,
-      MetadataClubsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
-
-Future<List<MetadataClubsRecord>> queryMetadataClubsRecordOnce({
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollectionOnce(
-      MetadataClubsRecord.collection,
-      MetadataClubsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
+  return _mergeMonitoredMeetStreams([byRegion, byMeetZone], project);
+}
 
 Future<int> queryCollectionCount(
   Query collection, {
@@ -582,34 +539,4 @@ Future<FFFirestorePage<T>> queryCollectionPage<T>(
   final dataStream = docSnapshotStream?.map(getDocs);
   final nextPageToken = docSnapshot.docs.isEmpty ? null : docSnapshot.docs.last;
   return FFFirestorePage(data, dataStream, nextPageToken);
-}
-
-// Creates a Firestore document representing the logged in user if it doesn't yet exist
-Future maybeCreateUser(User user) async {
-  final userRecord = UsersRecord.collection.doc(user.uid);
-  final userExists = await userRecord.get().then((u) => u.exists);
-  if (userExists) {
-    currentUserDocument = await UsersRecord.getDocumentOnce(userRecord);
-    return;
-  }
-
-  final userData = createUsersRecordData(
-    email: user.email ??
-        FirebaseAuth.instance.currentUser?.email ??
-        user.providerData.firstOrNull?.email,
-    displayName:
-        user.displayName ?? FirebaseAuth.instance.currentUser?.displayName,
-    photoUrl: user.photoURL,
-    uid: user.uid,
-    phoneNumber: user.phoneNumber,
-    createdTime: getCurrentTimestamp,
-  );
-
-  await userRecord.set(userData);
-  currentUserDocument = UsersRecord.getDocumentFromData(userData, userRecord);
-}
-
-Future updateUserDocument({String? email}) async {
-  await currentUserDocument?.reference
-      .update(createUsersRecordData(email: email));
 }

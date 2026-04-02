@@ -4,6 +4,100 @@ import '/backend/schema/structs/index.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 
+/// True for Pacific granular codes stored in `zone_id` / meets (`Z2`, `Z1N`, …).
+bool isPacificGranularZoneId(String? raw) {
+  if (raw == null) {
+    return false;
+  }
+  return RegExp(r'^Z\d+[NSEW]?$', caseSensitive: false).hasMatch(raw.trim());
+}
+
+/// FlutterFlow often stores dropdown defaults like "Unknown Zone" in `zone_id` /
+/// `zone_display_name`. Treat those as unset for UI and meet filtering.
+bool isSwimmerZonePlaceholder(String? raw) {
+  if (raw == null) {
+    return true;
+  }
+  final t = raw
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '');
+  if (t.isEmpty) {
+    return true;
+  }
+  if (isPacificGranularZoneId(t)) {
+    return false;
+  }
+  if (t.contains('unknown') ||
+      t.contains('unkonw') ||
+      t.contains('unkonwn') ||
+      t.contains('unkown') ||
+      t.contains('uknown') ||
+      t.contains('unknw') ||
+      t.contains('unknwon')) {
+    return true;
+  }
+  // Typos / odd spacing: compare letters only (handles "Unkonwn Zone", etc.)
+  final lettersOnly = t.replaceAll(RegExp(r'[^a-z]'), '');
+  if (lettersOnly.contains('unkonwn') ||
+      lettersOnly.contains('unknown') ||
+      (lettersOnly.contains('unkn') && lettersOnly.contains('zone'))) {
+    return true;
+  }
+  if (t == 'n/a' || t == 'na' || t == 'none' || t == 'tbd' || t == 'null') {
+    return true;
+  }
+  if (t.startsWith('select')) {
+    return true;
+  }
+  return false;
+}
+
+String swimmerZoneStoredOrEmpty(String raw) =>
+    isSwimmerZonePlaceholder(raw) ? '' : raw.trim();
+
+/// When `zone_id` is empty/placeholder but `zone_display_name` has a real label
+/// (e.g. "Zone 2", "Z2 North"), derive canonical Pacific zone for meets.
+String? pacificZoneIdFromLooseLabel(String? raw) {
+  if (raw == null) {
+    return null;
+  }
+  var text = raw.trim();
+  if (text.isEmpty || isSwimmerZonePlaceholder(text)) {
+    return null;
+  }
+  text = text.replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '');
+  final direct =
+      RegExp(r'^Z(\d+)([NSEW])?$', caseSensitive: false).firstMatch(text);
+  if (direct != null) {
+    final n = int.tryParse(direct.group(1)!);
+    if (n == null) {
+      return null;
+    }
+    return 'Z$n${direct.group(2) ?? ''}'.toUpperCase();
+  }
+  final m = RegExp(
+    r'zone\s*(\d+)\s*(north|south|east|west|n|s|e|w)?',
+    caseSensitive: false,
+  ).firstMatch(text);
+  if (m != null) {
+    final num = m.group(1)!;
+    final q = (m.group(2) ?? '').toLowerCase();
+    var suffix = '';
+    if (q == 'north' || q == 'n') {
+      suffix = 'N';
+    } else if (q == 'south' || q == 's') {
+      suffix = 'S';
+    } else if (q == 'east' || q == 'e') {
+      suffix = 'E';
+    } else if (q == 'west' || q == 'w') {
+      suffix = 'W';
+    }
+    return 'Z$num$suffix';
+  }
+  return null;
+}
+
 class FFAppState extends ChangeNotifier {
   static FFAppState _instance = FFAppState._internal();
 
@@ -17,20 +111,45 @@ class FFAppState extends ChangeNotifier {
     _instance = FFAppState._internal();
   }
 
+  static const _kSwimmerName = 'ff_currentSwimmerName';
+  static const _kSwimmerGroup = 'ff_currentSwimmerGroup';
+  static const _kSwimmerZone = 'ff_currentSwimmerZone';
+  static const _kSwimmerZoneDisplay = 'ff_currentSwimmerZoneDisplayName';
+
   Future initializePersistedState() async {
-    prefs = await SharedPreferences.getInstance();
-    _safeInit(() {
-      _currentSwimmerGroup =
-          prefs.getString('ff_currentSwimmerGroup') ?? _currentSwimmerGroup;
+    final prefs = await SharedPreferences.getInstance();
+    _currentSwimmerName = prefs.getString(_kSwimmerName) ?? '';
+    _currentSwimmerGroup = prefs.getString(_kSwimmerGroup) ?? '';
+    _currentSwimmerZone =
+        swimmerZoneStoredOrEmpty(prefs.getString(_kSwimmerZone) ?? '');
+    final rawDisp = prefs.getString(_kSwimmerZoneDisplay) ?? '';
+    _currentSwimmerZoneDisplayName =
+        isSwimmerZonePlaceholder(rawDisp) ? '' : rawDisp.trim();
+    notifyListeners();
+    await persistSwimmerContext();
+  }
+
+  Future<void> persistSwimmerContext() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kSwimmerName, _currentSwimmerName);
+    await prefs.setString(_kSwimmerGroup, _currentSwimmerGroup);
+    await prefs.setString(_kSwimmerZone, _currentSwimmerZone);
+    await prefs.setString(_kSwimmerZoneDisplay, _currentSwimmerZoneDisplayName);
+  }
+
+  /// Call after sign-out so Home / Meets do not show stale data.
+  Future<void> clearSwimmerContext() async {
+    update(() {
+      _currentSwimmerName = '';
+      _currentSwimmerGroup = '';
+      _currentSwimmerZone = '';
+      _currentSwimmerZoneDisplayName = '';
     });
-    _safeInit(() {
-      _currentSwimmerZone =
-          prefs.getString('ff_currentSwimmerZone') ?? _currentSwimmerZone;
-    });
-    _safeInit(() {
-      _currentSwimmerName =
-          prefs.getString('ff_currentSwimmerName') ?? _currentSwimmerName;
-    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kSwimmerName);
+    await prefs.remove(_kSwimmerGroup);
+    await prefs.remove(_kSwimmerZone);
+    await prefs.remove(_kSwimmerZoneDisplay);
   }
 
   void update(VoidCallback callback) {
@@ -38,7 +157,65 @@ class FFAppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  late SharedPreferences prefs;
+  /// Logged-in swimmer display name (header, meets subtitle).
+  String _currentSwimmerName = '';
+  String get currentSwimmerName => _currentSwimmerName;
+  set currentSwimmerName(String value) {
+    _currentSwimmerName = value;
+  }
+
+  /// Club / group id aligned with monitored_meets.host_group.
+  String _currentSwimmerGroup = '';
+  String get currentSwimmerGroup => _currentSwimmerGroup;
+  set currentSwimmerGroup(String value) {
+    _currentSwimmerGroup = value;
+  }
+
+  /// Granular Pacific zone id — must match monitored_meets.meet_zone (e.g. Z1N).
+  String _currentSwimmerZone = '';
+  String get currentSwimmerZone => _currentSwimmerZone;
+  set currentSwimmerZone(String value) {
+    _currentSwimmerZone = value;
+  }
+
+  /// Optional UI label (e.g. "Zone 1 North"); falls back to [currentSwimmerZone].
+  String _currentSwimmerZoneDisplayName = '';
+  String get currentSwimmerZoneDisplayName => _currentSwimmerZoneDisplayName;
+  set currentSwimmerZoneDisplayName(String value) {
+    _currentSwimmerZoneDisplayName = value;
+  }
+
+  /// Human-readable zone for headers (skips "Unknown Zone"–style values).
+  String get currentSwimmerZoneLabel {
+    final z = _currentSwimmerZone.trim();
+    final d = _currentSwimmerZoneDisplayName.trim();
+
+    // Valid Pacific id always wins — never show a garbage dropdown label over Z2.
+    if (isPacificGranularZoneId(z)) {
+      return z.toUpperCase();
+    }
+
+    final dOk = d.isNotEmpty && !isSwimmerZonePlaceholder(d);
+    if (dOk) {
+      return d;
+    }
+    final zOk = z.isNotEmpty && !isSwimmerZonePlaceholder(z);
+    if (zOk) {
+      return z;
+    }
+    return '';
+  }
+
+  /// Zone id used for `monitored_meets` filter (empty if unset / placeholder).
+  String get currentSwimmerZoneForMeets {
+    final z = _currentSwimmerZone.trim();
+    if (z.isNotEmpty && !isSwimmerZonePlaceholder(z)) {
+      return z;
+    }
+    final derived =
+        pacificZoneIdFromLooseLabel(_currentSwimmerZoneDisplayName.trim());
+    return derived ?? '';
+  }
 
   int _galleryHeight = 350;
   int get galleryHeight => _galleryHeight;
@@ -168,44 +345,4 @@ class FFAppState extends ChangeNotifier {
   void insertAtIndexInCookSelected(int index, bool value) {
     cookSelected.insert(index, value);
   }
-
-  /// User's local swimming club
-  String _userLSC = 'Pacific';
-  String get userLSC => _userLSC;
-  set userLSC(String value) {
-    _userLSC = value;
-  }
-
-  String _currentSwimmerGroup = '';
-  String get currentSwimmerGroup => _currentSwimmerGroup;
-  set currentSwimmerGroup(String value) {
-    _currentSwimmerGroup = value;
-    prefs.setString('ff_currentSwimmerGroup', value);
-  }
-
-  String _currentSwimmerZone = '';
-  String get currentSwimmerZone => _currentSwimmerZone;
-  set currentSwimmerZone(String value) {
-    _currentSwimmerZone = value;
-    prefs.setString('ff_currentSwimmerZone', value);
-  }
-
-  String _currentSwimmerName = '';
-  String get currentSwimmerName => _currentSwimmerName;
-  set currentSwimmerName(String value) {
-    _currentSwimmerName = value;
-    prefs.setString('ff_currentSwimmerName', value);
-  }
-}
-
-void _safeInit(Function() initializeField) {
-  try {
-    initializeField();
-  } catch (_) {}
-}
-
-Future _safeInitAsync(Function() initializeField) async {
-  try {
-    await initializeField();
-  } catch (_) {}
 }

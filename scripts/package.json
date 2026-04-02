@@ -1,0 +1,17 @@
+{
+  "name": "swim-agent-firebase-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "health": "node firebase_health_check.mjs",
+    "backfill-meets:inspect": "node backfill_meet_zones.mjs --inspect",
+    "backfill-meets:dry-run": "node backfill_meet_zones.mjs --dry-run --mapping meet_zone_mapping.json",
+    "backfill-meets:apply": "node backfill_meet_zones.mjs --apply --mapping meet_zone_mapping.json",
+    "diagnose": "node diagnose_swimmer_zones.mjs",
+    "hydrate-swimmers:dry-run": "node hydrate_swimmers_zones_admin.mjs --dry-run",
+    "hydrate-swimmers:apply": "node hydrate_swimmers_zones_admin.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

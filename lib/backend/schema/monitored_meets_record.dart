@@ -16,97 +16,160 @@ class MonitoredMeetsRecord extends FirestoreRecord {
     _initializeFields();
   }
 
-  // "provider" field.
-  String? _provider;
-  String get provider => _provider ?? '';
-  bool hasProvider() => _provider != null;
+  /// Must match swimmer.zone_id / FFAppState.currentSwimmerZone (e.g. "Z1N").
+  String? _meetZone;
+  String get meetZone => _meetZone ?? '';
+  bool hasMeetZone() => _meetZone != null;
 
-  // "fastswim_url" field.
-  String? _fastswimUrl;
-  String get fastswimUrl => _fastswimUrl ?? '';
-  bool hasFastswimUrl() => _fastswimUrl != null;
+  /// Host club / group id — compared to currentSwimmerGroup for prioritization.
+  String? _hostGroup;
+  String get hostGroup => _hostGroup ?? '';
+  bool hasHostGroup() => _hostGroup != null;
 
-  // "status" field.
-  String? _status;
-  String get status => _status ?? '';
-  bool hasStatus() => _status != null;
+  String? _title;
+  String get title => _title ?? '';
+  bool hasTitle() => _title != null;
 
-  // "watcher_ids" field.
-  List<DocumentReference>? _watcherIds;
-  List<DocumentReference> get watcherIds => _watcherIds ?? const [];
-  bool hasWatcherIds() => _watcherIds != null;
+  String? _subtitle;
+  String get subtitle => _subtitle ?? '';
+  bool hasSubtitle() => _subtitle != null;
 
-  // "meet_id" field.
-  String? _meetId;
-  String get meetId => _meetId ?? '';
-  bool hasMeetId() => _meetId != null;
+  String? _description;
+  String get description => _description ?? '';
+  bool hasDescription() => _description != null;
 
-  // "location" field.
-  String? _location;
-  String get location => _location ?? '';
-  bool hasLocation() => _location != null;
+  DateTime? _startTime;
+  DateTime? get startTime => _startTime;
+  bool hasStartTime() => _startTime != null;
 
-  // "region_name" field.
-  String? _regionName;
-  String get regionName => _regionName ?? '';
-  bool hasRegionName() => _regionName != null;
-
-  // "notes" field.
-  String? _notes;
-  String get notes => _notes ?? '';
-  bool hasNotes() => _notes != null;
-
-  // "name" field.
-  String? _name;
-  String get name => _name ?? '';
-  bool hasName() => _name != null;
-
-  // "region_id" field.
-  String? _regionId;
-  String get regionId => _regionId ?? '';
-  bool hasRegionId() => _regionId != null;
-
-  // "is_approved" field.
-  bool? _isApproved;
-  bool get isApproved => _isApproved ?? false;
-  bool hasIsApproved() => _isApproved != null;
-
-  // "approved_groups" field.
-  List<String>? _approvedGroups;
-  List<String> get approvedGroups => _approvedGroups ?? const [];
-  bool hasApprovedGroups() => _approvedGroups != null;
-
-  // "start_date" field.
-  DateTime? _startDate;
-  DateTime? get startDate => _startDate;
-  bool hasStartDate() => _startDate != null;
-
-  // "end_date" field.
-  DateTime? _endDate;
-  DateTime? get endDate => _endDate;
-  bool hasEndDate() => _endDate != null;
-
-  // "entry_url" field.
-  String? _entryUrl;
-  String get entryUrl => _entryUrl ?? '';
-  bool hasEntryUrl() => _entryUrl != null;
+  String? _imageUrl;
+  String get imageUrl => _imageUrl ?? '';
+  bool hasImageUrl() => _imageUrl != null;
 
   void _initializeFields() {
-    _provider = snapshotData['provider'] as String?;
-    _fastswimUrl = snapshotData['fastswim_url'] as String?;
-    _status = snapshotData['status'] as String?;
-    _watcherIds = getDataList(snapshotData['watcher_ids']);
-    _meetId = snapshotData['meet_id'] as String?;
-    _location = snapshotData['location'] as String?;
-    _regionName = snapshotData['region_name'] as String?;
-    _notes = snapshotData['notes'] as String?;
-    _name = snapshotData['name'] as String?;
-    _regionId = snapshotData['region_id'] as String?;
-    _isApproved = snapshotData['is_approved'] as bool?;
-    _approvedGroups = getDataList(snapshotData['approved_groups']);
-    _startDate = snapshotData['start_date'] as DateTime?;
-    _endDate = snapshotData['end_date'] as DateTime?;
-    _entryUrl = snapshotData['entry_url'] as String?;
+    _meetZone = _firstNonEmptyString(snapshotData, const [
+      'meet_zone',
+      'meetZone',
+      'MeetZone',
+      'zone_id',
+      'zoneId',
+      'zone',
+      'pacific_zone',
+      'PacificZone',
+    ]);
+    _hostGroup = _firstNonEmptyString(snapshotData, const [
+      'host_group',
+      'hostGroup',
+      'HostGroup',
+      'hosting_club',
+      'hostingClub',
+      'host_club_code',
+      'club_code',
+    ]);
+    _title = _firstNonEmptyString(snapshotData, const [
+      'title',
+      'meet_name',
+      'meetName',
+      'name',
+    ]);
+    _subtitle = _firstNonEmptyString(snapshotData, const [
+      'subtitle',
+      'course',
+      'location_name',
+      'locationName',
+    ]);
+    _description = _firstNonEmptyString(snapshotData, const [
+      'description',
+      'details',
+    ]);
+    _startTime = snapshotData['start_time'] as DateTime? ??
+        snapshotData['startTime'] as DateTime? ??
+        snapshotData['start_date'] as DateTime? ??
+        snapshotData['startDate'] as DateTime? ??
+        snapshotData['meet_date'] as DateTime? ??
+        snapshotData['meetDate'] as DateTime?;
+    _imageUrl = _firstNonEmptyString(snapshotData, const [
+      'image_url',
+      'imageUrl',
+      'photo_url',
+    ]);
+
+    _meetZone ??= _deriveMeetZoneFromRegion(snapshotData);
+  }
+
+  /// When `meet_zone` is absent, infer from USA Swimming–style region fields.
+  static String? _deriveMeetZoneFromRegion(Map<String, dynamic> data) {
+    final rid = data['region_id'];
+    if (rid != null) {
+      final s = rid.toString().trim();
+      if (RegExp(r'^Z\d+[NSEW]?$', caseSensitive: false).hasMatch(s)) {
+        return s.toUpperCase();
+      }
+      final pc = RegExp(
+        r'^PC[-_]?Z(\d+)([NSEW])?$',
+        caseSensitive: false,
+      ).firstMatch(s);
+      if (pc != null) {
+        final n = int.tryParse(pc.group(1)!);
+        if (n != null) {
+          final suf = pc.group(2) ?? '';
+          return 'Z$n$suf'.toUpperCase();
+        }
+      }
+    }
+
+    final rn = data['region_name'];
+    if (rn == null) {
+      return null;
+    }
+    final text = rn.toString().trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    final m = RegExp(
+      r'zone\s*(\d+)\s*(north|south|east|west|n|s|e|w)?',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (m == null) {
+      return null;
+    }
+    final num = m.group(1)!;
+    final q = (m.group(2) ?? '').toLowerCase();
+    var suffix = '';
+    if (q == 'north' || q == 'n') {
+      suffix = 'N';
+    } else if (q == 'south' || q == 's') {
+      suffix = 'S';
+    } else if (q == 'east' || q == 'e') {
+      suffix = 'E';
+    } else if (q == 'west' || q == 'w') {
+      suffix = 'W';
+    }
+    return 'Z$num$suffix';
+  }
+
+  static String? _firstNonEmptyString(
+    Map<String, dynamic> data,
+    List<String> keys,
+  ) {
+    for (final k in keys) {
+      final v = data[k];
+      if (v == null) {
+        continue;
+      }
+      if (v is String) {
+        final t = v.trim();
+        if (t.isNotEmpty) {
+          return t;
+        }
+      } else {
+        final t = v.toString().trim();
+        if (t.isNotEmpty && t != 'null') {
+          return t;
+        }
+      }
+    }
+    return null;
   }
 
   static CollectionReference get collection =>
@@ -144,35 +207,23 @@ class MonitoredMeetsRecord extends FirestoreRecord {
 }
 
 Map<String, dynamic> createMonitoredMeetsRecordData({
-  String? provider,
-  String? fastswimUrl,
-  String? status,
-  String? meetId,
-  String? location,
-  String? regionName,
-  String? notes,
-  String? name,
-  String? regionId,
-  bool? isApproved,
-  DateTime? startDate,
-  DateTime? endDate,
-  String? entryUrl,
+  String? meetZone,
+  String? hostGroup,
+  String? title,
+  String? subtitle,
+  String? description,
+  DateTime? startTime,
+  String? imageUrl,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
-      'provider': provider,
-      'fastswim_url': fastswimUrl,
-      'status': status,
-      'meet_id': meetId,
-      'location': location,
-      'region_name': regionName,
-      'notes': notes,
-      'name': name,
-      'region_id': regionId,
-      'is_approved': isApproved,
-      'start_date': startDate,
-      'end_date': endDate,
-      'entry_url': entryUrl,
+      'meet_zone': meetZone,
+      'host_group': hostGroup,
+      'title': title,
+      'subtitle': subtitle,
+      'description': description,
+      'start_time': startTime,
+      'image_url': imageUrl,
     }.withoutNulls,
   );
 
@@ -185,41 +236,24 @@ class MonitoredMeetsRecordDocumentEquality
 
   @override
   bool equals(MonitoredMeetsRecord? e1, MonitoredMeetsRecord? e2) {
-    const listEquality = ListEquality();
-    return e1?.provider == e2?.provider &&
-        e1?.fastswimUrl == e2?.fastswimUrl &&
-        e1?.status == e2?.status &&
-        listEquality.equals(e1?.watcherIds, e2?.watcherIds) &&
-        e1?.meetId == e2?.meetId &&
-        e1?.location == e2?.location &&
-        e1?.regionName == e2?.regionName &&
-        e1?.notes == e2?.notes &&
-        e1?.name == e2?.name &&
-        e1?.regionId == e2?.regionId &&
-        e1?.isApproved == e2?.isApproved &&
-        listEquality.equals(e1?.approvedGroups, e2?.approvedGroups) &&
-        e1?.startDate == e2?.startDate &&
-        e1?.endDate == e2?.endDate &&
-        e1?.entryUrl == e2?.entryUrl;
+    return e1?.meetZone == e2?.meetZone &&
+        e1?.hostGroup == e2?.hostGroup &&
+        e1?.title == e2?.title &&
+        e1?.subtitle == e2?.subtitle &&
+        e1?.description == e2?.description &&
+        e1?.startTime == e2?.startTime &&
+        e1?.imageUrl == e2?.imageUrl;
   }
 
   @override
   int hash(MonitoredMeetsRecord? e) => const ListEquality().hash([
-        e?.provider,
-        e?.fastswimUrl,
-        e?.status,
-        e?.watcherIds,
-        e?.meetId,
-        e?.location,
-        e?.regionName,
-        e?.notes,
-        e?.name,
-        e?.regionId,
-        e?.isApproved,
-        e?.approvedGroups,
-        e?.startDate,
-        e?.endDate,
-        e?.entryUrl
+        e?.meetZone,
+        e?.hostGroup,
+        e?.title,
+        e?.subtitle,
+        e?.description,
+        e?.startTime,
+        e?.imageUrl,
       ]);
 
   @override

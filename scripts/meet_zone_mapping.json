@@ -1,0 +1,14 @@
+{
+  "_comment": "Copy to meet_zone_mapping.json and edit. Used by: node backfill_meet_zones.mjs --apply --mapping meet_zone_mapping.json",
+  "defaultZone": "",
+  "defaultHostGroup": "",
+  "byRegionId": {
+    "1": "Z1",
+    "2": "Z2",
+    "11": "Z2"
+  },
+  "byRegionNameContains": [
+    { "contains": "Zone 1 North", "zone": "Z1N" },
+    { "contains": "Zone 2", "zone": "Z2" }
+  ]
+}
