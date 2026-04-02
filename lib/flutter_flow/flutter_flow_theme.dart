@@ -2,8 +2,33 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const _kFlutterFlowThemeModeKey = 'flutter_flow_theme_mode';
 
 abstract class FlutterFlowTheme {
+  static ThemeMode themeMode = ThemeMode.system;
+
+  static Future<void> initialize() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_kFlutterFlowThemeModeKey);
+    if (stored == null) {
+      return;
+    }
+    for (final mode in ThemeMode.values) {
+      if (mode.name == stored) {
+        themeMode = mode;
+        return;
+      }
+    }
+  }
+
+  static Future<void> saveThemeMode(ThemeMode mode) async {
+    themeMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kFlutterFlowThemeModeKey, mode.name);
+  }
+
   static FlutterFlowTheme of(BuildContext context) {
     return LightModeTheme();
   }

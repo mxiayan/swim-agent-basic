@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -377,10 +378,9 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                           clubSelectorMetadataClubsRecordList
                                               .map((e) => e.clubCode)
                                               .toList()),
-                                      optionLabels:
+                                      optionLabels: List<String>.from(
                                           clubSelectorMetadataClubsRecordList
-                                              .map((e) => e.clubName)
-                                              .toList(),
+                                              .map((e) => e.clubName)),
                                       onChanged: (val) => safeSetState(
                                           () => _model.clubSelectorValue = val),
                                       textStyle: FlutterFlowTheme.of(context)
@@ -783,6 +783,11 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                               return;
                             }
 
+                            currentUser = user;
+                            final appNotifier = GoRouter.of(context).appState;
+                            appNotifier.updateNotifyOnAuthChange(true);
+                            appNotifier.update(user);
+
                             await SwimmersRecord.collection
                                 .doc()
                                 .set(createSwimmersRecordData(
@@ -792,11 +797,22 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                   ownerId: currentUserReference,
                                   isActive: true,
                                 ));
+                            if (!context.mounted) {
+                              return;
+                            }
+                            try {
+                              await refreshSwimmerAppState();
+                            } catch (e, st) {
+                              debugPrint(
+                                  'refreshSwimmerAppState after sign-up: $e\n$st');
+                            }
+                            if (!context.mounted) {
+                              return;
+                            }
                             if (Navigator.of(context).canPop()) {
                               context.pop();
                             }
-                            context.pushNamedAuth(
-                                HomeWidget.routeName, context.mounted);
+                            context.go('/');
                           },
                           text: 'Sign Up',
                           options: FFButtonOptions(

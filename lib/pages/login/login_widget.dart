@@ -1,12 +1,10 @@
 import '/auth/firebase_auth/auth_util.dart';
-import '/backend/backend.dart';
+import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import 'dart:ui';
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:collection/collection.dart';
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -662,23 +660,29 @@ class _LoginWidgetState extends State<LoginWidget> {
                                     return;
                                   }
 
-                                  _model.mySwimmerDoc =
-                                      await querySwimmersRecordOnce(
-                                    queryBuilder: (swimmersRecord) =>
-                                        swimmersRecord.where(
-                                      'owner_id',
-                                      isEqualTo: currentUserReference,
-                                    ),
-                                    singleRecord: true,
-                                  ).then((s) => s.firstOrNull);
-                                  FFAppState().currentSwimmerZone =
-                                      _model.mySwimmerDoc!.lscName;
-                                  FFAppState().currentSwimmerName =
-                                      _model.mySwimmerDoc!.name;
-                                  safeSetState(() {});
+                                  // prepareAuthEvent() set notifyOnAuthChange false; sync immediately so
+                                  // AppStateNotifier.loggedIn and GoRouter refresh before navigation.
+                                  // Global currentUser must match Firebase or auth_util stays "logged out".
+                                  currentUser = user;
+                                  final appNotifier =
+                                      GoRouter.of(context).appState;
+                                  appNotifier.updateNotifyOnAuthChange(true);
+                                  appNotifier.update(user);
 
-                                  context.goNamedAuth(
-                                      HomeWidget.routeName, context.mounted);
+                                  try {
+                                    await refreshSwimmerAppState();
+                                  } catch (e, st) {
+                                    debugPrint(
+                                        'refreshSwimmerAppState after login: $e\n$st');
+                                  }
+
+                                  if (!context.mounted) {
+                                    return;
+                                  }
+
+                                  // Root `/` shows Home when logged in; global [redirect] in nav
+                                  // sends `/login` → `/` so we are never stuck on the login route.
+                                  context.go('/');
 
                                   safeSetState(() {});
                                 },

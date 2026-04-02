@@ -7,11 +7,11 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'auth/firebase_auth/firebase_user_provider.dart';
 import 'backend/firebase/firebase_config.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import 'flutter_flow/flutter_flow_util.dart';
-import 'flutter_flow/nav/nav.dart';
 import 'index.dart';
 
 void main() async {
@@ -77,9 +77,23 @@ class _MyAppState extends State<MyApp> {
     _appStateNotifier = AppStateNotifier.instance;
     _router = createRouter(_appStateNotifier);
 
+    // GoRouter treats `AppStateNotifier.user == null` as still loading and keeps
+    // the splash visible forever. Sync Firebase auth into the notifier.
+    // Also set global [currentUser] — auth_util / loggedIn use it; it was only
+    // updated by the unused swimAgentBasicFirebaseUserStream before.
+    final initialAuthUser =
+        SwimAgentBasicFirebaseUser.fromFirebaseUser(
+            FirebaseAuth.instance.currentUser);
+    currentUser = initialAuthUser;
+    _appStateNotifier.update(initialAuthUser);
+
     _authSwimmerSub =
-        FirebaseAuth.instance.authStateChanges().listen((user) async {
-      if (user != null) {
+        FirebaseAuth.instance.authStateChanges().listen((firebaseUser) async {
+      final authUser =
+          SwimAgentBasicFirebaseUser.fromFirebaseUser(firebaseUser);
+      currentUser = authUser;
+      _appStateNotifier.update(authUser);
+      if (firebaseUser != null) {
         // Let ID token / Firestore auth propagate before first swimmer read.
         await Future<void>.delayed(const Duration(milliseconds: 150));
         await refreshSwimmerAppState();

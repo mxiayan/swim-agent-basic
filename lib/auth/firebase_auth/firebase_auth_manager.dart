@@ -329,3 +329,31 @@ class FirebaseAuthManager extends AuthManager
     }
   }
 }
+
+Future<void> maybeCreateUser(User user) async {
+  final docRef = UsersRecord.collection.doc(user.uid);
+  if ((await docRef.get()).exists) {
+    return;
+  }
+  await docRef.set(
+    createUsersRecordData(
+      email: user.email,
+      displayName: user.displayName,
+      photoUrl: user.photoURL,
+      uid: user.uid,
+      createdTime: getCurrentTimestamp,
+      phoneNumber: user.phoneNumber,
+    ),
+  );
+}
+
+Future<void> updateUserDocument({String? email}) async {
+  final u = FirebaseAuth.instance.currentUser;
+  if (u == null) {
+    return;
+  }
+  await UsersRecord.collection.doc(u.uid).set(
+        createUsersRecordData(email: email),
+        SetOptions(merge: true),
+      );
+}

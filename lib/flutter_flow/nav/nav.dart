@@ -9,7 +9,6 @@ import '/backend/schema/structs/index.dart';
 
 import '/auth/base_auth_user_provider.dart';
 
-import '/main.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/lat_lng.dart';
 import '/flutter_flow/place.dart';
@@ -58,17 +57,19 @@ class AppStateNotifier extends ChangeNotifier {
   void updateNotifyOnAuthChange(bool notify) => notifyOnAuthChange = notify;
 
   void update(BaseAuthUser newUser) {
+    final prevLoggedIn = user?.loggedIn ?? false;
     final shouldUpdate =
         user?.uid == null || newUser.uid == null || user?.uid != newUser.uid;
     initialUser ??= newUser;
     user = newUser;
-    // Refresh the app on auth change unless explicitly marked otherwise.
-    // No need to update unless the user has changed.
-    if (notifyOnAuthChange && shouldUpdate) {
+    final nowLoggedIn = user?.loggedIn ?? false;
+    final authTransition = prevLoggedIn != nowLoggedIn;
+
+    // Always refresh the router on login/logout even if [notifyOnAuthChange] is
+    // false (e.g. after [prepareAuthEvent]); otherwise GoRouter never rebuilds.
+    if (authTransition || (notifyOnAuthChange && shouldUpdate)) {
       notifyListeners();
     }
-    // Once again mark the notifier as needing to update on auth change
-    // (in order to catch sign in / out events).
     updateNotifyOnAuthChange(true);
   }
 
@@ -83,6 +84,29 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
       debugLogDiagnostics: true,
       refreshListenable: appStateNotifier,
       navigatorKey: appNavigatorKey,
+      /// Auth routes (`/login`, `/signUp`) always build login/signup widgets. After
+      /// sign-in, [AppStateNotifier] updates but the URL can stay on `/login`, so
+      /// the user never leaves that page. Redirect logged-in users to `/`.
+      redirect: (context, state) {
+        if (appStateNotifier.loading) {
+          return null;
+        }
+        final path = state.uri.path;
+        if (appStateNotifier.loggedIn) {
+          if (path == '/login' ||
+              path == '/signUp' ||
+              path.endsWith('/login') ||
+              path.endsWith('/signUp')) {
+            return '/';
+          }
+        } else {
+          if (path == '/home' ||
+              path.endsWith('/home')) {
+            return '/login';
+          }
+        }
+        return null;
+      },
       errorBuilder: (context, state) =>
           appStateNotifier.loggedIn ? HomeWidget() : LoginWidget(),
       routes: [

@@ -28,10 +28,26 @@ class MetadataClubsRecord extends FirestoreRecord {
   String get zoneDisplayName => _zoneDisplayName ?? '';
   bool hasZoneDisplayName() => _zoneDisplayName != null;
 
+  /// LSC label (sign-up); falls back to zone display name.
+  String? _lscName;
+  String get lscName => (_lscName ?? _zoneDisplayName ?? '').trim();
+
+  /// Club code for dropdowns; falls back to document id.
+  String? _clubCode;
+  String get clubCode => (_clubCode ?? reference.id).trim();
+
+  /// Display name for club picker; falls back to [name].
+  String? _clubName;
+  String get clubName => (_clubName ?? _name ?? '').trim();
+
   void _initializeFields() {
     _name = snapshotData['name'] as String?;
     _zoneId = _asString(snapshotData['zone_id']);
     _zoneDisplayName = _asString(snapshotData['zone_display_name']);
+    _lscName = _asString(snapshotData['lsc_name']);
+    _clubCode = _asString(
+        snapshotData['club_code'] ?? snapshotData['code'] ?? snapshotData['club_id']);
+    _clubName = _asString(snapshotData['club_name']);
   }
 
   static String? _asString(dynamic v) {
@@ -162,12 +178,21 @@ class MetadataClubsRecordDocumentEquality
   bool equals(MetadataClubsRecord? e1, MetadataClubsRecord? e2) {
     return e1?.name == e2?.name &&
         e1?.zoneId == e2?.zoneId &&
-        e1?.zoneDisplayName == e2?.zoneDisplayName;
+        e1?.zoneDisplayName == e2?.zoneDisplayName &&
+        e1?.lscName == e2?.lscName &&
+        e1?.clubCode == e2?.clubCode &&
+        e1?.clubName == e2?.clubName;
   }
 
   @override
-  int hash(MetadataClubsRecord? e) =>
-      const ListEquality().hash([e?.name, e?.zoneId, e?.zoneDisplayName]);
+  int hash(MetadataClubsRecord? e) => const ListEquality().hash([
+        e?.name,
+        e?.zoneId,
+        e?.zoneDisplayName,
+        e?.lscName,
+        e?.clubCode,
+        e?.clubName,
+      ]);
 
   @override
   bool isValidKey(Object? o) => o is MetadataClubsRecord;

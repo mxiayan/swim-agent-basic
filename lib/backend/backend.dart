@@ -9,6 +9,8 @@ import 'schema/teams_record.dart';
 import 'schema/activities_record.dart';
 import 'schema/groups_record.dart';
 import 'schema/swimmer_record.dart';
+import 'schema/swimmers_record.dart';
+import 'schema/users_record.dart';
 import 'schema/metadata_clubs_record.dart';
 import 'schema/monitored_meets_record.dart';
 
@@ -23,6 +25,8 @@ export 'schema/teams_record.dart';
 export 'schema/activities_record.dart';
 export 'schema/groups_record.dart';
 export 'schema/swimmer_record.dart';
+export 'schema/swimmers_record.dart';
+export 'schema/users_record.dart';
 export 'schema/metadata_clubs_record.dart';
 export 'schema/monitored_meets_record.dart';
 
@@ -169,6 +173,43 @@ Future<List<SwimmerRecord>> querySwimmerRecordOnce({
     queryCollectionOnce(
       SwimmerRecord.collection,
       SwimmerRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Legacy / auth `swimmers` collection (plural).
+Future<int> querySwimmersRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      SwimmersRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<SwimmersRecord>> querySwimmersRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      SwimmersRecord.collection,
+      SwimmersRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<SwimmersRecord>> querySwimmersRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      SwimmersRecord.collection,
+      SwimmersRecord.fromSnapshot,
       queryBuilder: queryBuilder,
       limit: limit,
       singleRecord: singleRecord,
