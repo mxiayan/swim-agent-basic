@@ -22,6 +22,76 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   /// False until [refreshSwimmerAppState] finishes so we do not flash email / prefs.
   bool _meetBannerReady = false;
   bool _showAllZones = false;
+  bool _showAgeGroup = true;
+  bool _showSenior = true;
+  bool _showOther = true;
+
+  static const List<String> _otherClassTokens = <String>[
+    'observed',
+    'approved',
+    'invitational',
+    'hs',
+    'masters',
+  ];
+
+  bool _containsClassToken(MonitoredMeetsRecord meet, String token) {
+    final t = token.trim().toLowerCase();
+    if (t.isEmpty) {
+      return false;
+    }
+    for (final raw in meet.meetClasses) {
+      final c = raw.trim().toLowerCase();
+      if (c.isEmpty) {
+        continue;
+      }
+      if (c == t || c.contains(t)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isOtherClass(MonitoredMeetsRecord meet) {
+    for (final t in _otherClassTokens) {
+      if (_containsClassToken(meet, t)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _matchesClassFilters(MonitoredMeetsRecord meet) {
+    if (meet.meetClasses.isEmpty) {
+      return false;
+    }
+    final ageMatch = _showAgeGroup && _containsClassToken(meet, 'age group');
+    final seniorMatch = _showSenior && _containsClassToken(meet, 'senior');
+    final otherMatch = _showOther && _isOtherClass(meet);
+    return ageMatch || seniorMatch || otherMatch;
+  }
+
+  void _setClassFilter({
+    required bool nextValue,
+    required bool currentValue,
+    required void Function(bool v) apply,
+  }) {
+    if (nextValue == currentValue) {
+      return;
+    }
+    final activeCount = (_showAgeGroup ? 1 : 0) +
+        (_showSenior ? 1 : 0) +
+        (_showOther ? 1 : 0);
+    if (!nextValue && activeCount <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Keep at least one class filter active.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    safeSetState(() => apply(nextValue));
+  }
 
   @override
   void setState(VoidCallback callback) {
@@ -360,6 +430,57 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                   ),
                 ),
               ),
+              Padding(
+                padding: EdgeInsetsDirectional.fromSTEB(30.0, 10.0, 30.0, 0.0),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      FilterChip(
+                        label: const Text('Age Group'),
+                        selected: _showAgeGroup,
+                        onSelected: (v) => _setClassFilter(
+                          nextValue: v,
+                          currentValue: _showAgeGroup,
+                          apply: (x) => _showAgeGroup = x,
+                        ),
+                        selectedColor: FlutterFlowTheme.of(context)
+                            .primary
+                            .withValues(alpha: 0.2),
+                        checkmarkColor: FlutterFlowTheme.of(context).primary,
+                      ),
+                      SizedBox(width: 8.0),
+                      FilterChip(
+                        label: const Text('Senior'),
+                        selected: _showSenior,
+                        onSelected: (v) => _setClassFilter(
+                          nextValue: v,
+                          currentValue: _showSenior,
+                          apply: (x) => _showSenior = x,
+                        ),
+                        selectedColor: FlutterFlowTheme.of(context)
+                            .primary
+                            .withValues(alpha: 0.2),
+                        checkmarkColor: FlutterFlowTheme.of(context).primary,
+                      ),
+                      SizedBox(width: 8.0),
+                      FilterChip(
+                        label: const Text('Other'),
+                        selected: _showOther,
+                        onSelected: (v) => _setClassFilter(
+                          nextValue: v,
+                          currentValue: _showOther,
+                          apply: (x) => _showOther = x,
+                        ),
+                        selectedColor: FlutterFlowTheme.of(context)
+                            .primary
+                            .withValues(alpha: 0.2),
+                        checkmarkColor: FlutterFlowTheme.of(context).primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -385,8 +506,10 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                   ),
                 );
               }
-              List<MonitoredMeetsRecord> columnMonitoredMeetsRecordList =
-                  snapshot.data!;
+              List<MonitoredMeetsRecord> columnMonitoredMeetsRecordList = snapshot
+                  .data!
+                  .where(_matchesClassFilters)
+                  .toList();
 
               return SingleChildScrollView(
                 child: Column(

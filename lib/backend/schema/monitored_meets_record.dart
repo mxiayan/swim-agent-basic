@@ -51,6 +51,9 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String? _imageUrl;
   String get imageUrl => _imageUrl ?? '';
   bool hasImageUrl() => _imageUrl != null;
+  List<String>? _meetClasses;
+  List<String> get meetClasses => _meetClasses ?? const <String>[];
+  bool hasMeetClasses() => _meetClasses != null && _meetClasses!.isNotEmpty;
   List<String>? _eligibleZones;
   List<String> get eligibleZones => _eligibleZones ?? const <String>[];
   bool hasEligibleZones() => _eligibleZones != null && _eligibleZones!.isNotEmpty;
@@ -162,6 +165,10 @@ class MonitoredMeetsRecord extends FirestoreRecord {
       'entryUrl',
       'EntryUrl',
     ]);
+    _meetClasses = _stringListFromFirestore(
+      snapshotData,
+      const ['meet_classes', 'meetClasses', 'MeetClasses'],
+    );
     _eligibleZones = _stringListFromFirestore(
       snapshotData,
       const ['eligible_zones', 'eligibleZones', 'EligibleZones'],
@@ -342,6 +349,7 @@ class MonitoredMeetsRecordDocumentEquality
         e1?.status == e2?.status &&
         e1?.meetSheetUrl == e2?.meetSheetUrl &&
         e1?.startTime == e2?.startTime &&
+        const ListEquality<String>().equals(e1?.meetClasses, e2?.meetClasses) &&
         e1?.imageUrl == e2?.imageUrl &&
         const ListEquality<String>().equals(e1?.eligibleZones, e2?.eligibleZones);
   }
@@ -356,6 +364,7 @@ class MonitoredMeetsRecordDocumentEquality
         e?.status,
         e?.meetSheetUrl,
         e?.startTime,
+        const ListEquality<String>().hash(e?.meetClasses ?? const <String>[]),
         e?.imageUrl,
         const ListEquality<String>().hash(e?.eligibleZones ?? const <String>[]),
       ]);
