@@ -449,16 +449,26 @@ List<MonitoredMeetsRecord> _filterSortMeetsForZone(
   required String wantCanonical,
   required String priorityHostGroup,
   bool showAll = false,
+  /// When true (e.g. Past tab), include ended meets back to [widePastWindowDays].
+  bool widePastWindow = false,
+  int widePastWindowDays = 400,
 }) {
   DateTime dayStart(DateTime d) => DateTime(d.year, d.month, d.day);
   final today = dayStart(DateTime.now());
   // Backward-compatible fallback for older docs that still miss `end_*`.
   final recentPastCutoff = today.subtract(const Duration(days: 3));
+  final farPastCutoff = today.subtract(Duration(days: widePastWindowDays));
 
   /// Prefer end-date visibility: keep in list while meet is ongoing.
   bool isVisibleByDates(MonitoredMeetsRecord m) {
     final start = m.startTime;
     final end = m.endTime;
+    if (widePastWindow) {
+      final lastDay = end != null
+          ? dayStart(end)
+          : (start != null ? dayStart(start) : today);
+      return !lastDay.isBefore(farPastCutoff);
+    }
     if (end != null) {
       return !dayStart(end).isBefore(today);
     }
@@ -600,6 +610,7 @@ Stream<List<MonitoredMeetsRecord>> streamMonitoredMeetsForSwimmer({
   required String priorityHostGroup,
   int meetFetchLimit = 500,
   bool showAll = false,
+  bool widePastWindow = false,
 }) {
   if (!showAll && zoneId.isEmpty) {
     return Stream.value(<MonitoredMeetsRecord>[]);
@@ -613,6 +624,7 @@ Stream<List<MonitoredMeetsRecord>> streamMonitoredMeetsForSwimmer({
         wantCanonical: want,
         priorityHostGroup: hostWant,
         showAll: showAll,
+        widePastWindow: widePastWindow,
       );
 
   if (showAll) {

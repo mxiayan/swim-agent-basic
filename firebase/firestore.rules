@@ -48,6 +48,19 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if signedIn() && request.auth.uid == userId;
       allow write: if signedIn() && request.auth.uid == userId;
+
+      // Per-user subcollections (paths: users/{uid}/…)
+      match /entered_meets/{document} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /hidden_meets/{document} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /meet_preferences/{document} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
     }
 
     // Club → zone lookup (read-only from client; use Admin or Console for writes)
@@ -117,20 +130,6 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
       allow delete: if false;
-    }
-
-    match /users/{parent}/entered_meets/{document} {
-      allow create: if request.auth.uid == parent;
-      allow read: if request.auth.uid == parent;
-      allow write: if request.auth.uid == parent;
-      allow delete: if request.auth.uid == parent;
-    }
-
-    match /users/{parent}/hidden_meets/{document} {
-      allow create: if request.auth.uid == parent;
-      allow read: if request.auth.uid == parent;
-      allow write: if request.auth.uid == parent;
-      allow delete: if request.auth.uid == parent;
     }
 
     match /metadata_clubs/{document} {

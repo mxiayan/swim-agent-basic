@@ -37,6 +37,9 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String? _description;
   String get description => _description ?? '';
   bool hasDescription() => _description != null;
+  String? _apiNotes;
+  String get apiNotes => _apiNotes ?? '';
+  bool hasApiNotes() => _apiNotes != null;
   String? _status;
   String get status => _status ?? '';
   bool hasStatus() => _status != null;
@@ -138,6 +141,11 @@ class MonitoredMeetsRecord extends FirestoreRecord {
     _description = _firstNonEmptyString(snapshotData, const [
       'description',
       'details',
+    ]);
+    _apiNotes = _firstNonEmptyString(snapshotData, const [
+      'api_notes',
+      'apiNotes',
+      'ApiNotes',
     ]);
     _status = _firstNonEmptyString(snapshotData, const [
       'status',

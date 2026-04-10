@@ -168,6 +168,11 @@ class FFAppState extends ChangeNotifier {
   static const _kSwimmerGroup = 'ff_currentSwimmerGroup';
   static const _kSwimmerZone = 'ff_currentSwimmerZone';
   static const _kSwimmerZoneDisplay = 'ff_currentSwimmerZoneDisplayName';
+  static const _kMeetFilterAge = 'ff_meetFilterShowAgeGroup';
+  static const _kMeetFilterSenior = 'ff_meetFilterShowSenior';
+  static const _kMeetFilterOther = 'ff_meetFilterShowOther';
+  static const _kMeetTimeSegment = 'ff_meetTimeSegment';
+  static const _kMeetsShowAllZones = 'ff_meetsShowAllZones';
 
   Future initializePersistedState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -178,8 +183,15 @@ class FFAppState extends ChangeNotifier {
     final rawDisp = prefs.getString(_kSwimmerZoneDisplay) ?? '';
     _currentSwimmerZoneDisplayName =
         isSwimmerZonePlaceholder(rawDisp) ? '' : rawDisp.trim();
+    _meetFilterShowAgeGroup = prefs.getBool(_kMeetFilterAge) ?? true;
+    _meetFilterShowSenior = prefs.getBool(_kMeetFilterSenior) ?? true;
+    _meetFilterShowOther = prefs.getBool(_kMeetFilterOther) ?? true;
+    final rawSeg = prefs.getInt(_kMeetTimeSegment) ?? 1;
+    _meetTimeSegment = rawSeg < 0 ? 0 : (rawSeg > 2 ? 2 : rawSeg);
+    _meetsShowAllZones = prefs.getBool(_kMeetsShowAllZones) ?? false;
     notifyListeners();
     await persistSwimmerContext();
+    await persistMeetUiState();
   }
 
   Future<void> persistSwimmerContext() async {
@@ -188,6 +200,15 @@ class FFAppState extends ChangeNotifier {
     await prefs.setString(_kSwimmerGroup, _currentSwimmerGroup);
     await prefs.setString(_kSwimmerZone, _currentSwimmerZone);
     await prefs.setString(_kSwimmerZoneDisplay, _currentSwimmerZoneDisplayName);
+  }
+
+  Future<void> persistMeetUiState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kMeetFilterAge, _meetFilterShowAgeGroup);
+    await prefs.setBool(_kMeetFilterSenior, _meetFilterShowSenior);
+    await prefs.setBool(_kMeetFilterOther, _meetFilterShowOther);
+    await prefs.setInt(_kMeetTimeSegment, _meetTimeSegment);
+    await prefs.setBool(_kMeetsShowAllZones, _meetsShowAllZones);
   }
 
   /// Call after sign-out so Home / Meets do not show stale data.
@@ -280,6 +301,45 @@ class FFAppState extends ChangeNotifier {
   int get activeTab => _activeTab;
   set activeTab(int value) {
     _activeTab = value;
+  }
+
+  /// Meets tab: class filter chips (persisted).
+  bool _meetFilterShowAgeGroup = true;
+  bool get meetFilterShowAgeGroup => _meetFilterShowAgeGroup;
+  set meetFilterShowAgeGroup(bool value) {
+    _meetFilterShowAgeGroup = value;
+  }
+
+  bool _meetFilterShowSenior = true;
+  bool get meetFilterShowSenior => _meetFilterShowSenior;
+  set meetFilterShowSenior(bool value) {
+    _meetFilterShowSenior = value;
+  }
+
+  bool _meetFilterShowOther = true;
+  bool get meetFilterShowOther => _meetFilterShowOther;
+  set meetFilterShowOther(bool value) {
+    _meetFilterShowOther = value;
+  }
+
+  /// 0 = Past, 1 = Live, 2 = Upcoming (persisted).
+  int _meetTimeSegment = 1;
+  int get meetTimeSegment => _meetTimeSegment;
+  set meetTimeSegment(int value) {
+    if (value < 0) {
+      _meetTimeSegment = 0;
+    } else if (value > 2) {
+      _meetTimeSegment = 2;
+    } else {
+      _meetTimeSegment = value;
+    }
+  }
+
+  /// Meets tab: show all zones (persisted).
+  bool _meetsShowAllZones = false;
+  bool get meetsShowAllZones => _meetsShowAllZones;
+  set meetsShowAllZones(bool value) {
+    _meetsShowAllZones = value;
   }
 
   LatLng? _location = LatLng(43.552847, 7.017369);

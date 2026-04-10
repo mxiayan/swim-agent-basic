@@ -126,58 +126,71 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
               .toList();
 
           return Container(
-            decoration: BoxDecoration(
-              color: FlutterFlowTheme.of(context).primaryBackground,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
             ),
-            child: activities.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24.0),
-                      child: Image.asset(
-                        'assets/images/vineyard.png',
-                        fit: BoxFit.contain,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: activities.isEmpty
+                  ? KeyedSubtree(
+                      key: const ValueKey<String>('m01_schedule_empty'),
+                      child: Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Image.asset(
+                            'assets/images/vineyard.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    )
+                  : KeyedSubtree(
+                      key: ValueKey<String>(
+                        'm01_schedule_${activities.length}',
+                      ),
+                      child: ListView.separated(
+                        padding: EdgeInsets.only(top: 2.0, bottom: 24.0),
+                        itemCount: activities.length,
+                        separatorBuilder: (_, __) => SizedBox(height: 8.0),
+                        itemBuilder: (context, activitiesIndex) {
+                          final activitiesItem = activities[activitiesIndex];
+                          return Padding(
+                            padding: EdgeInsetsDirectional.fromSTEB(
+                                20.0, 0.0, 20.0, 0.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: activitiesItem.activityType == 'meet'
+                                      ? FlutterFlowTheme.of(context).alternate
+                                      : Color(0x00000000),
+                                ),
+                              ),
+                              child: Padding(
+                                padding: EdgeInsetsDirectional.fromSTEB(
+                                    20.0, 0.0, 30.0, 0.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    M01ActivityCardWidget(
+                                      key: Key(
+                                          'Keyqfs_${activitiesIndex}_of_${activities.length}'),
+                                      complete: false,
+                                      index: 1,
+                                      activityItem: activitiesItem,
+                                    ).animateOnPageLoad(animationsMap[
+                                        'm01ActivityCardOnPageLoadAnimation']!),
+                                  ],
+                                ),
+                              ),
+                            ).animateOnPageLoad(
+                                animationsMap['containerOnPageLoadAnimation']!),
+                          );
+                        },
                       ),
                     ),
-                  )
-                : ListView.separated(
-                    padding: EdgeInsets.only(top: 2.0, bottom: 24.0),
-                    itemCount: activities.length,
-                    separatorBuilder: (_, __) => SizedBox(height: 8.0),
-                    itemBuilder: (context, activitiesIndex) {
-                      final activitiesItem = activities[activitiesIndex];
-                      return Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            30.0, 0.0, 30.0, 0.0),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: activitiesItem.activityType == 'meet'
-                                  ? FlutterFlowTheme.of(context).alternate
-                                  : Color(0x00000000),
-                            ),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                                20.0, 0.0, 30.0, 0.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                M01ActivityCardWidget(
-                                  key: Key(
-                                      'Keyqfs_${activitiesIndex}_of_${activities.length}'),
-                                  complete: false,
-                                  index: 1,
-                                  activityItem: activitiesItem,
-                                ).animateOnPageLoad(animationsMap[
-                                    'm01ActivityCardOnPageLoadAnimation']!),
-                              ],
-                            ),
-                          ),
-                        ).animateOnPageLoad(
-                            animationsMap['containerOnPageLoadAnimation']!),
-                      );
-                    },
-                  ),
+            ),
           );
         },
       ),

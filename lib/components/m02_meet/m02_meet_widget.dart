@@ -1,4 +1,7 @@
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/backend/meet_preferences_api.dart';
+import '/backend/schema/meet_preferences_record.dart';
 import '/components/m02_meet_entered/m02_meet_entered_widget.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -19,12 +22,7 @@ class M02MeetWidget extends StatefulWidget {
 class _M02MeetWidgetState extends State<M02MeetWidget> {
   late M02MeetModel _model;
 
-  /// False until [refreshSwimmerAppState] finishes so we do not flash email / prefs.
   bool _meetBannerReady = false;
-  bool _showAllZones = false;
-  bool _showAgeGroup = true;
-  bool _showSenior = true;
-  bool _showOther = true;
 
   static const List<String> _otherClassTokens = <String>[
     'observed',
@@ -61,26 +59,51 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   }
 
   bool _matchesClassFilters(MonitoredMeetsRecord meet) {
+    final app = FFAppState();
     if (meet.meetClasses.isEmpty) {
       return false;
     }
-    final ageMatch = _showAgeGroup && _containsClassToken(meet, 'age group');
-    final seniorMatch = _showSenior && _containsClassToken(meet, 'senior');
-    final otherMatch = _showOther && _isOtherClass(meet);
+    final ageMatch =
+        app.meetFilterShowAgeGroup && _containsClassToken(meet, 'age group');
+    final seniorMatch =
+        app.meetFilterShowSenior && _containsClassToken(meet, 'senior');
+    final otherMatch = app.meetFilterShowOther && _isOtherClass(meet);
     return ageMatch || seniorMatch || otherMatch;
+  }
+
+  static DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// 0 Past, 1 Live, 2 Upcoming.
+  bool _meetMatchesTimeSegment(MonitoredMeetsRecord m, int seg) {
+    final today = _dayOnly(DateTime.now());
+    final s = m.startTime;
+    final e = m.endTime ?? m.startTime;
+    if (s == null && e == null) {
+      return seg == 1;
+    }
+    final sd = s != null ? _dayOnly(s) : _dayOnly(e!);
+    final ed = e != null ? _dayOnly(e) : sd;
+    if (seg == 2) {
+      return sd.isAfter(today);
+    }
+    if (seg == 0) {
+      return ed.isBefore(today);
+    }
+    return !sd.isAfter(today) && !ed.isBefore(today);
   }
 
   void _setClassFilter({
     required bool nextValue,
     required bool currentValue,
-    required void Function(bool v) apply,
+    required void Function(FFAppState app, bool v) apply,
   }) {
     if (nextValue == currentValue) {
       return;
     }
-    final activeCount = (_showAgeGroup ? 1 : 0) +
-        (_showSenior ? 1 : 0) +
-        (_showOther ? 1 : 0);
+    final app = FFAppState();
+    final activeCount = (app.meetFilterShowAgeGroup ? 1 : 0) +
+        (app.meetFilterShowSenior ? 1 : 0) +
+        (app.meetFilterShowOther ? 1 : 0);
     if (!nextValue && activeCount <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -90,49 +113,112 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       );
       return;
     }
-    safeSetState(() => apply(nextValue));
+    app.update(() => apply(app, nextValue));
+    app.persistMeetUiState();
   }
 
-  Widget _buildClassFilterChip({
+  static const Color _chipUnselectedFg = Color(0xFF475569);
+  static const Color _chipBorder = Color(0xFFE2E8F0);
+  static const Color _pillSelectedBg = Color(0xFF0F172A);
+
+  Widget _buildTimeSegmentTab(
+    BuildContext context, {
+    required String label,
+    required int segment,
+    required int selected,
+    required VoidCallback onTap,
+  }) {
+    final primary = FlutterFlowTheme.of(context).primary;
+    final isSel = selected == segment;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        splashColor: primary.withValues(alpha: 0.08),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.sora(
+                  fontSize: isSel ? 16.0 : 15.0,
+                  fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                  color: isSel ? const Color(0xFF0F172A) : Colors.grey,
+                  letterSpacing: 0.0,
+                ),
+              ),
+              const SizedBox(height: 8.0),
+              Container(
+                height: 3.0,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: isSel ? primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(1.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryPill({
+    required BuildContext context,
     required String label,
     required bool selected,
     required ValueChanged<bool> onSelected,
   }) {
-    return FilterChip(
-      label: Text(
-        label,
-        style: FlutterFlowTheme.of(context).labelSmall.override(
-              font: GoogleFonts.sora(
-                fontWeight: FontWeight.w500,
-                fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
-              ),
-              color: selected ? Colors.black : const Color(0xFF616161),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onSelected(!selected),
+        borderRadius: BorderRadius.circular(999),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+          decoration: BoxDecoration(
+            color: selected ? _pillSelectedBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            border: selected
+                ? null
+                : Border.all(color: _chipBorder, width: 1.0),
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.sora(
+              fontWeight: FontWeight.w600,
               fontSize: 11.0,
               letterSpacing: 0.0,
-              fontWeight: FontWeight.w500,
-              fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
+              color: selected ? Colors.white : _chipUnselectedFg,
             ),
+          ),
+        ),
       ),
-      avatar: Icon(
-        selected ? Icons.check_rounded : Icons.close_rounded,
-        size: 14.0,
-        color: selected ? Colors.blue : const Color(0xFF9E9E9E),
-      ),
-      selected: selected,
-      onSelected: onSelected,
-      showCheckmark: false,
-      side: BorderSide(
-        color: selected ? Colors.blue : const Color(0xFFE0E0E0),
-        width: 1.0,
-      ),
-      backgroundColor: Colors.white,
-      selectedColor: const Color(0xFFE3F2FD),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10.0),
-      ),
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
+  }
+
+  /// Meets tab context line: zone-scoped vs all Pacific zones.
+  String _meetsContextMessage(FFAppState app) {
+    if (app.meetsShowAllZones) {
+      return 'Showing Meets of All Pacific Swimming Zones';
+    }
+    final z = app.currentSwimmerZoneLabel.trim();
+    if (z.isNotEmpty) {
+      return 'Showing Meets of $z';
+    }
+    final meetsId = app.currentSwimmerZoneForMeets.trim();
+    if (meetsId.isNotEmpty) {
+      final human = pacificSwimmingBannerFallbackForGranularZone(meetsId);
+      if (human.isNotEmpty) {
+        return 'Showing Meets of $human';
+      }
+      return 'Showing Meets of $meetsId';
+    }
+    return 'Showing Meets of Pacific Swimming';
   }
 
   @override
@@ -166,466 +252,279 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
 
   @override
   Widget build(BuildContext context) {
-    context.watch<FFAppState>();
+    final app = context.watch<FFAppState>();
 
-    return Column(
-      mainAxisSize: MainAxisSize.max,
-      children: [
+    return ColoredBox(
+      color: const Color(0xFFF1F5F9),
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        children: [
         Padding(
-          padding: EdgeInsets.all(16.0),
+          padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 0.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(30.0, 0.0, 30.0, 0.0),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: FlutterFlowTheme.of(context).secondaryBackground,
-                    border: Border.all(
-                      color: Color(0xFFE0E3E7),
-                      width: 1.0,
-                    ),
-                  ),
-                  child: Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(12.0, 10.0, 12.0, 10.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 32.0,
-                                height: 32.0,
-                                decoration: BoxDecoration(
-                                  color: Color(0x1A4B39EF),
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                                alignment: AlignmentDirectional(0.0, 0.0),
-                                child: Icon(
-                                  Icons.info_outlined,
-                                  color: FlutterFlowTheme.of(context).primary,
-                                  size: 16.0,
-                                ),
-                              ),
-                              SizedBox(width: 10.0),
-                              Expanded(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Personalized View',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodySmall
-                                          .override(
-                                            font: GoogleFonts.sora(
-                                              fontWeight: FontWeight.bold,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodySmall
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .primaryText,
-                                            fontSize: 12.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.bold,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodySmall
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                    if (!_meetBannerReady)
-                                      Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        children: [
-                                          SizedBox(
-                                            width: 16.0,
-                                            height: 16.0,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.0,
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                            ),
-                                          ),
-                                          SizedBox(width: 10.0),
-                                          Expanded(
-                                            child: Text(
-                                              'Loading swimmer profile…',
-                                              style: FlutterFlowTheme.of(
-                                                      context)
-                                                  .bodySmall
-                                                  .override(
-                                                    font: GoogleFonts.sora(
-                                                      fontWeight:
-                                                          FontWeight.normal,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodySmall
-                                                              .fontStyle,
-                                                    ),
-                                                    color:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .secondaryText,
-                                                    fontSize: 12.0,
-                                                    letterSpacing: 0.0,
-                                                    fontWeight:
-                                                        FontWeight.normal,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodySmall
-                                                            .fontStyle,
-                                                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    else
-                                      Text.rich(
-                                        TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text: 'Showing meets for ',
-                                              style: FlutterFlowTheme.of(
-                                                      context)
-                                                  .bodySmall
-                                                  .override(
-                                                    font: GoogleFonts.sora(
-                                                      fontWeight:
-                                                          FontWeight.normal,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodySmall
-                                                              .fontStyle,
-                                                    ),
-                                                    color:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .secondaryText,
-                                                    fontSize: 12.0,
-                                                    letterSpacing: 0.0,
-                                                    fontWeight:
-                                                        FontWeight.normal,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodySmall
-                                                            .fontStyle,
-                                                  ),
-                                            ),
-                                            TextSpan(
-                                              text: FFAppState()
-                                                      .currentSwimmerName
-                                                      .trim()
-                                                      .isNotEmpty
-                                                  ? FFAppState()
-                                                      .currentSwimmerName
-                                                  : 'your swimmer',
-                                              style: FlutterFlowTheme.of(
-                                                      context)
-                                                  .bodyMedium
-                                                  .override(
-                                                    font: GoogleFonts.sora(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontStyle,
-                                                    ),
-                                                    fontSize: 12.0,
-                                                    letterSpacing: 0.0,
-                                                    fontWeight: FontWeight.w600,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontStyle,
-                                                  ),
-                                            ),
-                                            TextSpan(
-                                              text: ' in ',
-                                              style: FlutterFlowTheme.of(
-                                                      context)
-                                                  .bodyMedium
-                                                  .override(
-                                                    font: GoogleFonts.sora(
-                                                      fontWeight:
-                                                          FontWeight.normal,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontStyle,
-                                                    ),
-                                                    fontSize: 12.0,
-                                                    letterSpacing: 0.0,
-                                                    fontWeight:
-                                                        FontWeight.normal,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontStyle,
-                                                  ),
-                                            ),
-                                            TextSpan(
-                                              text: () {
-                                                final label = FFAppState()
-                                                    .currentSwimmerZoneLabel
-                                                    .trim();
-                                                if (label.isNotEmpty) {
-                                                  return label;
-                                                }
-                                                final z = FFAppState()
-                                                    .currentSwimmerZoneForMeets
-                                                    .trim();
-                                                if (z.isNotEmpty) {
-                                                  return z;
-                                                }
-                                                return 'your zone';
-                                              }(),
-                                              style: FlutterFlowTheme.of(
-                                                      context)
-                                                  .bodyMedium
-                                                  .override(
-                                                    font: GoogleFonts.sora(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontStyle,
-                                                    ),
-                                                    fontSize: 12.0,
-                                                    letterSpacing: 0.0,
-                                                    fontWeight: FontWeight.w600,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontStyle,
-                                                  ),
-                                            ),
-                                          ],
-                                        ),
-                                        maxLines: 4,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    if (_showAllZones)
-                                      Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                            0.0, 4.0, 0.0, 0.0),
-                                        child: Text(
-                                          'Showing meets from all swim zones',
-                                          style: FlutterFlowTheme.of(context)
-                                              .bodySmall
-                                              .override(
-                                                font: GoogleFonts.sora(
-                                                  fontWeight: FontWeight.normal,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodySmall
-                                                          .fontStyle,
-                                                ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryText,
-                                                fontSize: 11.0,
-                                                letterSpacing: 0.0,
-                                                fontWeight: FontWeight.normal,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodySmall
-                                                        .fontStyle,
-                                              ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(width: 12.0),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: FlutterFlowTheme.of(context)
-                                .secondaryBackground,
-                            border: Border.all(
-                              color: Color(0xFFE0E3E7),
-                              width: 1.0,
-                            ),
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          padding: EdgeInsetsDirectional.fromSTEB(
-                              6.0, 4.0, 6.0, 4.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Switch.adaptive(
-                                value: _showAllZones,
-                                onChanged: (v) {
-                                  safeSetState(() => _showAllZones = v);
-                                },
-                              ),
-                              Text(
-                                'All zones',
-                                style: FlutterFlowTheme.of(context)
-                                    .labelSmall
-                                    .override(
-                                      font: GoogleFonts.sora(
-                                        fontWeight: FontWeight.w600,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelSmall
-                                            .fontStyle,
-                                      ),
-                                      letterSpacing: 0.0,
-                                      fontWeight: FontWeight.w600,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelSmall
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              Container(
+                constraints: const BoxConstraints(minHeight: 40.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12.0,
+                  vertical: 8.0,
                 ),
-              ),
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 10.0, 16.0, 0.0),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minWidth: constraints.maxWidth,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(20.0),
+                ),
+                alignment: Alignment.center,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      size: 16.0,
+                      color: Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 8.0),
+                    Expanded(
+                      child: !_meetBannerReady
+                          ? SizedBox(
+                              height: 18.0,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.0,
+                                    color: FlutterFlowTheme.of(context)
+                                        .primary,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Text(
+                              _meetsContextMessage(app),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.sora(
+                                fontSize: 13.0,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
+                                letterSpacing: 0.0,
+                                color: const Color(0xFF64748B),
+                              ),
+                            ),
+                    ),
+                    Tooltip(
+                      message: app.meetsShowAllZones
+                          ? 'Zone filter off (all zones)'
+                          : 'Show all zones',
+                      child: IconButton(
+                        iconSize: 18.0,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.all(4.0),
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildClassFilterChip(
-                              label: 'Age Group',
-                              selected: _showAgeGroup,
-                              onSelected: (v) {
-                                _setClassFilter(
-                                  nextValue: v,
-                                  currentValue: _showAgeGroup,
-                                  apply: (x) => _showAgeGroup = x,
-                                );
-                              },
-                            ),
-                            SizedBox(width: 8.0),
-                            _buildClassFilterChip(
-                              label: 'Senior',
-                              selected: _showSenior,
-                              onSelected: (v) {
-                                _setClassFilter(
-                                  nextValue: v,
-                                  currentValue: _showSenior,
-                                  apply: (x) => _showSenior = x,
-                                );
-                              },
-                            ),
-                            SizedBox(width: 8.0),
-                            _buildClassFilterChip(
-                              label: 'Other',
-                              selected: _showOther,
-                              onSelected: (v) {
-                                _setClassFilter(
-                                  nextValue: v,
-                                  currentValue: _showOther,
-                                  apply: (x) => _showOther = x,
-                                );
-                              },
-                            ),
-                          ],
+                        style: IconButton.styleFrom(
+                          foregroundColor: app.meetsShowAllZones
+                              ? FlutterFlowTheme.of(context).primary
+                              : const Color(0xFF64748B),
+                        ),
+                        onPressed: () {
+                          app.update(
+                            () =>
+                                app.meetsShowAllZones = !app.meetsShowAllZones,
+                          );
+                          app.persistMeetUiState();
+                        },
+                        icon: Icon(
+                          app.meetsShowAllZones
+                              ? Icons.public_rounded
+                              : Icons.location_on_outlined,
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(height: 14.0),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTimeSegmentTab(
+                    context,
+                    label: 'Past',
+                    segment: 0,
+                    selected: app.meetTimeSegment,
+                    onTap: () {
+                      app.update(() => app.meetTimeSegment = 0);
+                      app.persistMeetUiState();
+                    },
+                  ),
+                  _buildTimeSegmentTab(
+                    context,
+                    label: 'Live',
+                    segment: 1,
+                    selected: app.meetTimeSegment,
+                    onTap: () {
+                      app.update(() => app.meetTimeSegment = 1);
+                      app.persistMeetUiState();
+                    },
+                  ),
+                  _buildTimeSegmentTab(
+                    context,
+                    label: 'Upcoming',
+                    segment: 2,
+                    selected: app.meetTimeSegment,
+                    onTap: () {
+                      app.update(() => app.meetTimeSegment = 2);
+                      app.persistMeetUiState();
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12.0),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: constraints.maxWidth,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildCategoryPill(
+                            context: context,
+                            label: 'Age Group',
+                            selected: app.meetFilterShowAgeGroup,
+                            onSelected: (v) {
+                              _setClassFilter(
+                                nextValue: v,
+                                currentValue: app.meetFilterShowAgeGroup,
+                                apply: (a, x) => a.meetFilterShowAgeGroup = x,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8.0),
+                          _buildCategoryPill(
+                            context: context,
+                            label: 'Senior',
+                            selected: app.meetFilterShowSenior,
+                            onSelected: (v) {
+                              _setClassFilter(
+                                nextValue: v,
+                                currentValue: app.meetFilterShowSenior,
+                                apply: (a, x) => a.meetFilterShowSenior = x,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8.0),
+                          _buildCategoryPill(
+                            context: context,
+                            label: 'Other',
+                            selected: app.meetFilterShowOther,
+                            onSelected: (v) {
+                              _setClassFilter(
+                                nextValue: v,
+                                currentValue: app.meetFilterShowOther,
+                                apply: (a, x) => a.meetFilterShowOther = x,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
         ),
         Expanded(
-          child: StreamBuilder<List<MonitoredMeetsRecord>>(
-            stream: streamMonitoredMeetsForSwimmer(
-              zoneId: FFAppState().currentSwimmerZoneForMeets,
-              priorityHostGroup: FFAppState().currentSwimmerGroup,
-              showAll: _showAllZones,
-            ),
-            builder: (context, snapshot) {
-              // Customize what your widget looks like when it's loading.
-              if (!snapshot.hasData) {
-                return Center(
-                  child: SizedBox(
-                    width: 50.0,
-                    height: 50.0,
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        FlutterFlowTheme.of(context).primary,
+          child: StreamBuilder<Map<String, MeetPreferencesRecord>>(
+            stream: streamMeetPreferencesMap(currentUserUid),
+            builder: (context, prefSnap) {
+              final prefs = prefSnap.data ?? <String, MeetPreferencesRecord>{};
+              return StreamBuilder<List<MonitoredMeetsRecord>>(
+                stream: streamMonitoredMeetsForSwimmer(
+                  zoneId: app.currentSwimmerZoneForMeets,
+                  priorityHostGroup: app.currentSwimmerGroup,
+                  showAll: app.meetsShowAllZones,
+                  widePastWindow: app.meetTimeSegment == 0,
+                ),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return Center(
+                      child: SizedBox(
+                        width: 50.0,
+                        height: 50.0,
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            FlutterFlowTheme.of(context).primary,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              }
-              final columnMonitoredMeetsRecordList = snapshot.data!
-                  .where(_matchesClassFilters)
-                  .toList();
+                    );
+                  }
+                  final list = snapshot.data!
+                      .where(_matchesClassFilters)
+                      .where(
+                          (m) => _meetMatchesTimeSegment(m, app.meetTimeSegment))
+                      .toList();
 
-              if (columnMonitoredMeetsRecordList.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: Text(
-                      'No meets match your filters.',
-                      textAlign: TextAlign.center,
-                      style: FlutterFlowTheme.of(context).bodyMedium,
-                    ),
-                  ),
-                );
-              }
-
-              return ListView.builder(
-                padding: EdgeInsets.only(bottom: 24.0),
-                itemCount: columnMonitoredMeetsRecordList.length,
-                itemBuilder: (context, columnIndex) {
-                  final columnMonitoredMeetsRecord =
-                      columnMonitoredMeetsRecordList[columnIndex];
-                  return M02MeetEnteredWidget(
-                    key: Key(
-                        'Key3vc_${columnIndex}_of_${columnMonitoredMeetsRecordList.length}'),
-                    meetDoc: columnMonitoredMeetsRecord,
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: list.isEmpty
+                        ? KeyedSubtree(
+                            key: const ValueKey<String>('meets_empty'),
+                            child: Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24.0),
+                                child: Text(
+                                  'No meets match your filters.',
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      FlutterFlowTheme.of(context).bodyMedium,
+                                ),
+                              ),
+                            ),
+                          )
+                        : KeyedSubtree(
+                            key: ValueKey<String>(
+                              'meets_${app.meetTimeSegment}_${list.length}_${prefs.length}',
+                            ),
+                            child: ListView.builder(
+                              padding: EdgeInsets.only(bottom: 24.0, top: 8.0),
+                              itemCount: list.length,
+                              itemBuilder: (context, columnIndex) {
+                                final meet = list[columnIndex];
+                                final pref = prefs[meet.reference.id];
+                                return M02MeetEnteredWidget(
+                                  key: Key(
+                                    'meet_${meet.reference.id}_$columnIndex',
+                                  ),
+                                  meetDoc: meet,
+                                  preference: pref,
+                                );
+                              },
+                            ),
+                          ),
                   );
                 },
               );
             },
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }
