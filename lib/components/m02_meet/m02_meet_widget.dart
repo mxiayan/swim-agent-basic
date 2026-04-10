@@ -1,5 +1,6 @@
 import '/backend/backend.dart';
 import '/components/m02_meet_entered/m02_meet_entered_widget.dart';
+import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -21,6 +22,9 @@ class M02MeetWidget extends StatefulWidget {
 class _M02MeetWidgetState extends State<M02MeetWidget> {
   late M02MeetModel _model;
 
+  /// False until [refreshSwimmerAppState] finishes so we do not flash email / prefs.
+  bool _meetBannerReady = false;
+
   @override
   void setState(VoidCallback callback) {
     super.setState(callback);
@@ -32,7 +36,15 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     super.initState();
     _model = createModel(context, () => M02MeetModel());
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await refreshSwimmerAppState();
+      } finally {
+        if (mounted) {
+          safeSetState(() => _meetBannerReady = true);
+        }
+      }
+    });
   }
 
   @override
@@ -115,111 +127,161 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                             .fontStyle,
                                       ),
                                 ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Text(
-                                      'Showing meets for ',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodySmall
-                                          .override(
-                                            font: GoogleFonts.sora(
+                                if (!_meetBannerReady)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.max,
+                                    children: [
+                                      SizedBox(
+                                        width: 16.0,
+                                        height: 16.0,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.0,
+                                          color: FlutterFlowTheme.of(context)
+                                              .primary,
+                                        ),
+                                      ),
+                                      SizedBox(width: 10.0),
+                                      Expanded(
+                                        child: Text(
+                                          'Loading swimmer profile…',
+                                          style: FlutterFlowTheme.of(context)
+                                              .bodySmall
+                                              .override(
+                                                font: GoogleFonts.sora(
+                                                  fontWeight: FontWeight.normal,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .bodySmall
+                                                          .fontStyle,
+                                                ),
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .secondaryText,
+                                                fontSize: 12.0,
+                                                letterSpacing: 0.0,
+                                                fontWeight: FontWeight.normal,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodySmall
+                                                        .fontStyle,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  Row(
+                                    mainAxisSize: MainAxisSize.max,
+                                    children: [
+                                      Text(
+                                        'Showing meets for ',
+                                        style: FlutterFlowTheme.of(context)
+                                            .bodySmall
+                                            .override(
+                                              font: GoogleFonts.sora(
+                                                fontWeight: FontWeight.normal,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodySmall
+                                                        .fontStyle,
+                                              ),
+                                              color:
+                                                  FlutterFlowTheme.of(context)
+                                                      .secondaryText,
+                                              fontSize: 12.0,
+                                              letterSpacing: 0.0,
                                               fontWeight: FontWeight.normal,
                                               fontStyle:
                                                   FlutterFlowTheme.of(context)
                                                       .bodySmall
                                                       .fontStyle,
                                             ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryText,
-                                            fontSize: 12.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.normal,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodySmall
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                    Text(
-                                      FFAppState().currentSwimmerName,
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.sora(
+                                      ),
+                                      Text(
+                                        FFAppState()
+                                                .currentSwimmerName
+                                                .trim()
+                                                .isNotEmpty
+                                            ? FFAppState().currentSwimmerName
+                                            : 'your swimmer',
+                                        style: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .override(
+                                              font: GoogleFonts.sora(
+                                                fontWeight: FontWeight.w600,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontStyle,
+                                              ),
+                                              fontSize: 12.0,
+                                              letterSpacing: 0.0,
                                               fontWeight: FontWeight.w600,
                                               fontStyle:
                                                   FlutterFlowTheme.of(context)
                                                       .bodyMedium
                                                       .fontStyle,
                                             ),
-                                            fontSize: 12.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.w600,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                    Text(
-                                      ' in ',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.sora(
+                                      ),
+                                      Text(
+                                        ' in ',
+                                        style: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .override(
+                                              font: GoogleFonts.sora(
+                                                fontWeight: FontWeight.normal,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontStyle,
+                                              ),
+                                              fontSize: 12.0,
+                                              letterSpacing: 0.0,
                                               fontWeight: FontWeight.normal,
                                               fontStyle:
                                                   FlutterFlowTheme.of(context)
                                                       .bodyMedium
                                                       .fontStyle,
                                             ),
-                                            fontSize: 12.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.normal,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                    Text(
-                                      (String id) {
-                                        return (id == 'PC_Z1N')
-                                            ? 'Zone 1 North'
-                                            : (id == 'PC_Z1S')
-                                                ? 'Zone 1 South'
-                                                : (id == 'PC_Z2')
-                                                    ? 'Zone 2'
-                                                    : (id == 'PC_Z3')
-                                                        ? 'Zone 3'
-                                                        : (id == 'PC_Z4')
-                                                            ? 'Zone 4'
-                                                            : (id == 'SN_ALL')
-                                                                ? 'Sierra Nevada'
-                                                                : 'Unknown Zone';
-                                      }(FFAppState().currentSwimmerZone),
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.sora(
+                                      ),
+                                      Text(
+                                        () {
+                                          final label = FFAppState()
+                                              .currentSwimmerZoneLabel
+                                              .trim();
+                                          if (label.isNotEmpty) {
+                                            return label;
+                                          }
+                                          final z = FFAppState()
+                                              .currentSwimmerZoneForMeets
+                                              .trim();
+                                          if (z.isNotEmpty) {
+                                            return z;
+                                          }
+                                          return 'your zone';
+                                        }(),
+                                        style: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .override(
+                                              font: GoogleFonts.sora(
+                                                fontWeight: FontWeight.w600,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontStyle,
+                                              ),
+                                              fontSize: 12.0,
+                                              letterSpacing: 0.0,
                                               fontWeight: FontWeight.w600,
                                               fontStyle:
                                                   FlutterFlowTheme.of(context)
                                                       .bodyMedium
                                                       .fontStyle,
                                             ),
-                                            fontSize: 12.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.w600,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ],
-                                ),
+                                      ),
+                                    ],
+                                  ),
                               ],
                             ),
                           ].divide(SizedBox(width: 10.0)),
@@ -249,17 +311,9 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         ),
         Expanded(
           child: StreamBuilder<List<MonitoredMeetsRecord>>(
-            stream: queryMonitoredMeetsRecord(
-              queryBuilder: (monitoredMeetsRecord) => monitoredMeetsRecord
-                  .where(
-                    'region_id',
-                    isEqualTo: FFAppState().currentSwimmerZone,
-                  )
-                  .where(
-                    'end_date',
-                    isGreaterThanOrEqualTo: getCurrentTimestamp,
-                  )
-                  .orderBy('end_date'),
+            stream: streamMonitoredMeetsForSwimmer(
+              zoneId: FFAppState().currentSwimmerZoneForMeets,
+              priorityHostGroup: FFAppState().currentSwimmerGroup,
             ),
             builder: (context, snapshot) {
               // Customize what your widget looks like when it's loading.

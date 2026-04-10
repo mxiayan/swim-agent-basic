@@ -94,8 +94,9 @@ class _MyAppState extends State<MyApp> {
       currentUser = authUser;
       _appStateNotifier.update(authUser);
       if (firebaseUser != null) {
-        // Let ID token / Firestore auth propagate before first swimmer read.
-        await Future<void>.delayed(const Duration(milliseconds: 150));
+        try {
+          await firebaseUser.getIdToken();
+        } catch (_) {}
         await refreshSwimmerAppState();
       } else {
         await FFAppState().clearSwimmerContext();

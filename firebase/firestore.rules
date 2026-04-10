@@ -29,8 +29,15 @@ service cloud.firestore {
     }
 
     // --- Swim Agent: swimmer profile + zone hydration merge ---
+    // Flutter resolves profile with swimmers/{authUid}.get() first; that doc often
+    // does NOT exist (auto-id docs + owner_id → users/{uid}). Rules must allow
+    // "missing doc" reads or the client gets permission-denied and never runs
+    // the owner_id query (Meets banner stays empty).
     match /swimmers/{swimmerId} {
-      allow read: if swimmerOwnerMatches();
+      allow read: if signedIn() && (
+        !resource.exists
+        || swimmerOwnerMatches()
+      );
       allow create: if swimmerCreateOwnerMatches();
       allow update: if swimmerOwnerMatches()
         && request.resource.data.owner_id == resource.data.owner_id;

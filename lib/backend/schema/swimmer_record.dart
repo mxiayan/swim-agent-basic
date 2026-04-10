@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:collection/collection.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '/backend/schema/util/firestore_util.dart';
 import '/backend/schema/util/schema_util.dart';
@@ -76,13 +77,113 @@ class SwimmerRecord extends FirestoreRecord {
     return v.toString();
   }
 
+  /// Parses common Firestore field shapes (avoids `as String?` throws on numbers).
+  static String? swimDisplayNameFromMap(Map<String, dynamic> m) {
+    final direct = _firstNonEmptyString(m, const [
+      'name',
+      'Name',
+      'display_name',
+      'displayName',
+      'DisplayName',
+      'swimmer_name',
+      'swimmerName',
+      'full_name',
+      'fullName',
+      'legal_name',
+      'legalName',
+    ]);
+    if (direct != null) {
+      return direct;
+    }
+    final fn =
+        _stringFromFirestore(m['first_name'] ?? m['firstName'])?.trim() ?? '';
+    final ln =
+        _stringFromFirestore(m['last_name'] ?? m['lastName'])?.trim() ?? '';
+    if (fn.isNotEmpty && ln.isNotEmpty) {
+      return '$fn $ln';
+    }
+    if (fn.isNotEmpty) {
+      return fn;
+    }
+    if (ln.isNotEmpty) {
+      return ln;
+    }
+    return null;
+  }
+
+  /// Loads a display name from `swimmers` when [getForAuthUid] returns null or the
+  /// doc has no readable name fields (extra queries, same owner patterns as
+  /// [documentRefForAuthUid]).
+  static Future<String?> fetchDisplayNameFromFirestoreForUid(String uid) async {
+    final col = collection;
+
+    String? fromSnap(DocumentSnapshot s) {
+      if (!s.exists) {
+        return null;
+      }
+      final raw = s.data();
+      if (raw is! Map<String, dynamic>) {
+        return null;
+      }
+      return swimDisplayNameFromMap(mapFromFirestore(raw));
+    }
+
+    Future<String?> fromQuery(Query q) async {
+      final qs = await _tryQuery(q.limit(10));
+      if (qs == null) {
+        return null;
+      }
+      for (final doc in qs.docs) {
+        final n = fromSnap(doc);
+        if (n != null && n.isNotEmpty) {
+          return n;
+        }
+      }
+      return null;
+    }
+
+    final byId = await _tryGetDoc(col.doc(uid));
+    if (byId != null) {
+      final n0 = fromSnap(byId);
+      if (n0 != null && n0.isNotEmpty) {
+        return n0;
+      }
+    }
+
+    final n1 = await fromQuery(col.where('owner_id', isEqualTo: uid));
+    if (n1 != null) {
+      return n1;
+    }
+
+    final n2 = await fromQuery(col.where('uid', isEqualTo: uid));
+    if (n2 != null) {
+      return n2;
+    }
+
+    final n2b = await fromQuery(col.where('user_id', isEqualTo: uid));
+    if (n2b != null) {
+      return n2b;
+    }
+
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    final n3 = await fromQuery(col.where('owner_id', isEqualTo: userRef));
+    if (n3 != null) {
+      return n3;
+    }
+
+    final userRefAlt = FirebaseFirestore.instance.collection('Users').doc(uid);
+    final n4 = await fromQuery(col.where('owner_id', isEqualTo: userRefAlt));
+    return n4;
+  }
+
   void _initializeFields() {
-    _displayName =
-        snapshotData['name'] as String? ?? snapshotData['display_name'] as String?;
+    final parsed = swimDisplayNameFromMap(snapshotData);
+    _displayName = (parsed != null && parsed.isNotEmpty) ? parsed : null;
     _groupId = snapshotData['club_code'] as String? ??
         snapshotData['lsc_club_code'] as String? ??
         snapshotData['usa_swimming_club_code'] as String? ??
-        snapshotData['group_id'] as String?;
+        snapshotData['group_id'] as String? ??
+        snapshotData['group'] as String?;
     _zoneId = _firstNonEmptyString(snapshotData, const [
       'zone_id',
       'ZoneId',
@@ -110,31 +211,64 @@ class SwimmerRecord extends FirestoreRecord {
   static CollectionReference get collection =>
       FirebaseFirestore.instance.collection('swimmers');
 
+  static Future<DocumentSnapshot?> _tryGetDoc(DocumentReference ref) async {
+    try {
+      return await ref.get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  static Future<QuerySnapshot?> _tryQuery(Query query) async {
+    try {
+      return await query.get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
   /// Resolves the profile: `swimmers/{uid}`, `owner_id` as string uid, or
   /// **FlutterFlow** `owner_id` as [DocumentReference] to `users/{uid}`.
   static Future<DocumentReference?> documentRefForAuthUid(String uid) async {
     final col = collection;
-    final byId = await col.doc(uid).get();
-    if (byId.exists) {
+    final byId = await _tryGetDoc(col.doc(uid));
+    if (byId != null && byId.exists) {
       return byId.reference;
     }
-    final qString =
-        await col.where('owner_id', isEqualTo: uid).limit(1).get();
-    if (qString.docs.isNotEmpty) {
+    final qString = await _tryQuery(
+        col.where('owner_id', isEqualTo: uid).limit(1));
+    if (qString != null && qString.docs.isNotEmpty) {
       return qString.docs.first.reference;
     }
 
+    final qUidField = await _tryQuery(col.where('uid', isEqualTo: uid).limit(1));
+    if (qUidField != null && qUidField.docs.isNotEmpty) {
+      return qUidField.docs.first.reference;
+    }
+
+    final qUserId =
+        await _tryQuery(col.where('user_id', isEqualTo: uid).limit(1));
+    if (qUserId != null && qUserId.docs.isNotEmpty) {
+      return qUserId.docs.first.reference;
+    }
+
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-    final qRef =
-        await col.where('owner_id', isEqualTo: userRef).limit(1).get();
-    if (qRef.docs.isNotEmpty) {
+    final qRef = await _tryQuery(
+        col.where('owner_id', isEqualTo: userRef).limit(1));
+    if (qRef != null && qRef.docs.isNotEmpty) {
       return qRef.docs.first.reference;
     }
 
     final userRefAlt = FirebaseFirestore.instance.collection('Users').doc(uid);
-    final qRefAlt =
-        await col.where('owner_id', isEqualTo: userRefAlt).limit(1).get();
-    if (qRefAlt.docs.isNotEmpty) {
+    final qRefAlt = await _tryQuery(
+        col.where('owner_id', isEqualTo: userRefAlt).limit(1));
+    if (qRefAlt != null && qRefAlt.docs.isNotEmpty) {
       return qRefAlt.docs.first.reference;
     }
 
