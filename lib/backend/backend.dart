@@ -446,16 +446,42 @@ List<MonitoredMeetsRecord> _filterSortMeetsForZone(
 
   final hostWant = priorityHostGroup.trim();
   filtered.sort((a, b) {
-    final aHome =
-        hostWant.isNotEmpty && a.hostGroup.trim() == hostWant ? 0 : 1;
-    final bHome =
-        hostWant.isNotEmpty && b.hostGroup.trim() == hostWant ? 0 : 1;
-    if (aHome != bHome) {
+    final now = DateTime.now();
+    final ad = a.startTime;
+    final bd = b.startTime;
+
+    // Upcoming meets first (nearest date on top), then past meets.
+    final aUpcoming = ad != null && !ad.isBefore(now);
+    final bUpcoming = bd != null && !bd.isBefore(now);
+    if (aUpcoming != bUpcoming) {
+      return aUpcoming ? -1 : 1;
+    }
+
+    // If both upcoming: earliest first.
+    if (aUpcoming && bUpcoming) {
+      final dateCmp = ad.compareTo(bd);
+      if (dateCmp != 0) {
+        return dateCmp;
+      }
+      // Same date: prefer swimmer's home-hosted meet.
+      final aHome =
+          hostWant.isNotEmpty && a.hostGroup.trim() == hostWant ? 0 : 1;
+      final bHome =
+          hostWant.isNotEmpty && b.hostGroup.trim() == hostWant ? 0 : 1;
       return aHome.compareTo(bHome);
     }
-    final ad = a.startTime ?? DateTime.fromMillisecondsSinceEpoch(0);
-    final bd = b.startTime ?? DateTime.fromMillisecondsSinceEpoch(0);
-    return ad.compareTo(bd);
+
+    // If both past (or missing): most recent first, nulls last.
+    if (ad == null && bd == null) {
+      return 0;
+    }
+    if (ad == null) {
+      return 1;
+    }
+    if (bd == null) {
+      return -1;
+    }
+    return bd.compareTo(ad);
   });
   return filtered;
 }

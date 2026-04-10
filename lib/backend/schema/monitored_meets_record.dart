@@ -37,6 +37,12 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String? _description;
   String get description => _description ?? '';
   bool hasDescription() => _description != null;
+  String? _status;
+  String get status => _status ?? '';
+  bool hasStatus() => _status != null;
+  String? _meetSheetUrl;
+  String get meetSheetUrl => _meetSheetUrl ?? '';
+  bool hasMeetSheetUrl() => _meetSheetUrl != null;
 
   DateTime? _startTime;
   DateTime? get startTime => _startTime;
@@ -79,7 +85,6 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String get name => title;
   String get regionName => meetZone;
   String get location => subtitle;
-  String get status => '';
   DateTime? get startDate => startTime;
   DateTime? get endDate => startTime;
   String get notes => description;
@@ -112,6 +117,8 @@ class MonitoredMeetsRecord extends FirestoreRecord {
       'name',
     ]);
     _subtitle = _firstNonEmptyString(snapshotData, const [
+      'location',
+      'Location',
       'subtitle',
       'course',
       'location_name',
@@ -120,6 +127,19 @@ class MonitoredMeetsRecord extends FirestoreRecord {
     _description = _firstNonEmptyString(snapshotData, const [
       'description',
       'details',
+    ]);
+    _status = _firstNonEmptyString(snapshotData, const [
+      'status',
+      'status_detail',
+      'statusDetail',
+    ]);
+    _meetSheetUrl = _firstNonEmptyString(snapshotData, const [
+      'meet_sheet_url',
+      'meetSheetUrl',
+      'meet_sheet',
+      'meetSheet',
+      'sheet_url',
+      'sheetUrl',
     ]);
     _startTime = snapshotData['start_time'] as DateTime? ??
         snapshotData['startTime'] as DateTime? ??
@@ -319,6 +339,8 @@ class MonitoredMeetsRecordDocumentEquality
         e1?.title == e2?.title &&
         e1?.subtitle == e2?.subtitle &&
         e1?.description == e2?.description &&
+        e1?.status == e2?.status &&
+        e1?.meetSheetUrl == e2?.meetSheetUrl &&
         e1?.startTime == e2?.startTime &&
         e1?.imageUrl == e2?.imageUrl &&
         const ListEquality<String>().equals(e1?.eligibleZones, e2?.eligibleZones);
@@ -331,6 +353,8 @@ class MonitoredMeetsRecordDocumentEquality
         e?.title,
         e?.subtitle,
         e?.description,
+        e?.status,
+        e?.meetSheetUrl,
         e?.startTime,
         e?.imageUrl,
         const ListEquality<String>().hash(e?.eligibleZones ?? const <String>[]),

@@ -230,28 +230,48 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                       ),
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: FlutterFlowTheme.of(context).primaryBackground,
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    child: Padding(
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(10.0, 6.0, 10.0, 6.0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          Icon(
-                            Icons.pool_rounded,
-                            color: FlutterFlowTheme.of(context).secondaryText,
-                            size: 14.0,
-                          ),
-                          Text(
-                            '50m Pool',
-                            style: FlutterFlowTheme.of(context)
-                                .labelSmall
-                                .override(
-                                  font: GoogleFonts.sora(
+                  InkWell(
+                    splashColor: Colors.transparent,
+                    focusColor: Colors.transparent,
+                    hoverColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    onTap: () async {
+                      final url = widget.meetDoc?.meetSheetUrl.trim() ?? '';
+                      if (url.isEmpty) {
+                        return;
+                      }
+                      await launchURL(url);
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: FlutterFlowTheme.of(context).primaryBackground,
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsetsDirectional.fromSTEB(
+                            10.0, 6.0, 10.0, 6.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            Icon(
+                              Icons.description_rounded,
+                              color: FlutterFlowTheme.of(context).secondaryText,
+                              size: 14.0,
+                            ),
+                            Text(
+                              'Meet Sheet',
+                              style: FlutterFlowTheme.of(context)
+                                  .labelSmall
+                                  .override(
+                                    font: GoogleFonts.sora(
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .labelSmall
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .labelSmall
+                                          .fontStyle,
+                                    ),
+                                    letterSpacing: 0.0,
                                     fontWeight: FlutterFlowTheme.of(context)
                                         .labelSmall
                                         .fontWeight,
@@ -259,16 +279,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                                         .labelSmall
                                         .fontStyle,
                                   ),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .labelSmall
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .labelSmall
-                                      .fontStyle,
-                                ),
-                          ),
-                        ].divide(SizedBox(width: 4.0)),
+                            ),
+                          ].divide(SizedBox(width: 4.0)),
+                        ),
                       ),
                     ),
                   ),

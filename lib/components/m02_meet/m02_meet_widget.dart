@@ -1,11 +1,8 @@
 import '/backend/backend.dart';
 import '/components/m02_meet_entered/m02_meet_entered_widget.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +21,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
 
   /// False until [refreshSwimmerAppState] finishes so we do not flash email / prefs.
   bool _meetBannerReady = false;
+  bool _showAllZones = false;
 
   @override
   void setState(VoidCallback callback) {
@@ -282,24 +280,80 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                       ),
                                     ],
                                   ),
+                                if (_showAllZones)
+                                  Padding(
+                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                        0.0, 4.0, 0.0, 0.0),
+                                    child: Text(
+                                      'Showing meets from all swim zones',
+                                      style: FlutterFlowTheme.of(context)
+                                          .bodySmall
+                                          .override(
+                                            font: GoogleFonts.sora(
+                                              fontWeight: FontWeight.normal,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodySmall
+                                                      .fontStyle,
+                                            ),
+                                            color: FlutterFlowTheme.of(context)
+                                                .secondaryText,
+                                            fontSize: 11.0,
+                                            letterSpacing: 0.0,
+                                            fontWeight: FontWeight.normal,
+                                            fontStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .bodySmall
+                                                    .fontStyle,
+                                          ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ].divide(SizedBox(width: 10.0)),
                         ),
-                        FlutterFlowIconButton(
-                          borderColor: Color(0xFFE0E3E7),
-                          borderRadius: 8.0,
-                          borderWidth: 1.0,
-                          buttonSize: 32.0,
-                          fillColor: Colors.transparent,
-                          icon: Icon(
-                            Icons.tune_rounded,
-                            color: FlutterFlowTheme.of(context).secondaryText,
-                            size: 16.0,
+                        Container(
+                          decoration: BoxDecoration(
+                            color: FlutterFlowTheme.of(context)
+                                .secondaryBackground,
+                            border: Border.all(
+                              color: Color(0xFFE0E3E7),
+                              width: 1.0,
+                            ),
+                            borderRadius: BorderRadius.circular(8.0),
                           ),
-                          onPressed: () {
-                            print('IconButton pressed ...');
-                          },
+                          padding: EdgeInsetsDirectional.fromSTEB(
+                              6.0, 4.0, 6.0, 4.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Switch.adaptive(
+                                value: _showAllZones,
+                                onChanged: (v) {
+                                  safeSetState(() => _showAllZones = v);
+                                },
+                              ),
+                              Text(
+                                'All zones',
+                                style: FlutterFlowTheme.of(context)
+                                    .labelSmall
+                                    .override(
+                                      font: GoogleFonts.sora(
+                                        fontWeight: FontWeight.w600,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .labelSmall
+                                            .fontStyle,
+                                      ),
+                                      letterSpacing: 0.0,
+                                      fontWeight: FontWeight.w600,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .labelSmall
+                                          .fontStyle,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
                       ].divide(SizedBox(width: 12.0)),
                     ),
@@ -314,6 +368,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
             stream: streamMonitoredMeetsForSwimmer(
               zoneId: FFAppState().currentSwimmerZoneForMeets,
               priorityHostGroup: FFAppState().currentSwimmerGroup,
+              showAll: _showAllZones,
             ),
             builder: (context, snapshot) {
               // Customize what your widget looks like when it's loading.
