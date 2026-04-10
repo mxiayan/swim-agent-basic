@@ -381,7 +381,15 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                     hoverColor: Colors.transparent,
                     highlightColor: Colors.transparent,
                     onTap: () async {
-                      await launchURL(widget!.meetDoc!.entryUrl);
+                      final doc = widget.meetDoc;
+                      if (doc == null) {
+                        return;
+                      }
+                      final url = doc.entryUrl.trim();
+                      if (url.isEmpty) {
+                        return;
+                      }
+                      await launchURL(url);
                     },
                     child: Container(
                       decoration: BoxDecoration(

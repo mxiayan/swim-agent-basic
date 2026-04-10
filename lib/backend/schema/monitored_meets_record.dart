@@ -46,6 +46,32 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String get imageUrl => _imageUrl ?? '';
   bool hasImageUrl() => _imageUrl != null;
 
+  /// USA Swimming / OME meet id when stored on the doc (`meet_id`); else doc id.
+  String? _meetIdField;
+  String? _entryUrlRaw;
+
+  /// Business meet id for [entryUrl] (field `meet_id` or Firestore document id).
+  String get meetId {
+    final m = _meetIdField?.trim() ?? '';
+    if (m.isNotEmpty) {
+      return m;
+    }
+    return reference.id;
+  }
+
+  /// OME entry page, or explicit `entry_url` from Firestore when set.
+  String get entryUrl {
+    final raw = _entryUrlRaw?.trim() ?? '';
+    if (raw.isNotEmpty) {
+      return raw;
+    }
+    final id = meetId.trim();
+    if (id.isEmpty) {
+      return '';
+    }
+    return 'https://ome.fastswims.com/meets/$id/enter';
+  }
+
   // ---- Legacy FlutterFlow UI aliases (m02 meet cards / lists) ----
   String get name => title;
   String get regionName => meetZone;
@@ -55,7 +81,6 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   DateTime? get endDate => startTime;
   String get notes => description;
   bool get isApproved => false;
-  String get entryUrl => '';
 
   void _initializeFields() {
     _meetZone = _firstNonEmptyString(snapshotData, const [
@@ -103,6 +128,16 @@ class MonitoredMeetsRecord extends FirestoreRecord {
       'image_url',
       'imageUrl',
       'photo_url',
+    ]);
+    _meetIdField = _firstNonEmptyString(snapshotData, const [
+      'meet_id',
+      'meetId',
+      'MeetId',
+    ]);
+    _entryUrlRaw = _firstNonEmptyString(snapshotData, const [
+      'entry_url',
+      'entryUrl',
+      'EntryUrl',
     ]);
 
     _meetZone ??= _deriveMeetZoneFromRegion(snapshotData);
