@@ -98,6 +98,59 @@ String? pacificZoneIdFromLooseLabel(String? raw) {
   return null;
 }
 
+/// Banner text when [metadata_regions] has no row (e.g. "Pacific Swimming Zone 2").
+String pacificSwimmingBannerFallbackForGranularZone(String granular) {
+  final t = granular.trim();
+  if (t.isEmpty) {
+    return '';
+  }
+  if (!isPacificGranularZoneId(t)) {
+    return isSwimmerZonePlaceholder(t) ? '' : t;
+  }
+  final m = RegExp(r'^Z(\d+)([NSEW])?$', caseSensitive: false).firstMatch(t);
+  if (m == null) {
+    return t.toUpperCase();
+  }
+  final num = m.group(1)!;
+  final suf = (m.group(2) ?? '').toUpperCase();
+  final suffixWord = switch (suf) {
+    'N' => ' North',
+    'S' => ' South',
+    'E' => ' East',
+    'W' => ' West',
+    _ => '',
+  };
+  return 'Pacific Swimming Zone $num$suffixWord'.trimRight();
+}
+
+/// Normalizes catalog / Firestore labels for the Meets banner.
+/// Handles "Pacific Swimming: Zone 2", plain "Zone 2", "Zone 1 North", etc.
+String formatPacificSwimmingZoneBannerLabel(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty) {
+    return t;
+  }
+
+  final colon = RegExp(
+    r'^Pacific\s+Swimming:\s*(.+)$',
+    caseSensitive: false,
+  ).firstMatch(t);
+  if (colon != null) {
+    return 'Pacific Swimming ${colon.group(1)!.trim()}';
+  }
+
+  if (RegExp(r'^Pacific\s+Swimming\s+', caseSensitive: false).hasMatch(t)) {
+    return t;
+  }
+
+  // metadata_regions / club often store just "Zone 2"
+  if (RegExp(r'^Zone\s+\d+', caseSensitive: false).hasMatch(t)) {
+    return 'Pacific Swimming $t';
+  }
+
+  return t;
+}
+
 class FFAppState extends ChangeNotifier {
   static FFAppState _instance = FFAppState._internal();
 
@@ -190,15 +243,15 @@ class FFAppState extends ChangeNotifier {
     final z = _currentSwimmerZone.trim();
     final d = _currentSwimmerZoneDisplayName.trim();
 
-    // Valid Pacific id always wins — never show a garbage dropdown label over Z2.
-    if (isPacificGranularZoneId(z)) {
-      return z.toUpperCase();
-    }
-
     final dOk = d.isNotEmpty && !isSwimmerZonePlaceholder(d);
     if (dOk) {
-      return d;
+      return formatPacificSwimmingZoneBannerLabel(d);
     }
+
+    if (isPacificGranularZoneId(z)) {
+      return pacificSwimmingBannerFallbackForGranularZone(z);
+    }
+
     final zOk = z.isNotEmpty && !isSwimmerZonePlaceholder(z);
     if (zOk) {
       return z;

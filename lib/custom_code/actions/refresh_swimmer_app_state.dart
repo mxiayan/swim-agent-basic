@@ -39,6 +39,41 @@ Future<String> _clubCodeFromUsersDoc(String uid) async {
   }
 }
 
+/// Meets banner: prefer [metadata_regions] `display_name` (via `PC_Z*` id), else
+/// swimmer `zone_display_name`, else [pacificSwimmingBannerFallbackForGranularZone].
+Future<String> _resolveZoneBannerDisplay({
+  required String granularZone,
+  required String swimmerZoneDisplayRaw,
+}) async {
+  final g = swimmerZoneStoredOrEmpty(granularZone);
+  if (g.isEmpty) {
+    final sd = swimmerZoneDisplayRaw.trim();
+    if (sd.isNotEmpty && !isSwimmerZonePlaceholder(sd)) {
+      return formatPacificSwimmingZoneBannerLabel(sd);
+    }
+    return '';
+  }
+
+  try {
+    final meta = await MetadataRegionsRecord.findByGranularPacificZone(g);
+    final dn = (meta?.displayName ?? '').trim();
+    if (dn.isNotEmpty) {
+      return formatPacificSwimmingZoneBannerLabel(dn);
+    }
+  } catch (e, st) {
+    debugPrint('refreshSwimmerAppState metadata_regions: $e\n$st');
+  }
+
+  final sd = swimmerZoneDisplayRaw.trim();
+  if (sd.isNotEmpty && !isSwimmerZonePlaceholder(sd)) {
+    return formatPacificSwimmingZoneBannerLabel(sd);
+  }
+
+  return formatPacificSwimmingZoneBannerLabel(
+    pacificSwimmingBannerFallbackForGranularZone(g),
+  );
+}
+
 /// When no `swimmers` row resolves via [SwimmerRecord.getForAuthUid], still load name
 /// from broader Firestore queries and `users/{uid}` before using the email local part.
 Future<void> _applyWhenSwimmerDocMissing(String uid, User? user) async {
@@ -67,15 +102,16 @@ Future<void> _applyWhenSwimmerDocMissing(String uid, User? user) async {
   if (clubKey.isNotEmpty) {
     final club = await MetadataClubsRecord.findByClubLookup(clubKey);
     if (club != null && club.zoneId.isNotEmpty) {
+      final z = swimmerZoneStoredOrEmpty(club.zoneId);
+      final banner = await _resolveZoneBannerDisplay(
+        granularZone: club.zoneId,
+        swimmerZoneDisplayRaw: club.zoneDisplayName,
+      );
       FFAppState().update(() {
         FFAppState().currentSwimmerName = name;
         FFAppState().currentSwimmerGroup = clubKey;
-        FFAppState().currentSwimmerZone =
-            swimmerZoneStoredOrEmpty(club.zoneId);
-        FFAppState().currentSwimmerZoneDisplayName =
-            isSwimmerZonePlaceholder(club.zoneDisplayName)
-                ? ''
-                : club.zoneDisplayName.trim();
+        FFAppState().currentSwimmerZone = z;
+        FFAppState().currentSwimmerZoneDisplayName = banner;
       });
       await FFAppState().persistSwimmerContext();
       return;
@@ -191,14 +227,17 @@ Future refreshSwimmerAppState() async {
       groupOut = await _clubCodeFromUsersDoc(uid);
     }
 
+    final zoneOut = swimmerZoneStoredOrEmpty(profile.zoneId);
+    final zoneBanner = await _resolveZoneBannerDisplay(
+      granularZone: profile.zoneId,
+      swimmerZoneDisplayRaw: profile.zoneDisplayName,
+    );
+
     FFAppState().update(() {
       FFAppState().currentSwimmerName = name;
       FFAppState().currentSwimmerGroup = groupOut;
-      FFAppState().currentSwimmerZone = swimmerZoneStoredOrEmpty(profile.zoneId);
-      FFAppState().currentSwimmerZoneDisplayName =
-          isSwimmerZonePlaceholder(profile.zoneDisplayName)
-              ? ''
-              : profile.zoneDisplayName.trim();
+      FFAppState().currentSwimmerZone = zoneOut;
+      FFAppState().currentSwimmerZoneDisplayName = zoneBanner;
     });
     await FFAppState().persistSwimmerContext();
   } catch (e, st) {

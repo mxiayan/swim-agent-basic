@@ -8,6 +8,24 @@ import '/backend/schema/util/schema_util.dart';
 import 'index.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
+/// Maps swimmer/app zone (`Z2`, `Z1N`) to [MetadataRegionsRecord.region_id] (`PC_Z2`, `PC_Z1N`).
+String? pacificCatalogRegionIdFromGranular(String? raw) {
+  if (raw == null) {
+    return null;
+  }
+  final t = raw.trim();
+  if (!RegExp(r'^Z\d+[NSEW]?$', caseSensitive: false).hasMatch(t)) {
+    return null;
+  }
+  final m = RegExp(r'^Z(\d+)([NSEW])?$', caseSensitive: false).firstMatch(t);
+  if (m == null) {
+    return null;
+  }
+  final n = m.group(1)!;
+  final suf = (m.group(2) ?? '').toUpperCase();
+  return 'PC_Z$n$suf'.toUpperCase();
+}
+
 class MetadataRegionsRecord extends FirestoreRecord {
   MetadataRegionsRecord._(
     DocumentReference reference,
@@ -57,6 +75,22 @@ class MetadataRegionsRecord extends FirestoreRecord {
 
   static CollectionReference get collection =>
       FirebaseFirestore.instance.collection('metadata_regions');
+
+  /// Resolves catalog row for a granular Pacific zone (see [pacificCatalogRegionIdFromGranular]).
+  static Future<MetadataRegionsRecord?> findByGranularPacificZone(
+    String granularZone,
+  ) async {
+    final rid = pacificCatalogRegionIdFromGranular(granularZone);
+    if (rid == null || rid.isEmpty) {
+      return null;
+    }
+    final snap =
+        await collection.where('region_id', isEqualTo: rid).limit(1).get();
+    if (snap.docs.isEmpty) {
+      return null;
+    }
+    return MetadataRegionsRecord.fromSnapshot(snap.docs.first);
+  }
 
   static Stream<MetadataRegionsRecord> getDocument(DocumentReference ref) =>
       ref.snapshots().map((s) => MetadataRegionsRecord.fromSnapshot(s));
