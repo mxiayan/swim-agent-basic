@@ -45,6 +45,9 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String? _imageUrl;
   String get imageUrl => _imageUrl ?? '';
   bool hasImageUrl() => _imageUrl != null;
+  List<String>? _eligibleZones;
+  List<String> get eligibleZones => _eligibleZones ?? const <String>[];
+  bool hasEligibleZones() => _eligibleZones != null && _eligibleZones!.isNotEmpty;
 
   /// USA Swimming / OME meet id when stored on the doc (`meet_id`); else doc id.
   String? _meetIdField;
@@ -139,6 +142,10 @@ class MonitoredMeetsRecord extends FirestoreRecord {
       'entryUrl',
       'EntryUrl',
     ]);
+    _eligibleZones = _stringListFromFirestore(
+      snapshotData,
+      const ['eligible_zones', 'eligibleZones', 'EligibleZones'],
+    );
 
     _meetZone ??= _deriveMeetZoneFromRegion(snapshotData);
   }
@@ -218,6 +225,31 @@ class MonitoredMeetsRecord extends FirestoreRecord {
     return null;
   }
 
+  static List<String>? _stringListFromFirestore(
+    Map<String, dynamic> data,
+    List<String> keys,
+  ) {
+    for (final k in keys) {
+      final v = data[k];
+      if (v == null) {
+        continue;
+      }
+      if (v is Iterable) {
+        final out = <String>[];
+        for (final item in v) {
+          final t = item?.toString().trim() ?? '';
+          if (t.isNotEmpty && t != 'null') {
+            out.add(t);
+          }
+        }
+        if (out.isNotEmpty) {
+          return out;
+        }
+      }
+    }
+    return null;
+  }
+
   static CollectionReference get collection =>
       FirebaseFirestore.instance.collection('monitored_meets');
 
@@ -288,7 +320,8 @@ class MonitoredMeetsRecordDocumentEquality
         e1?.subtitle == e2?.subtitle &&
         e1?.description == e2?.description &&
         e1?.startTime == e2?.startTime &&
-        e1?.imageUrl == e2?.imageUrl;
+        e1?.imageUrl == e2?.imageUrl &&
+        const ListEquality<String>().equals(e1?.eligibleZones, e2?.eligibleZones);
   }
 
   @override
@@ -300,6 +333,7 @@ class MonitoredMeetsRecordDocumentEquality
         e?.description,
         e?.startTime,
         e?.imageUrl,
+        const ListEquality<String>().hash(e?.eligibleZones ?? const <String>[]),
       ]);
 
   @override

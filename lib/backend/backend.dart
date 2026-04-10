@@ -399,14 +399,49 @@ List<String> pacificZoneRegionIdsForWhereIn(String canonicalZone) {
   }.toList();
 }
 
+String _canonicalEligibleZoneToken(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty) {
+    return '';
+  }
+  if (t.toUpperCase() == 'PC') {
+    return 'PC';
+  }
+  return canonicalPacificZoneId(t);
+}
+
+bool _eligibleZonesAllowMeet(
+  MonitoredMeetsRecord meet, {
+  required String wantCanonical,
+}) {
+  final zones = meet.eligibleZones;
+  if (zones.isEmpty) {
+    // New data contract: missing/empty eligible_zones means hidden.
+    return false;
+  }
+  for (final z in zones) {
+    final token = _canonicalEligibleZoneToken(z);
+    if (token == 'PC' || token == wantCanonical) {
+      return true;
+    }
+  }
+  return false;
+}
+
 List<MonitoredMeetsRecord> _filterSortMeetsForZone(
   Iterable<MonitoredMeetsRecord> meets, {
   required String wantCanonical,
   required String priorityHostGroup,
+  bool showAll = false,
 }) {
   final filtered = meets.where((m) {
-    final mz = canonicalPacificZoneId(m.meetZone);
-    return mz.isNotEmpty && mz == wantCanonical;
+    if (showAll) {
+      return true;
+    }
+    return _eligibleZonesAllowMeet(
+      m,
+      wantCanonical: wantCanonical,
+    );
   }).toList();
 
   final hostWant = priorityHostGroup.trim();
@@ -489,8 +524,9 @@ Stream<List<MonitoredMeetsRecord>> streamMonitoredMeetsForSwimmer({
   required String zoneId,
   required String priorityHostGroup,
   int meetFetchLimit = 500,
+  bool showAll = false,
 }) {
-  if (zoneId.isEmpty) {
+  if (!showAll && zoneId.isEmpty) {
     return Stream.value(<MonitoredMeetsRecord>[]);
   }
   final want = canonicalPacificZoneId(zoneId);
@@ -501,26 +537,33 @@ Stream<List<MonitoredMeetsRecord>> streamMonitoredMeetsForSwimmer({
         merged,
         wantCanonical: want,
         priorityHostGroup: hostWant,
+        showAll: showAll,
       );
 
-  final regionVals = pacificZoneRegionIdsForWhereIn(want);
-  if (regionVals.isEmpty) {
+  if (showAll) {
     final cap = meetFetchLimit < 2500 ? 2500 : meetFetchLimit;
     return queryMonitoredMeetsRecord(
       limit: cap,
     ).map(project);
   }
 
-  final byRegion = queryMonitoredMeetsRecord(
-    queryBuilder: (q) => q.where('region_id', whereIn: regionVals),
+  final byEligible = queryMonitoredMeetsRecord(
+    queryBuilder: (q) => q.where('eligible_zones', arrayContains: want),
     limit: meetFetchLimit,
   );
-  final byMeetZone = queryMonitoredMeetsRecord(
-    queryBuilder: (q) => q.where('meet_zone', isEqualTo: want),
+  final byPacificWildcard = queryMonitoredMeetsRecord(
+    queryBuilder: (q) => q.where('eligible_zones', arrayContains: 'PC'),
+    limit: meetFetchLimit,
+  );
+  final byLowerPacificWildcard = queryMonitoredMeetsRecord(
+    queryBuilder: (q) => q.where('eligible_zones', arrayContains: 'pc'),
     limit: meetFetchLimit,
   );
 
-  return _mergeMonitoredMeetStreams([byRegion, byMeetZone], project);
+  return _mergeMonitoredMeetStreams(
+    [byEligible, byPacificWildcard, byLowerPacificWildcard],
+    project,
+  );
 }
 
 Future<int> queryCollectionCount(
