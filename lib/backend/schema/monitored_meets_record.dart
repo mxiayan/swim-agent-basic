@@ -47,6 +47,9 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   DateTime? _startTime;
   DateTime? get startTime => _startTime;
   bool hasStartTime() => _startTime != null;
+  DateTime? _endTime;
+  DateTime? get endTime => _endTime;
+  bool hasEndTime() => _endTime != null;
 
   String? _imageUrl;
   String get imageUrl => _imageUrl ?? '';
@@ -94,7 +97,7 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String get regionName => meetZone;
   String get location => subtitle;
   DateTime? get startDate => startTime;
-  DateTime? get endDate => startTime;
+  DateTime? get endDate => endTime ?? startTime;
   String get notes => description;
   bool get isApproved => false;
 
@@ -155,6 +158,12 @@ class MonitoredMeetsRecord extends FirestoreRecord {
         snapshotData['startDate'] as DateTime? ??
         snapshotData['meet_date'] as DateTime? ??
         snapshotData['meetDate'] as DateTime?;
+    _endTime = snapshotData['end_time'] as DateTime? ??
+        snapshotData['endTime'] as DateTime? ??
+        snapshotData['end_date'] as DateTime? ??
+        snapshotData['endDate'] as DateTime? ??
+        snapshotData['meet_end_date'] as DateTime? ??
+        snapshotData['meetEndDate'] as DateTime?;
     _imageUrl = _firstNonEmptyString(snapshotData, const [
       'image_url',
       'imageUrl',
@@ -354,6 +363,7 @@ class MonitoredMeetsRecordDocumentEquality
         e1?.status == e2?.status &&
         e1?.meetSheetUrl == e2?.meetSheetUrl &&
         e1?.startTime == e2?.startTime &&
+        e1?.endTime == e2?.endTime &&
         const ListEquality<String>().equals(e1?.meetClasses, e2?.meetClasses) &&
         e1?.imageUrl == e2?.imageUrl &&
         const ListEquality<String>().equals(e1?.eligibleZones, e2?.eligibleZones);
@@ -369,6 +379,7 @@ class MonitoredMeetsRecordDocumentEquality
         e?.status,
         e?.meetSheetUrl,
         e?.startTime,
+        e?.endTime,
         const ListEquality<String>().hash(e?.meetClasses ?? const <String>[]),
         e?.imageUrl,
         const ListEquality<String>().hash(e?.eligibleZones ?? const <String>[]),

@@ -1,11 +1,8 @@
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'm02_meet_entered_model.dart';
 export 'm02_meet_entered_model.dart';
 
@@ -53,31 +50,38 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(40.0, 0.0, 40.0, 30.0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: FlutterFlowTheme.of(context).secondaryBackground,
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 16.0,
-              color: Color(0x4CAF5040),
-              offset: Offset(
-                0.0,
-                0.0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 420.0;
+        final outerHPad = isNarrow ? 14.0 : 40.0;
+        final innerHPad = isNarrow ? 14.0 : 20.0;
+
+        return Padding(
+          padding: EdgeInsetsDirectional.fromSTEB(outerHPad, 0.0, outerHPad, 30.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: FlutterFlowTheme.of(context).secondaryBackground,
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 16.0,
+                  color: Color(0x4CAF5040),
+                  offset: Offset(
+                    0.0,
+                    0.0,
+                  ),
+                  spreadRadius: 4.0,
+                )
+              ],
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(
+                color: FlutterFlowTheme.of(context).secondaryBackground,
+                width: 2.0,
               ),
-              spreadRadius: 4.0,
-            )
-          ],
-          borderRadius: BorderRadius.circular(16.0),
-          border: Border.all(
-            color: FlutterFlowTheme.of(context).secondaryBackground,
-            width: 2.0,
-          ),
-        ),
-        child: Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 20.0),
-          child: Column(
+            ),
+            child: Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(
+                  innerHPad, 20.0, innerHPad, 20.0),
+              child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
@@ -85,40 +89,50 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        valueOrDefault<String>(
-                          widget!.meetDoc?.name,
-                          '[Meet Name]',
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          valueOrDefault<String>(
+                            widget.meetDoc?.name,
+                            '[Meet Name]',
+                          ),
+                          maxLines: 2,
+                          style:
+                              FlutterFlowTheme.of(context).titleMedium.override(
+                                    font: GoogleFonts.sora(
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .titleMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .titleMedium
+                                          .fontStyle,
+                                    ),
+                                    letterSpacing: 0.0,
+                                    fontWeight: FlutterFlowTheme.of(context)
+                                        .titleMedium
+                                        .fontWeight,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .titleMedium
+                                        .fontStyle,
+                                  ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        style:
-                            FlutterFlowTheme.of(context).titleMedium.override(
-                                  font: GoogleFonts.sora(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .titleMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleMedium
-                                        .fontStyle,
-                                  ),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .titleMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleMedium
-                                      .fontStyle,
-                                ),
-                        overflow: TextOverflow.fade,
-                      ),
-                      Text(
-                        '${dateTimeFormat("MMM d", widget!.meetDoc?.startDate)} - ${dateTimeFormat("MMM d, y", widget!.meetDoc?.endDate)}',
-                        style:
-                            FlutterFlowTheme.of(context).labelMedium.override(
-                                  font: GoogleFonts.sora(
+                        Text(
+                          '${dateTimeFormat("MMM d", widget.meetDoc?.startDate)} - ${dateTimeFormat("MMM d, y", widget.meetDoc?.endDate)}',
+                          style:
+                              FlutterFlowTheme.of(context).labelMedium.override(
+                                    font: GoogleFonts.sora(
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontStyle,
+                                    ),
+                                    letterSpacing: 0.0,
                                     fontWeight: FlutterFlowTheme.of(context)
                                         .labelMedium
                                         .fontWeight,
@@ -126,17 +140,11 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                                         .labelMedium
                                         .fontStyle,
                                   ),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .fontStyle,
-                                ),
-                      ),
-                    ].divide(SizedBox(height: 4.0)),
+                        ),
+                      ].divide(SizedBox(height: 4.0)),
+                    ),
                   ),
+                  SizedBox(width: 8.0),
                   Container(
                     height: 32.0,
                     decoration: BoxDecoration(
@@ -181,9 +189,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                   ),
                 ],
               ),
-              Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.start,
+              Wrap(
+                spacing: 8.0,
+                runSpacing: 8.0,
                 children: [
                   Container(
                     decoration: BoxDecoration(
@@ -203,7 +211,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                           ),
                           Text(
                             valueOrDefault<String>(
-                              widget!.meetDoc?.location,
+                              widget.meetDoc?.location,
                               '[Location]',
                             ),
                             style: FlutterFlowTheme.of(context)
@@ -303,7 +311,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                           ),
                           Text(
                             valueOrDefault<String>(
-                              widget!.meetDoc?.status,
+                              widget.meetDoc?.status,
                               '[Status]',
                             ),
                             style: FlutterFlowTheme.of(context)
@@ -336,19 +344,32 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                 thickness: 1.0,
                 color: FlutterFlowTheme.of(context).alternate,
               ),
-              Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
+              Wrap(
+                spacing: 8.0,
+                runSpacing: 10.0,
+                alignment: WrapAlignment.spaceBetween,
                 children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Events Entered',
-                        style: FlutterFlowTheme.of(context).labelSmall.override(
-                              font: GoogleFonts.sora(
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: isNarrow ? 0.0 : 180.0,
+                      maxWidth: isNarrow ? constraints.maxWidth : constraints.maxWidth - 180.0,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Events Entered',
+                          style: FlutterFlowTheme.of(context).labelSmall.override(
+                                font: GoogleFonts.sora(
+                                  fontWeight: FlutterFlowTheme.of(context)
+                                      .labelSmall
+                                      .fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .labelSmall
+                                      .fontStyle,
+                                ),
+                                letterSpacing: 0.0,
                                 fontWeight: FlutterFlowTheme.of(context)
                                     .labelSmall
                                     .fontWeight,
@@ -356,19 +377,22 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                                     .labelSmall
                                     .fontStyle,
                               ),
-                              letterSpacing: 0.0,
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .labelSmall
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .labelSmall
-                                  .fontStyle,
-                            ),
-                      ),
-                      Text(
-                        '100m Free · 200m Free · 4x100 Relay',
-                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                              font: GoogleFonts.sora(
+                        ),
+                        Text(
+                          '100m Free · 200m Free · 4x100 Relay',
+                          maxLines: isNarrow ? 3 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: FlutterFlowTheme.of(context).bodySmall.override(
+                                font: GoogleFonts.sora(
+                                  fontWeight: FlutterFlowTheme.of(context)
+                                      .bodySmall
+                                      .fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .bodySmall
+                                      .fontStyle,
+                                ),
+                                color: FlutterFlowTheme.of(context).primary,
+                                letterSpacing: 0.0,
                                 fontWeight: FlutterFlowTheme.of(context)
                                     .bodySmall
                                     .fontWeight,
@@ -376,17 +400,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                                     .bodySmall
                                     .fontStyle,
                               ),
-                              color: FlutterFlowTheme.of(context).primary,
-                              letterSpacing: 0.0,
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodySmall
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodySmall
-                                  .fontStyle,
-                            ),
-                      ),
-                    ].divide(SizedBox(height: 2.0)),
+                        ),
+                      ].divide(SizedBox(height: 2.0)),
+                    ),
                   ),
                   InkWell(
                     splashColor: Colors.transparent,
@@ -473,6 +489,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
           ),
         ),
       ),
+        );
+      },
     );
   }
 }

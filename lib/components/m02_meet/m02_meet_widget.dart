@@ -193,67 +193,245 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                     child: Row(
                       mainAxisSize: MainAxisSize.max,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Container(
-                              width: 32.0,
-                              height: 32.0,
-                              decoration: BoxDecoration(
-                                color: Color(0x1A4B39EF),
-                                borderRadius: BorderRadius.circular(8.0),
-                              ),
-                              alignment: AlignmentDirectional(0.0, 0.0),
-                              child: Icon(
-                                Icons.info_outlined,
-                                color: FlutterFlowTheme.of(context).primary,
-                                size: 16.0,
-                              ),
-                            ),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Personalized View',
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodySmall
-                                      .override(
-                                        font: GoogleFonts.sora(
-                                          fontWeight: FontWeight.bold,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodySmall
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .primaryText,
-                                        fontSize: 12.0,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FontWeight.bold,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodySmall
-                                            .fontStyle,
-                                      ),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 32.0,
+                                height: 32.0,
+                                decoration: BoxDecoration(
+                                  color: Color(0x1A4B39EF),
+                                  borderRadius: BorderRadius.circular(8.0),
                                 ),
-                                if (!_meetBannerReady)
-                                  Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    children: [
-                                      SizedBox(
-                                        width: 16.0,
-                                        height: 16.0,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.0,
-                                          color: FlutterFlowTheme.of(context)
-                                              .primary,
+                                alignment: AlignmentDirectional(0.0, 0.0),
+                                child: Icon(
+                                  Icons.info_outlined,
+                                  color: FlutterFlowTheme.of(context).primary,
+                                  size: 16.0,
+                                ),
+                              ),
+                              SizedBox(width: 10.0),
+                              Expanded(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Personalized View',
+                                      style: FlutterFlowTheme.of(context)
+                                          .bodySmall
+                                          .override(
+                                            font: GoogleFonts.sora(
+                                              fontWeight: FontWeight.bold,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodySmall
+                                                      .fontStyle,
+                                            ),
+                                            color: FlutterFlowTheme.of(context)
+                                                .primaryText,
+                                            fontSize: 12.0,
+                                            letterSpacing: 0.0,
+                                            fontWeight: FontWeight.bold,
+                                            fontStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .bodySmall
+                                                    .fontStyle,
+                                          ),
+                                    ),
+                                    if (!_meetBannerReady)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.max,
+                                        children: [
+                                          SizedBox(
+                                            width: 16.0,
+                                            height: 16.0,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.0,
+                                              color:
+                                                  FlutterFlowTheme.of(context)
+                                                      .primary,
+                                            ),
+                                          ),
+                                          SizedBox(width: 10.0),
+                                          Expanded(
+                                            child: Text(
+                                              'Loading swimmer profile…',
+                                              style: FlutterFlowTheme.of(
+                                                      context)
+                                                  .bodySmall
+                                                  .override(
+                                                    font: GoogleFonts.sora(
+                                                      fontWeight:
+                                                          FontWeight.normal,
+                                                      fontStyle:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodySmall
+                                                              .fontStyle,
+                                                    ),
+                                                    color:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .secondaryText,
+                                                    fontSize: 12.0,
+                                                    letterSpacing: 0.0,
+                                                    fontWeight:
+                                                        FontWeight.normal,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodySmall
+                                                            .fontStyle,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    else
+                                      Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: 'Showing meets for ',
+                                              style: FlutterFlowTheme.of(
+                                                      context)
+                                                  .bodySmall
+                                                  .override(
+                                                    font: GoogleFonts.sora(
+                                                      fontWeight:
+                                                          FontWeight.normal,
+                                                      fontStyle:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodySmall
+                                                              .fontStyle,
+                                                    ),
+                                                    color:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .secondaryText,
+                                                    fontSize: 12.0,
+                                                    letterSpacing: 0.0,
+                                                    fontWeight:
+                                                        FontWeight.normal,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodySmall
+                                                            .fontStyle,
+                                                  ),
+                                            ),
+                                            TextSpan(
+                                              text: FFAppState()
+                                                      .currentSwimmerName
+                                                      .trim()
+                                                      .isNotEmpty
+                                                  ? FFAppState()
+                                                      .currentSwimmerName
+                                                  : 'your swimmer',
+                                              style: FlutterFlowTheme.of(
+                                                      context)
+                                                  .bodyMedium
+                                                  .override(
+                                                    font: GoogleFonts.sora(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontStyle:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyMedium
+                                                              .fontStyle,
+                                                    ),
+                                                    fontSize: 12.0,
+                                                    letterSpacing: 0.0,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodyMedium
+                                                            .fontStyle,
+                                                  ),
+                                            ),
+                                            TextSpan(
+                                              text: ' in ',
+                                              style: FlutterFlowTheme.of(
+                                                      context)
+                                                  .bodyMedium
+                                                  .override(
+                                                    font: GoogleFonts.sora(
+                                                      fontWeight:
+                                                          FontWeight.normal,
+                                                      fontStyle:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyMedium
+                                                              .fontStyle,
+                                                    ),
+                                                    fontSize: 12.0,
+                                                    letterSpacing: 0.0,
+                                                    fontWeight:
+                                                        FontWeight.normal,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodyMedium
+                                                            .fontStyle,
+                                                  ),
+                                            ),
+                                            TextSpan(
+                                              text: () {
+                                                final label = FFAppState()
+                                                    .currentSwimmerZoneLabel
+                                                    .trim();
+                                                if (label.isNotEmpty) {
+                                                  return label;
+                                                }
+                                                final z = FFAppState()
+                                                    .currentSwimmerZoneForMeets
+                                                    .trim();
+                                                if (z.isNotEmpty) {
+                                                  return z;
+                                                }
+                                                return 'your zone';
+                                              }(),
+                                              style: FlutterFlowTheme.of(
+                                                      context)
+                                                  .bodyMedium
+                                                  .override(
+                                                    font: GoogleFonts.sora(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontStyle:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyMedium
+                                                              .fontStyle,
+                                                    ),
+                                                    fontSize: 12.0,
+                                                    letterSpacing: 0.0,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodyMedium
+                                                            .fontStyle,
+                                                  ),
+                                            ),
+                                          ],
                                         ),
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      SizedBox(width: 10.0),
-                                      Expanded(
+                                    if (_showAllZones)
+                                      Padding(
+                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                            0.0, 4.0, 0.0, 0.0),
                                         child: Text(
-                                          'Loading swimmer profile…',
+                                          'Showing meets from all swim zones',
                                           style: FlutterFlowTheme.of(context)
                                               .bodySmall
                                               .override(
@@ -268,7 +446,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                                 color:
                                                     FlutterFlowTheme.of(context)
                                                         .secondaryText,
-                                                fontSize: 12.0,
+                                                fontSize: 11.0,
                                                 letterSpacing: 0.0,
                                                 fontWeight: FontWeight.normal,
                                                 fontStyle:
@@ -278,152 +456,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                               ),
                                         ),
                                       ),
-                                    ],
-                                  )
-                                else
-                                  Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    children: [
-                                      Text(
-                                        'Showing meets for ',
-                                        style: FlutterFlowTheme.of(context)
-                                            .bodySmall
-                                            .override(
-                                              font: GoogleFonts.sora(
-                                                fontWeight: FontWeight.normal,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodySmall
-                                                        .fontStyle,
-                                              ),
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .secondaryText,
-                                              fontSize: 12.0,
-                                              letterSpacing: 0.0,
-                                              fontWeight: FontWeight.normal,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodySmall
-                                                      .fontStyle,
-                                            ),
-                                      ),
-                                      Text(
-                                        FFAppState()
-                                                .currentSwimmerName
-                                                .trim()
-                                                .isNotEmpty
-                                            ? FFAppState().currentSwimmerName
-                                            : 'your swimmer',
-                                        style: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .override(
-                                              font: GoogleFonts.sora(
-                                                fontWeight: FontWeight.w600,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                              fontSize: 12.0,
-                                              letterSpacing: 0.0,
-                                              fontWeight: FontWeight.w600,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                      ),
-                                      Text(
-                                        ' in ',
-                                        style: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .override(
-                                              font: GoogleFonts.sora(
-                                                fontWeight: FontWeight.normal,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                              fontSize: 12.0,
-                                              letterSpacing: 0.0,
-                                              fontWeight: FontWeight.normal,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                      ),
-                                      Text(
-                                        () {
-                                          final label = FFAppState()
-                                              .currentSwimmerZoneLabel
-                                              .trim();
-                                          if (label.isNotEmpty) {
-                                            return label;
-                                          }
-                                          final z = FFAppState()
-                                              .currentSwimmerZoneForMeets
-                                              .trim();
-                                          if (z.isNotEmpty) {
-                                            return z;
-                                          }
-                                          return 'your zone';
-                                        }(),
-                                        style: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .override(
-                                              font: GoogleFonts.sora(
-                                                fontWeight: FontWeight.w600,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                              fontSize: 12.0,
-                                              letterSpacing: 0.0,
-                                              fontWeight: FontWeight.w600,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                if (_showAllZones)
-                                  Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        0.0, 4.0, 0.0, 0.0),
-                                    child: Text(
-                                      'Showing meets from all swim zones',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodySmall
-                                          .override(
-                                            font: GoogleFonts.sora(
-                                              fontWeight: FontWeight.normal,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodySmall
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryText,
-                                            fontSize: 11.0,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.normal,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodySmall
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ].divide(SizedBox(width: 10.0)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        SizedBox(width: 12.0),
                         Container(
                           decoration: BoxDecoration(
                             color: FlutterFlowTheme.of(context)
@@ -467,59 +506,65 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                             ],
                           ),
                         ),
-                      ].divide(SizedBox(width: 12.0)),
+                      ],
                     ),
                   ),
                 ),
               ),
               Padding(
                 padding: EdgeInsetsDirectional.fromSTEB(16.0, 10.0, 16.0, 0.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 8.0,
-                        runSpacing: 8.0,
-                        children: [
-                          _buildClassFilterChip(
-                            label: 'Age Group',
-                            selected: _showAgeGroup,
-                            onSelected: (v) {
-                              _setClassFilter(
-                              nextValue: v,
-                              currentValue: _showAgeGroup,
-                              apply: (x) => _showAgeGroup = x,
-                            );
-                            },
-                          ),
-                          _buildClassFilterChip(
-                            label: 'Senior',
-                            selected: _showSenior,
-                            onSelected: (v) {
-                              _setClassFilter(
-                              nextValue: v,
-                              currentValue: _showSenior,
-                              apply: (x) => _showSenior = x,
-                            );
-                            },
-                          ),
-                          _buildClassFilterChip(
-                            label: 'Other',
-                            selected: _showOther,
-                            onSelected: (v) {
-                              _setClassFilter(
-                              nextValue: v,
-                              currentValue: _showOther,
-                              apply: (x) => _showOther = x,
-                            );
-                            },
-                          ),
-                        ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: constraints.maxWidth,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildClassFilterChip(
+                              label: 'Age Group',
+                              selected: _showAgeGroup,
+                              onSelected: (v) {
+                                _setClassFilter(
+                                  nextValue: v,
+                                  currentValue: _showAgeGroup,
+                                  apply: (x) => _showAgeGroup = x,
+                                );
+                              },
+                            ),
+                            SizedBox(width: 8.0),
+                            _buildClassFilterChip(
+                              label: 'Senior',
+                              selected: _showSenior,
+                              onSelected: (v) {
+                                _setClassFilter(
+                                  nextValue: v,
+                                  currentValue: _showSenior,
+                                  apply: (x) => _showSenior = x,
+                                );
+                              },
+                            ),
+                            SizedBox(width: 8.0),
+                            _buildClassFilterChip(
+                              label: 'Other',
+                              selected: _showOther,
+                              onSelected: (v) {
+                                _setClassFilter(
+                                  nextValue: v,
+                                  currentValue: _showOther,
+                                  apply: (x) => _showOther = x,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -547,25 +592,35 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                   ),
                 );
               }
-              List<MonitoredMeetsRecord> columnMonitoredMeetsRecordList = snapshot
-                  .data!
+              final columnMonitoredMeetsRecordList = snapshot.data!
                   .where(_matchesClassFilters)
                   .toList();
 
-              return SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: List.generate(columnMonitoredMeetsRecordList.length,
-                      (columnIndex) {
-                    final columnMonitoredMeetsRecord =
-                        columnMonitoredMeetsRecordList[columnIndex];
-                    return M02MeetEnteredWidget(
-                      key: Key(
-                          'Key3vc_${columnIndex}_of_${columnMonitoredMeetsRecordList.length}'),
-                      meetDoc: columnMonitoredMeetsRecord,
-                    );
-                  }),
-                ),
+              if (columnMonitoredMeetsRecordList.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Text(
+                      'No meets match your filters.',
+                      textAlign: TextAlign.center,
+                      style: FlutterFlowTheme.of(context).bodyMedium,
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: EdgeInsets.only(bottom: 24.0),
+                itemCount: columnMonitoredMeetsRecordList.length,
+                itemBuilder: (context, columnIndex) {
+                  final columnMonitoredMeetsRecord =
+                      columnMonitoredMeetsRecordList[columnIndex];
+                  return M02MeetEnteredWidget(
+                    key: Key(
+                        'Key3vc_${columnIndex}_of_${columnMonitoredMeetsRecordList.length}'),
+                    meetDoc: columnMonitoredMeetsRecord,
+                  );
+                },
               );
             },
           ),

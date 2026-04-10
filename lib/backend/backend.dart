@@ -410,6 +410,17 @@ String _canonicalEligibleZoneToken(String raw) {
   return canonicalPacificZoneId(t);
 }
 
+bool _isBroadZoneToken(String canonicalZone) =>
+    RegExp(r'^Z\d+$').hasMatch(canonicalZone);
+
+String _zoneStem(String canonicalZone) {
+  final m = RegExp(r'^(Z\d+)([NSEW]?)$').firstMatch(canonicalZone);
+  if (m == null) {
+    return canonicalZone;
+  }
+  return m.group(1)!;
+}
+
 bool _eligibleZonesAllowMeet(
   MonitoredMeetsRecord meet, {
   required String wantCanonical,
@@ -424,6 +435,11 @@ bool _eligibleZonesAllowMeet(
     if (token == 'PC' || token == wantCanonical) {
       return true;
     }
+    // Accept broad-zone contracts (e.g. meet has Z2, swimmer is Z2N/Z2S).
+    if (_zoneStem(token) == _zoneStem(wantCanonical) &&
+        (_isBroadZoneToken(token) || _isBroadZoneToken(wantCanonical))) {
+      return true;
+    }
   }
   return false;
 }
@@ -434,7 +450,28 @@ List<MonitoredMeetsRecord> _filterSortMeetsForZone(
   required String priorityHostGroup,
   bool showAll = false,
 }) {
+  DateTime dayStart(DateTime d) => DateTime(d.year, d.month, d.day);
+  final today = dayStart(DateTime.now());
+  // Backward-compatible fallback for older docs that still miss `end_*`.
+  final recentPastCutoff = today.subtract(const Duration(days: 3));
+
+  /// Prefer end-date visibility: keep in list while meet is ongoing.
+  bool isVisibleByDates(MonitoredMeetsRecord m) {
+    final start = m.startTime;
+    final end = m.endTime;
+    if (end != null) {
+      return !dayStart(end).isBefore(today);
+    }
+    if (start == null) {
+      return true;
+    }
+    return !dayStart(start).isBefore(recentPastCutoff);
+  }
+
   final filtered = meets.where((m) {
+    if (!isVisibleByDates(m)) {
+      return false;
+    }
     if (showAll) {
       return true;
     }
@@ -449,8 +486,20 @@ List<MonitoredMeetsRecord> _filterSortMeetsForZone(
     final now = DateTime.now();
     final ad = a.startTime;
     final bd = b.startTime;
+    final aEnd = a.endTime;
+    final bEnd = b.endTime;
 
-    // Upcoming meets first (nearest date on top), then past meets.
+    final aOngoing = ad != null &&
+        !dayStart(ad).isAfter(today) &&
+        (aEnd == null || !dayStart(aEnd).isBefore(today));
+    final bOngoing = bd != null &&
+        !dayStart(bd).isAfter(today) &&
+        (bEnd == null || !dayStart(bEnd).isBefore(today));
+    if (aOngoing != bOngoing) {
+      return aOngoing ? -1 : 1;
+    }
+
+    // Then upcoming starts, then most recent past.
     final aUpcoming = ad != null && !ad.isBefore(now);
     final bUpcoming = bd != null && !bd.isBefore(now);
     if (aUpcoming != bUpcoming) {

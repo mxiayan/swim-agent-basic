@@ -3,14 +3,8 @@ import '/components/m01_activity_card/m01_activity_card_widget.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'm01_activity_model.dart';
 export 'm01_activity_model.dart';
 
@@ -99,114 +93,94 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.max,
-      children: [
-        StreamBuilder<List<ActivitiesRecord>>(
-          stream: queryActivitiesRecord(
-            queryBuilder: (activitiesRecord) => activitiesRecord
-                .where(
-                  'team_id',
-                  isEqualTo: 'oapb',
-                )
-                .orderBy('start_time', descending: true),
-          ),
-          builder: (context, snapshot) {
-            // Customize what your widget looks like when it's loading.
-            if (!snapshot.hasData) {
-              return Center(
-                child: SizedBox(
-                  width: 50.0,
-                  height: 50.0,
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      FlutterFlowTheme.of(context).primary,
-                    ),
+    // Fills the home Stack slot so ListView gets a bounded height (avoids
+    // RenderFlex overflow from Columns with mainAxisSize.max inside scroll).
+    return SizedBox.expand(
+      child: StreamBuilder<List<ActivitiesRecord>>(
+        stream: queryActivitiesRecord(
+          queryBuilder: (activitiesRecord) => activitiesRecord
+              .where(
+                'team_id',
+                isEqualTo: 'oapb',
+              )
+              .orderBy('start_time', descending: true),
+        ),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Center(
+              child: SizedBox(
+                width: 50.0,
+                height: 50.0,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    FlutterFlowTheme.of(context).primary,
                   ),
-                ),
-              );
-            }
-            List<ActivitiesRecord> containerActivitiesRecordList =
-                snapshot.data!;
-
-            return Container(
-              decoration: BoxDecoration(
-                color: FlutterFlowTheme.of(context).primaryBackground,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Builder(
-                      builder: (context) {
-                        final activities = containerActivitiesRecordList
-                            .where(
-                                (e) => e.groupIds.contains(_model.currentGroup))
-                            .toList();
-                        if (activities.isEmpty) {
-                          return Image.asset(
-                            'assets/images/vineyard.png',
-                          );
-                        }
-
-                        return Column(
-                          mainAxisSize: MainAxisSize.max,
-                          children: List.generate(activities.length,
-                              (activitiesIndex) {
-                            final activitiesItem = activities[activitiesIndex];
-                            return Column(
-                              mainAxisSize: MainAxisSize.max,
-                              children: [
-                                Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
-                                      30.0, 0.0, 30.0, 0.0),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color:
-                                            activitiesItem.activityType ==
-                                                    'meet'
-                                                ? FlutterFlowTheme.of(context)
-                                                    .alternate
-                                                : Color(0x00000000),
-                                      ),
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          20.0, 0.0, 30.0, 0.0),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.max,
-                                        children: [
-                                          M01ActivityCardWidget(
-                                            key: Key(
-                                                'Keyqfs_${activitiesIndex}_of_${activities.length}'),
-                                            complete: false,
-                                            index: 1,
-                                            activityItem: activitiesItem,
-                                          ).animateOnPageLoad(animationsMap[
-                                              'm01ActivityCardOnPageLoadAnimation']!),
-                                        ],
-                                      ),
-                                    ),
-                                  ).animateOnPageLoad(animationsMap[
-                                      'containerOnPageLoadAnimation']!),
-                                ),
-                              ],
-                            );
-                          }),
-                        );
-                      },
-                    ),
-                  ]
-                      .divide(SizedBox(height: 8.0))
-                      .addToStart(SizedBox(height: 2.0)),
                 ),
               ),
             );
-          },
-        ),
-      ],
+          }
+
+          final containerActivitiesRecordList = snapshot.data!;
+          final activities = containerActivitiesRecordList
+              .where((e) => e.groupIds.contains(_model.currentGroup))
+              .toList();
+
+          return Container(
+            decoration: BoxDecoration(
+              color: FlutterFlowTheme.of(context).primaryBackground,
+            ),
+            child: activities.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Image.asset(
+                        'assets/images/vineyard.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: EdgeInsets.only(top: 2.0, bottom: 24.0),
+                    itemCount: activities.length,
+                    separatorBuilder: (_, __) => SizedBox(height: 8.0),
+                    itemBuilder: (context, activitiesIndex) {
+                      final activitiesItem = activities[activitiesIndex];
+                      return Padding(
+                        padding: EdgeInsetsDirectional.fromSTEB(
+                            30.0, 0.0, 30.0, 0.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: activitiesItem.activityType == 'meet'
+                                  ? FlutterFlowTheme.of(context).alternate
+                                  : Color(0x00000000),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsetsDirectional.fromSTEB(
+                                20.0, 0.0, 30.0, 0.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                M01ActivityCardWidget(
+                                  key: Key(
+                                      'Keyqfs_${activitiesIndex}_of_${activities.length}'),
+                                  complete: false,
+                                  index: 1,
+                                  activityItem: activitiesItem,
+                                ).animateOnPageLoad(animationsMap[
+                                    'm01ActivityCardOnPageLoadAnimation']!),
+                              ],
+                            ),
+                          ),
+                        ).animateOnPageLoad(
+                            animationsMap['containerOnPageLoadAnimation']!),
+                      );
+                    },
+                  ),
+          );
+        },
+      ),
     );
   }
 }
