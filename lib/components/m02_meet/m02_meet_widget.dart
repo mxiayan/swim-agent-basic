@@ -93,6 +93,48 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     safeSetState(() => apply(nextValue));
   }
 
+  Widget _buildClassFilterChip({
+    required String label,
+    required bool selected,
+    required ValueChanged<bool> onSelected,
+  }) {
+    return FilterChip(
+      label: Text(
+        label,
+        style: FlutterFlowTheme.of(context).labelSmall.override(
+              font: GoogleFonts.sora(
+                fontWeight: FontWeight.w500,
+                fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
+              ),
+              color: selected ? Colors.black : const Color(0xFF616161),
+              fontSize: 11.0,
+              letterSpacing: 0.0,
+              fontWeight: FontWeight.w500,
+              fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
+            ),
+      ),
+      avatar: Icon(
+        selected ? Icons.check_rounded : Icons.close_rounded,
+        size: 14.0,
+        color: selected ? Colors.blue : const Color(0xFF9E9E9E),
+      ),
+      selected: selected,
+      onSelected: onSelected,
+      showCheckmark: false,
+      side: BorderSide(
+        color: selected ? Colors.blue : const Color(0xFFE0E0E0),
+        width: 1.0,
+      ),
+      backgroundColor: Colors.white,
+      selectedColor: const Color(0xFFE3F2FD),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+
   @override
   void setState(VoidCallback callback) {
     super.setState(callback);
@@ -431,54 +473,53 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                 ),
               ),
               Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(30.0, 10.0, 30.0, 0.0),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      FilterChip(
-                        label: const Text('Age Group'),
-                        selected: _showAgeGroup,
-                        onSelected: (v) => _setClassFilter(
-                          nextValue: v,
-                          currentValue: _showAgeGroup,
-                          apply: (x) => _showAgeGroup = x,
-                        ),
-                        selectedColor: FlutterFlowTheme.of(context)
-                            .primary
-                            .withValues(alpha: 0.2),
-                        checkmarkColor: FlutterFlowTheme.of(context).primary,
+                padding: EdgeInsetsDirectional.fromSTEB(16.0, 10.0, 16.0, 0.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8.0,
+                        runSpacing: 8.0,
+                        children: [
+                          _buildClassFilterChip(
+                            label: 'Age Group',
+                            selected: _showAgeGroup,
+                            onSelected: (v) {
+                              _setClassFilter(
+                              nextValue: v,
+                              currentValue: _showAgeGroup,
+                              apply: (x) => _showAgeGroup = x,
+                            );
+                            },
+                          ),
+                          _buildClassFilterChip(
+                            label: 'Senior',
+                            selected: _showSenior,
+                            onSelected: (v) {
+                              _setClassFilter(
+                              nextValue: v,
+                              currentValue: _showSenior,
+                              apply: (x) => _showSenior = x,
+                            );
+                            },
+                          ),
+                          _buildClassFilterChip(
+                            label: 'Other',
+                            selected: _showOther,
+                            onSelected: (v) {
+                              _setClassFilter(
+                              nextValue: v,
+                              currentValue: _showOther,
+                              apply: (x) => _showOther = x,
+                            );
+                            },
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 8.0),
-                      FilterChip(
-                        label: const Text('Senior'),
-                        selected: _showSenior,
-                        onSelected: (v) => _setClassFilter(
-                          nextValue: v,
-                          currentValue: _showSenior,
-                          apply: (x) => _showSenior = x,
-                        ),
-                        selectedColor: FlutterFlowTheme.of(context)
-                            .primary
-                            .withValues(alpha: 0.2),
-                        checkmarkColor: FlutterFlowTheme.of(context).primary,
-                      ),
-                      SizedBox(width: 8.0),
-                      FilterChip(
-                        label: const Text('Other'),
-                        selected: _showOther,
-                        onSelected: (v) => _setClassFilter(
-                          nextValue: v,
-                          currentValue: _showOther,
-                          apply: (x) => _showOther = x,
-                        ),
-                        selectedColor: FlutterFlowTheme.of(context)
-                            .primary
-                            .withValues(alpha: 0.2),
-                        checkmarkColor: FlutterFlowTheme.of(context).primary,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
