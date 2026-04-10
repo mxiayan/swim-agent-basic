@@ -398,6 +398,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                       if (doc == null) {
                         return;
                       }
+                      if (!doc.hasEntryPage) {
+                        return;
+                      }
                       final url = doc.entryUrl.trim();
                       if (url.isEmpty) {
                         return;
@@ -409,7 +412,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                         color: FlutterFlowTheme.of(context).secondaryBackground,
                         borderRadius: BorderRadius.circular(20.0),
                         border: Border.all(
-                          color: Colors.green,
+                          color: (widget.meetDoc?.hasEntryPage ?? false)
+                              ? Colors.green
+                              : FlutterFlowTheme.of(context).alternate,
                           width: 1.0,
                         ),
                       ),
@@ -421,12 +426,18 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.edit_rounded,
-                              color: Colors.green,
+                              (widget.meetDoc?.hasEntryPage ?? false)
+                                  ? Icons.edit_rounded
+                                  : Icons.lock_clock_rounded,
+                              color: (widget.meetDoc?.hasEntryPage ?? false)
+                                  ? Colors.green
+                                  : FlutterFlowTheme.of(context).secondaryText,
                               size: 14.0,
                             ),
                             Text(
-                              'View Entry',
+                              (widget.meetDoc?.hasEntryPage ?? false)
+                                  ? 'View Entry'
+                                  : 'Not Open Yet',
                               style: FlutterFlowTheme.of(context)
                                   .labelSmall
                                   .override(
@@ -438,7 +449,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                                           .labelSmall
                                           .fontStyle,
                                     ),
-                                    color: Colors.green,
+                                    color: (widget.meetDoc?.hasEntryPage ?? false)
+                                        ? Colors.green
+                                        : FlutterFlowTheme.of(context)
+                                            .secondaryText,
                                     letterSpacing: 0.0,
                                     fontWeight: FlutterFlowTheme.of(context)
                                         .labelSmall

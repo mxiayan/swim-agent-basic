@@ -81,8 +81,13 @@ class MonitoredMeetsRecord extends FirestoreRecord {
     if (id.isEmpty) {
       return '';
     }
+    if (!RegExp(r'^\d+$').hasMatch(id)) {
+      return '';
+    }
     return 'https://ome.fastswims.com/meets/$id/enter';
   }
+
+  bool get hasEntryPage => entryUrl.isNotEmpty;
 
   // ---- Legacy FlutterFlow UI aliases (m02 meet cards / lists) ----
   String get name => title;
