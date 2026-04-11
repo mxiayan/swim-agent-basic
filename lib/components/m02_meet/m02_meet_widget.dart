@@ -120,7 +120,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   static const Color _chipUnselectedFg = Color(0xFF475569);
   static const Color _chipBorder = Color(0xFFE2E8F0);
   static const Color _electricBlue = Color(0xFF007AFF);
-  static const Color _pageBackground = Color(0xFFF8FAFC);
+  static const Color _pageBackground = Color(0xFFF1F5F9);
 
   Widget _buildTimeSegmentTab(
     BuildContext context, {

@@ -31,6 +31,7 @@ Future<void> mergeMeetPreference(
   MeetPreferenceStatus? status,
   bool? hasAlert,
   bool? isHidden,
+  String? notes,
 }) async {
   final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
   if (authUid.isEmpty || meetId.isEmpty) {
@@ -44,6 +45,7 @@ Future<void> mergeMeetPreference(
           status: status,
           hasAlert: hasAlert,
           isHidden: isHidden,
+          notes: notes,
         ),
         SetOptions(merge: true),
       );

@@ -127,7 +127,7 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
 
           return Container(
             decoration: const BoxDecoration(
-              color: Color(0xFFF8FAFC),
+              color: Color(0xFFF1F5F9),
             ),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 280),

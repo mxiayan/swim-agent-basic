@@ -30,6 +30,7 @@ class MeetPreferencesRecord {
     required this.status,
     required this.hasAlert,
     required this.isHidden,
+    this.notes = '',
   });
 
   final DocumentReference reference;
@@ -37,6 +38,9 @@ class MeetPreferencesRecord {
   final MeetPreferenceStatus status;
   final bool hasAlert;
   final bool isHidden;
+
+  /// Parent reminder text (`users/{uid}/meet_preferences/{meetId}` → `notes`).
+  final String notes;
 
   static MeetPreferencesRecord fromSnapshot(DocumentSnapshot snapshot) {
     final data = mapFromFirestore(snapshot.data() as Map<String, dynamic>);
@@ -46,6 +50,7 @@ class MeetPreferencesRecord {
       status: meetPreferenceStatusFromString(data['status'] as String?),
       hasAlert: data['has_alert'] as bool? ?? false,
       isHidden: data['is_hidden'] as bool? ?? false,
+      notes: (data['notes'] as String?)?.trim() ?? '',
     );
   }
 
@@ -53,6 +58,7 @@ class MeetPreferencesRecord {
     MeetPreferenceStatus? status,
     bool? hasAlert,
     bool? isHidden,
+    String? notes,
   }) {
     final m = <String, dynamic>{
       'updated_time': FieldValue.serverTimestamp(),
@@ -65,6 +71,9 @@ class MeetPreferencesRecord {
     }
     if (isHidden != null) {
       m['is_hidden'] = isHidden;
+    }
+    if (notes != null) {
+      m['notes'] = notes;
     }
     return m;
   }
