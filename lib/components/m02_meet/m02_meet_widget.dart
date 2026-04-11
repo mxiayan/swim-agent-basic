@@ -119,7 +119,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
 
   static const Color _chipUnselectedFg = Color(0xFF475569);
   static const Color _chipBorder = Color(0xFFE2E8F0);
-  static const Color _pillSelectedBg = Color(0xFF0F172A);
+  static const Color _electricBlue = Color(0xFF007AFF);
+  static const Color _pageBackground = Color(0xFFF8FAFC);
 
   Widget _buildTimeSegmentTab(
     BuildContext context, {
@@ -128,12 +129,12 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     required int selected,
     required VoidCallback onTap,
   }) {
-    final primary = FlutterFlowTheme.of(context).primary;
+    final metaGrey = FlutterFlowTheme.of(context).secondaryText;
     final isSel = selected == segment;
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        splashColor: primary.withValues(alpha: 0.08),
+        splashColor: _electricBlue.withValues(alpha: 0.12),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6.0),
           child: Column(
@@ -145,7 +146,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                 style: GoogleFonts.sora(
                   fontSize: isSel ? 16.0 : 15.0,
                   fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
-                  color: isSel ? const Color(0xFF0F172A) : Colors.grey,
+                  color: isSel ? Colors.black : metaGrey,
                   letterSpacing: 0.0,
                 ),
               ),
@@ -154,7 +155,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                 height: 3.0,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: isSel ? primary : Colors.transparent,
+                  color: isSel ? _electricBlue : Colors.transparent,
                   borderRadius: BorderRadius.circular(1.5),
                 ),
               ),
@@ -175,17 +176,18 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => onSelected(!selected),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(12.0),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
           decoration: BoxDecoration(
-            color: selected ? _pillSelectedBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-            border: selected
-                ? null
-                : Border.all(color: _chipBorder, width: 1.0),
+            color: selected ? _electricBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(12.0),
+            border: Border.all(
+              color: selected ? _electricBlue : _chipBorder,
+              width: 1.0,
+            ),
           ),
           child: Text(
             label,
@@ -255,12 +257,12 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     final app = context.watch<FFAppState>();
 
     return ColoredBox(
-      color: const Color(0xFFF1F5F9),
+      color: _pageBackground,
       child: Column(
         mainAxisSize: MainAxisSize.max,
         children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 0.0),
+          padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 0.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
@@ -272,17 +274,21 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                   vertical: 8.0,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(20.0),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12.0),
+                  border: Border.all(
+                    color: const Color(0xFFCBD5E1),
+                    width: 1.5,
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.info_outline,
                       size: 16.0,
-                      color: Color(0xFF64748B),
+                      color: FlutterFlowTheme.of(context).secondaryText,
                     ),
                     const SizedBox(width: 8.0),
                     Expanded(
@@ -296,8 +302,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                   height: 18,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.0,
-                                    color: FlutterFlowTheme.of(context)
-                                        .primary,
+                                    color: _electricBlue,
                                   ),
                                 ),
                               ),
@@ -308,10 +313,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.sora(
                                 fontSize: 13.0,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w400,
                                 height: 1.2,
                                 letterSpacing: 0.0,
-                                color: const Color(0xFF64748B),
+                                color: FlutterFlowTheme.of(context)
+                                    .secondaryText,
                               ),
                             ),
                     ),
@@ -329,8 +335,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         ),
                         style: IconButton.styleFrom(
                           foregroundColor: app.meetsShowAllZones
-                              ? FlutterFlowTheme.of(context).primary
-                              : const Color(0xFF64748B),
+                              ? _electricBlue
+                              : FlutterFlowTheme.of(context).secondaryText,
                         ),
                         onPressed: () {
                           app.update(
@@ -465,8 +471,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         width: 50.0,
                         height: 50.0,
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            FlutterFlowTheme.of(context).primary,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            _electricBlue,
                           ),
                         ),
                       ),
@@ -502,7 +508,12 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                               'meets_${app.meetTimeSegment}_${list.length}_${prefs.length}',
                             ),
                             child: ListView.builder(
-                              padding: EdgeInsets.only(bottom: 24.0, top: 8.0),
+                              padding: const EdgeInsets.fromLTRB(
+                                20.0,
+                                8.0,
+                                20.0,
+                                24.0,
+                              ),
                               itemCount: list.length,
                               itemBuilder: (context, columnIndex) {
                                 final meet = list[columnIndex];

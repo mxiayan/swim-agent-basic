@@ -12,7 +12,6 @@ import 'backend/firebase/firebase_config.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import 'flutter_flow/flutter_flow_util.dart';
-import 'index.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +50,9 @@ class MyAppScrollBehavior extends MaterialScrollBehavior {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = FlutterFlowTheme.themeMode;
+
+  /// Single instance; palette matches [LightModeTheme] in `flutter_flow_theme.dart`.
+  static final LightModeTheme _lightTheme = LightModeTheme();
 
   late AppStateNotifier _appStateNotifier;
   late GoRouter _router;
@@ -103,7 +105,8 @@ class _MyAppState extends State<MyApp> {
       }
     });
 
-    Future.delayed(Duration(milliseconds: 1000),
+    Future.delayed(
+        const Duration(milliseconds: 1000),
         () => safeSetState(() => _appStateNotifier.stopShowingSplashImage()));
   }
 
@@ -120,11 +123,12 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final light = _lightTheme;
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'SwimAgentBasic',
       scrollBehavior: MyAppScrollBehavior(),
-      localizationsDelegates: [
+      localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
@@ -133,6 +137,20 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         brightness: Brightness.light,
         useMaterial3: false,
+        scaffoldBackgroundColor: light.primaryBackground,
+        canvasColor: light.primaryBackground,
+        primaryColor: light.primary,
+        colorScheme: ColorScheme.light(
+          primary: light.primary,
+          onPrimary: light.primaryBtnText,
+          secondary: light.secondary,
+          onSecondary: light.primaryText,
+          surface: light.secondaryBackground,
+          onSurface: light.primaryText,
+          error: light.error,
+          onError: light.primaryBtnText,
+          outline: light.lineColor,
+        ),
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,

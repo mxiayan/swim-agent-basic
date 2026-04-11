@@ -34,6 +34,11 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
     with TickerProviderStateMixin {
   late M01ActivityCardModel _model;
 
+  static const Color _slateTitle = Color(0xFF1E293B);
+  static const Color _slateSecondary = Color(0xFF64748B);
+  static const Color _cardBorder = Color(0xFFE2E8F0);
+  static const Color _electricBlue = Color(0xFF007AFF);
+
   final animationsMap = <String, AnimationInfo>{};
 
   @override
@@ -222,28 +227,28 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
       mainAxisSize: MainAxisSize.max,
       children: [
         Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(30.0, 10.0, 30.0, 30.0),
+          padding: const EdgeInsetsDirectional.fromSTEB(
+              20.0, 10.0, 20.0, 30.0),
           child: Container(
             width: MediaQuery.sizeOf(context).width * 1.0,
             constraints: BoxConstraints(
               maxWidth: 450.0,
             ),
             decoration: BoxDecoration(
-              color: FlutterFlowTheme.of(context).secondaryBackground,
+              color: Colors.white,
+              border: Border.all(color: _cardBorder, width: 1.0),
               boxShadow: [
                 BoxShadow(
-                  blurRadius: 30.0,
-                  color: Color(0x33000000),
-                  offset: Offset(
-                    0.0,
-                    10.0,
-                  ),
-                )
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12.0,
+                  offset: const Offset(0.0, 4.0),
+                ),
               ],
-              borderRadius: BorderRadius.circular(40.0),
+              borderRadius: BorderRadius.circular(12.0),
             ),
             child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 30.0),
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                  16.0, 20.0, 16.0, 30.0),
               child: Column(
                 mainAxisSize: MainAxisSize.max,
                 children: [
@@ -256,7 +261,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                         height: 24.0,
                         decoration: BoxDecoration(
                           color: FlutterFlowTheme.of(context).cerise,
-                          borderRadius: BorderRadius.circular(40.0),
+                          borderRadius: BorderRadius.circular(12.0),
                         ),
                         child: Padding(
                           padding: EdgeInsetsDirectional.fromSTEB(
@@ -290,7 +295,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                           animationsMap['containerOnPageLoadAnimation2']!),
                       Icon(
                         Icons.more_vert_rounded,
-                        color: FlutterFlowTheme.of(context).secondaryText,
+                        color: _slateSecondary,
                         size: 20.0,
                       ),
                     ],
@@ -316,30 +321,12 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                     widget!.activityItem?.details?.locationName,
                                     '[Location Name]',
                                   ),
-                                  style: FlutterFlowTheme.of(context)
-                                      .displaySmall
-                                      .override(
-                                        font: GoogleFonts.sora(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .displaySmall
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .displaySmall
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .primary,
-                                        fontSize: 20.0,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .displaySmall
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .displaySmall
-                                            .fontStyle,
-                                      ),
+                                  style: GoogleFonts.sora(
+                                    color: _slateTitle,
+                                    fontSize: 20.0,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ).animateOnPageLoad(
                                     animationsMap['textOnPageLoadAnimation1']!),
                                 Padding(
@@ -367,8 +354,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                                     .headlineSmall
                                                     .fontStyle,
                                           ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryText,
+                                          color: _slateSecondary,
                                           fontSize: 15.0,
                                           letterSpacing: 0.0,
                                           fontWeight: FontWeight.w500,
@@ -396,8 +382,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                                   .headlineSmall
                                                   .fontStyle,
                                         ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .lightGrey,
+                                        color: _slateSecondary,
                                         fontSize: 12.0,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
@@ -436,7 +421,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                       children: [
                         Icon(
                           Icons.people,
-                          color: FlutterFlowTheme.of(context).secondaryText,
+                          color: _slateSecondary,
                           size: 18.0,
                         ),
                         Expanded(
@@ -455,8 +440,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryText,
+                                    color: _slateSecondary,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.w500,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -608,7 +592,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                       children: [
                         Icon(
                           Icons.alarm_on_outlined,
-                          color: FlutterFlowTheme.of(context).secondaryText,
+                          color: _slateSecondary,
                           size: 18.0,
                         ),
                         Expanded(
@@ -629,8 +613,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryText,
+                                    color: _slateSecondary,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.w500,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -646,7 +629,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                               width: 95.0,
                               decoration: BoxDecoration(
                                 color: FlutterFlowTheme.of(context).lightGrey,
-                                borderRadius: BorderRadius.circular(40.0),
+                                borderRadius: BorderRadius.circular(12.0),
                               ),
                               child: Padding(
                                 padding: EdgeInsetsDirectional.fromSTEB(
@@ -668,7 +651,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                                   .fontStyle,
                                         ),
                                         color: FlutterFlowTheme.of(context)
-                                            .primaryBackground,
+                                            .primaryText,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
                                             .bodyMedium
@@ -683,9 +666,8 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                             Container(
                               width: 105.0,
                               decoration: BoxDecoration(
-                                color:
-                                    FlutterFlowTheme.of(context).prussianBlue,
-                                borderRadius: BorderRadius.circular(40.0),
+                                color: _electricBlue,
+                                borderRadius: BorderRadius.circular(12.0),
                               ),
                               child: Padding(
                                 padding: EdgeInsetsDirectional.fromSTEB(
@@ -708,7 +690,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                                   .fontStyle,
                                         ),
                                         color: FlutterFlowTheme.of(context)
-                                            .primaryBackground,
+                                            .primaryBtnText,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
                                             .bodyMedium
@@ -734,7 +716,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                       children: [
                         Icon(
                           Icons.access_alarms_rounded,
-                          color: FlutterFlowTheme.of(context).secondaryText,
+                          color: _slateSecondary,
                           size: 18.0,
                         ),
                         Expanded(
@@ -755,8 +737,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryText,
+                                    color: _slateSecondary,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.w500,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -769,8 +750,8 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                         Container(
                           width: 105.0,
                           decoration: BoxDecoration(
-                            color: FlutterFlowTheme.of(context).prussianBlue,
-                            borderRadius: BorderRadius.circular(40.0),
+                            color: _electricBlue,
+                            borderRadius: BorderRadius.circular(12.0),
                           ),
                           child: Padding(
                             padding: EdgeInsetsDirectional.fromSTEB(
@@ -794,7 +775,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                           .fontStyle,
                                     ),
                                     color: FlutterFlowTheme.of(context)
-                                        .primaryBackground,
+                                        .primaryBtnText,
                                     letterSpacing: 0.0,
                                     fontWeight: FlutterFlowTheme.of(context)
                                         .bodyMedium

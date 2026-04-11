@@ -8,8 +8,6 @@ import '/components/m05_activity_dashboard/m05_activity_dashboard_widget.dart';
 import '/components/nav_item/nav_item_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -56,7 +54,7 @@ class _HomeWidgetState extends State<HomeWidget> {
         // Customize what your widget looks like when it's loading.
         if (!snapshot.hasData) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF1F5F9),
+            backgroundColor: Colors.white,
             body: Center(
               child: SizedBox(
                 width: 50.0,
@@ -71,8 +69,6 @@ class _HomeWidgetState extends State<HomeWidget> {
           );
         }
 
-        final homeUsersRecord = snapshot.data!;
-
         return GestureDetector(
           onTap: () {
             FocusScope.of(context).unfocus();
@@ -80,7 +76,7 @@ class _HomeWidgetState extends State<HomeWidget> {
           },
           child: Scaffold(
             key: scaffoldKey,
-            backgroundColor: const Color(0xFFF1F5F9),
+            backgroundColor: Colors.white,
             body: SafeArea(
               top: true,
               child: Column(
@@ -88,7 +84,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: EdgeInsets.all(30.0),
+                    padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.max,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -127,16 +123,16 @@ class _HomeWidgetState extends State<HomeWidget> {
                                   .titleMedium
                                   .override(
                                     font: GoogleFonts.sora(
-                                      fontWeight: FontWeight.w300,
+                                      fontWeight: FontWeight.w400,
                                       fontStyle: FlutterFlowTheme.of(context)
                                           .titleMedium
                                           .fontStyle,
                                     ),
-                                    color:
-                                        FlutterFlowTheme.of(context).lightGrey,
+                                    color: FlutterFlowTheme.of(context)
+                                        .secondaryText,
                                     fontSize: 16.0,
                                     letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w300,
+                                    fontWeight: FontWeight.w400,
                                     fontStyle: FlutterFlowTheme.of(context)
                                         .titleMedium
                                         .fontStyle,
@@ -145,35 +141,21 @@ class _HomeWidgetState extends State<HomeWidget> {
                           ],
                         ),
                         Container(
-                          width: 30.0,
-                          height: 30.0,
+                          width: 36.0,
+                          height: 36.0,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                FlutterFlowTheme.of(context).alternate,
-                                FlutterFlowTheme.of(context).fireOpal
-                              ],
-                              stops: [0.0, 1.0],
-                              begin: AlignmentDirectional(0.0, -1.0),
-                              end: AlignmentDirectional(0, 1.0),
-                            ),
                             shape: BoxShape.circle,
+                            border: Border.all(
+                              color: FlutterFlowTheme.of(context).primary,
+                              width: 2.0,
+                            ),
                           ),
-                          child: Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Padding(
-                              padding: EdgeInsets.all(2.0),
-                              child: Container(
-                                width: 40.0,
-                                height: 40.0,
-                                clipBehavior: Clip.antiAlias,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Image.asset(
-                                  'assets/images/mcroskey-headshot.jpg',
-                                  fit: BoxFit.cover,
-                                ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(2.0),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'assets/images/mcroskey-headshot.jpg',
+                                fit: BoxFit.cover,
                               ),
                             ),
                           ),

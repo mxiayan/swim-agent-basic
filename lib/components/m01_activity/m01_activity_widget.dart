@@ -127,7 +127,7 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
 
           return Container(
             decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+              color: Color(0xFFF8FAFC),
             ),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 280),
@@ -157,19 +157,20 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                         itemBuilder: (context, activitiesIndex) {
                           final activitiesItem = activities[activitiesIndex];
                           return Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 20.0, 0.0, 20.0, 0.0),
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: activitiesItem.activityType == 'meet'
-                                      ? FlutterFlowTheme.of(context).alternate
-                                      : Color(0x00000000),
+                                      ? const Color(0xFF007AFF)
+                                          .withValues(alpha: 0.35)
+                                      : const Color(0x00000000),
                                 ),
                               ),
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    20.0, 0.0, 30.0, 0.0),
+                                padding: const EdgeInsetsDirectional.fromSTEB(
+                                    20.0, 0.0, 20.0, 0.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [

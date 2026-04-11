@@ -27,29 +27,21 @@ class M02MeetEnteredWidget extends StatefulWidget {
 class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
   late M02MeetEnteredModel _model;
 
-  static const Color _metaTone = Color(0xFF757575);
+  static const Color _slateTitle = Color(0xFF1E293B);
+  static const Color _slateSecondary = Color(0xFF64748B);
+  static const Color _electricBlue = Color(0xFF007AFF);
+  static const Color _cardBorder = Color(0xFFE2E8F0);
 
   DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   TextStyle _metaTextStyle() => GoogleFonts.sora(
         fontSize: 12.0,
         fontWeight: FontWeight.w500,
-        color: _metaTone,
+        color: _slateSecondary,
         letterSpacing: 0.0,
       );
 
-  Widget _metaSeparator() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: Text(
-          '|',
-          style: GoogleFonts.sora(
-            fontSize: 12.0,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFFCBD5E1),
-            height: 1.0,
-          ),
-        ),
-      );
+  Color _metaIconColor() => _slateSecondary;
 
   DateTime? _entryDeadline(MonitoredMeetsRecord m) {
     final end = m.endTime ?? m.startTime;
@@ -92,10 +84,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
     return dateTimeFormat('MMM d', d);
   }
 
-  TextStyle _dateLineStyle(BuildContext context) => GoogleFonts.sora(
+  TextStyle _dateLineStyle() => GoogleFonts.sora(
         fontSize: 12.0,
         fontWeight: FontWeight.w500,
-        color: FlutterFlowTheme.of(context).secondaryText,
+        color: _slateSecondary,
         letterSpacing: 0.0,
       );
 
@@ -107,16 +99,17 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
       dates,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: _dateLineStyle(context),
+      style: _dateLineStyle(),
     );
   }
 
   Widget _buildDeadlineRow(BuildContext context, MonitoredMeetsRecord m) {
     final dl = _deadlineShort(m);
+    final meta = _slateSecondary;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(Icons.access_time_rounded, size: 15.0, color: _metaTone),
+        Icon(Icons.access_time_rounded, size: 15.0, color: meta),
         const SizedBox(width: 6.0),
         Expanded(
           child: Text(
@@ -126,7 +119,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
             style: GoogleFonts.sora(
               fontSize: 12.0,
               fontWeight: FontWeight.w500,
-              color: _metaTone,
+              color: meta,
               letterSpacing: 0.0,
             ),
           ),
@@ -135,7 +128,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
     );
   }
 
-  Widget _buildMeetMetaRow(MonitoredMeetsRecord m) {
+  Widget _buildMeetMetaRow(BuildContext context, MonitoredMeetsRecord m) {
     final location = m.location.trim();
     final sheetUrl = m.meetSheetUrl.trim();
     final hasSheet = sheetUrl.isNotEmpty;
@@ -148,7 +141,11 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (location.isNotEmpty) ...[
-          Icon(Icons.location_on_outlined, size: 14.0, color: _metaTone),
+          Icon(
+            Icons.location_on_outlined,
+            size: 14.0,
+            color: _metaIconColor(),
+          ),
           const SizedBox(width: 4.0),
           Expanded(
             child: Text(
@@ -159,7 +156,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
             ),
           ),
         ],
-        if (location.isNotEmpty && hasSheet) _metaSeparator(),
+        if (location.isNotEmpty && hasSheet) const SizedBox(width: 12.0),
         if (hasSheet)
           InkWell(
             splashColor: Colors.transparent,
@@ -172,7 +169,11 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.article_outlined, size: 14.0, color: _metaTone),
+                Icon(
+                  Icons.article_outlined,
+                  size: 14.0,
+                  color: _metaIconColor(),
+                ),
                 const SizedBox(width: 4.0),
                 Text('Meet Sheet', style: _metaTextStyle()),
               ],
@@ -237,18 +238,23 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
   Widget build(BuildContext context) {
     final doc = widget.meetDoc;
     if (doc == null) {
-      return SizedBox.shrink();
+      return const SizedBox.shrink();
     }
 
     final pref = widget.preference;
     final hidden = pref?.isHidden ?? false;
 
     if (hidden) {
+      final theme = FlutterFlowTheme.of(context);
       return Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 12.0),
+        padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 12.0),
         child: Material(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(12.0),
+          color: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+            side: const BorderSide(color: _cardBorder, width: 1.0),
+          ),
           child: ListTile(
             title: Text(
               valueOrDefault<String>(doc.name, 'Meet'),
@@ -258,7 +264,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                 fontSize: 14.0,
                 fontWeight: FontWeight.w500,
                 fontStyle: FontStyle.italic,
-                color: const Color(0xFF94A3B8),
+                color: theme.secondaryText,
               ),
             ),
             trailing: TextButton(
@@ -267,7 +273,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                 'Show',
                 style: GoogleFonts.sora(
                   fontWeight: FontWeight.w600,
-                  color: FlutterFlowTheme.of(context).primary,
+                  color: _electricBlue,
                 ),
               ),
             ),
@@ -279,27 +285,27 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 420.0;
-        final outerHPad = isNarrow ? 16.0 : 24.0;
-        final innerHPad = 16.0;
+        const innerHPad = 16.0;
         final status = pref?.status ?? MeetPreferenceStatus.skipped;
         final hasAlert = pref?.hasAlert ?? false;
         return Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(outerHPad, 0.0, outerHPad, 30.0),
+          padding: const EdgeInsetsDirectional.fromSTEB(
+              20.0, 0.0, 20.0, 30.0),
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16.0),
-              boxShadow: const [
+              border: Border.all(color: _cardBorder, width: 1.0),
+              borderRadius: BorderRadius.circular(12.0),
+              boxShadow: [
                 BoxShadow(
-                  blurRadius: 4.0,
-                  color: Color(0x14000000),
-                  offset: Offset(0.0, 2.0),
-                  spreadRadius: 0.0,
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12.0,
+                  offset: const Offset(0.0, 4.0),
                 ),
               ],
             ),
             child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(
+              padding: const EdgeInsetsDirectional.fromSTEB(
                   innerHPad, 16.0, innerHPad, 16.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -321,63 +327,15 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                                 valueOrDefault<String>(doc.name, '[Meet Name]'),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: FlutterFlowTheme.of(context)
-                                    .titleMedium
-                                    .override(
-                                      font: GoogleFonts.sora(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontStyle,
-                                      ),
-                                      letterSpacing: 0.0,
-                                      fontWeight: FontWeight.w600,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleMedium
-                                          .fontStyle,
-                                    ),
+                                style: GoogleFonts.sora(
+                                  fontSize: 16.0,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.25,
+                                  letterSpacing: 0.0,
+                                  color: _slateTitle,
+                                ),
                               ),
                             ),
-                            if (status == MeetPreferenceStatus.entered) ...[
-                              const SizedBox(width: 8.0),
-                              Container(
-                                height: 30.0,
-                                padding:
-                                    const EdgeInsetsDirectional.fromSTEB(
-                                  10.0,
-                                  0.0,
-                                  10.0,
-                                  0.0,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.circular(15.0),
-                                ),
-                                alignment: Alignment.center,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.check_circle_rounded,
-                                      color: Colors.white,
-                                      size: 15.0,
-                                    ),
-                                    const SizedBox(width: 5.0),
-                                    Text(
-                                      'ENTERED',
-                                      style: GoogleFonts.sora(
-                                        fontSize: 10.0,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -422,8 +380,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                                     : Icons.notifications_none_rounded,
                                 size: 20.0,
                                 color: hasAlert
-                                    ? FlutterFlowTheme.of(context).primary
-                                    : _metaTone,
+                                    ? _electricBlue
+                                    : _slateSecondary,
                               ),
                             ),
                             IconButton(
@@ -438,8 +396,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                               icon: Icon(
                                 Icons.close_rounded,
                                 size: 20.0,
-                                color:
-                                    FlutterFlowTheme.of(context).secondaryText,
+                                color: _slateSecondary,
                               ),
                             ),
                           ],
@@ -447,15 +404,22 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16.0),
-                  _buildMeetDateRangeRow(context, doc),
-                  const SizedBox(height: 8.0),
-                  _buildDeadlineRow(context, doc),
-                  const SizedBox(height: 16.0),
-                  _buildMeetMetaRow(doc),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildMeetDateRangeRow(context, doc),
+                        const SizedBox(height: 8.0),
+                        _buildDeadlineRow(context, doc),
+                        const SizedBox(height: 8.0),
+                        _buildMeetMetaRow(context, doc),
+                      ],
+                    ),
+                  ),
                   Divider(
                     thickness: 1.0,
-                    color: FlutterFlowTheme.of(context).alternate,
+                    color: FlutterFlowTheme.of(context).lineColor,
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -498,7 +462,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                                     .bodySmall
                                     .fontStyle,
                               ),
-                              color: FlutterFlowTheme.of(context).primary,
+                              color: _electricBlue,
                               letterSpacing: 0.0,
                               fontWeight: FlutterFlowTheme.of(context)
                                   .bodySmall
@@ -510,15 +474,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
                       ),
                     ].divide(const SizedBox(height: 2.0)),
                   ),
-                  const SizedBox(height: 14.0),
+                  const SizedBox(height: 6.0),
+                  _buildEnteredToggleRow(context, status, hasAlert),
+                  const SizedBox(height: 12.0),
                   SizedBox(
                     width: double.infinity,
-                    child: _buildDynamicAction(
-                      context,
-                      doc,
-                      status,
-                      hasAlert,
-                    ),
+                    child: _buildEntryUrlButton(context, doc, status),
                   ),
                 ].divide(const SizedBox(height: 12.0)),
               ),
@@ -532,112 +493,133 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget> {
   static const BorderRadius _actionRadius =
       BorderRadius.all(Radius.circular(12.0));
 
-  Widget _buildDynamicAction(
+  Future<void> _setEnteredState({
+    required bool entered,
+    required bool hasAlert,
+  }) async {
+    if (entered) {
+      await _mergePref(status: MeetPreferenceStatus.entered);
+    } else if (hasAlert) {
+      await _mergePref(status: MeetPreferenceStatus.interested);
+    } else {
+      await _mergePref(status: MeetPreferenceStatus.skipped);
+    }
+  }
+
+  Widget _buildEnteredToggleRow(
     BuildContext context,
-    MonitoredMeetsRecord doc,
     MeetPreferenceStatus status,
     bool hasAlert,
   ) {
+    final entered = status == MeetPreferenceStatus.entered;
+    final theme = FlutterFlowTheme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            "I've entered this meet",
+            style: GoogleFonts.sora(
+              fontSize: 14.0,
+              fontWeight: FontWeight.w600,
+              color: _slateTitle,
+            ),
+          ),
+        ),
+        SwitchTheme(
+          data: SwitchThemeData(
+            thumbColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return Colors.white;
+              }
+              return null;
+            }),
+            trackColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return _electricBlue;
+              }
+              return theme.lineColor;
+            }),
+          ),
+          child: Switch(
+            value: entered,
+            onChanged: (next) async {
+              await _setEnteredState(entered: next, hasAlert: hasAlert);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEntryUrlButton(
+    BuildContext context,
+    MonitoredMeetsRecord doc,
+    MeetPreferenceStatus status,
+  ) {
     final hasUrl = doc.hasEntryPage;
     final url = doc.entryUrl.trim();
-    final primary = FlutterFlowTheme.of(context).primary;
-    final alertStyle = status == MeetPreferenceStatus.interested ||
-        (hasAlert && status != MeetPreferenceStatus.entered);
-
-    final pad = const EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0);
-
-    final actionLabelStyle =
+    final theme = FlutterFlowTheme.of(context);
+    final entered = status == MeetPreferenceStatus.entered;
+    const pad = EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0);
+    final labelStyle =
         GoogleFonts.sora(fontWeight: FontWeight.w600, fontSize: 15.0);
 
-    if (status == MeetPreferenceStatus.entered) {
-      return FilledButton.tonal(
-        onPressed: () {},
-        style: FilledButton.styleFrom(
-          foregroundColor: const Color(0xFF14532D),
-          backgroundColor: const Color(0xFFDCFCE7),
-          padding: pad,
-          minimumSize: const Size(double.infinity, 48.0),
-          shape: const RoundedRectangleBorder(borderRadius: _actionRadius),
-          elevation: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.check_circle_rounded, size: 20.0),
-            const SizedBox(width: 10.0),
-            Text('Entered', style: actionLabelStyle),
-          ],
-        ),
-      );
+    Future<void> open() async {
+      if (!hasUrl) {
+        return;
+      }
+      await launchURL(url);
     }
 
-    if (alertStyle) {
-      return FilledButton.tonal(
-        onPressed: hasUrl ? () async => launchURL(url) : null,
-        style: FilledButton.styleFrom(
-          foregroundColor: primary,
+    if (entered) {
+      return OutlinedButton(
+        onPressed: hasUrl ? open : null,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _electricBlue,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: _electricBlue, width: 2.0),
           padding: pad,
           minimumSize: const Size(double.infinity, 48.0),
           shape: const RoundedRectangleBorder(borderRadius: _actionRadius),
-          elevation: 1,
-          shadowColor: const Color(0x40000000),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.notifications_active_rounded, size: 20.0),
+            const Icon(Icons.list_alt_rounded, size: 20.0, color: _electricBlue),
             const SizedBox(width: 10.0),
-            Text('Alert Set', style: actionLabelStyle),
+            Text(
+              'View Entries',
+              style: labelStyle.copyWith(color: _electricBlue),
+            ),
           ],
         ),
       );
     }
 
     return ElevatedButton(
-      onPressed: hasUrl
-          ? () async {
-              await launchURL(url);
-              if (!context.mounted) {
-                return;
-              }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Finished entering?'),
-                  action: SnackBarAction(
-                    label: 'I entered',
-                    onPressed: () {
-                      _mergePref(status: MeetPreferenceStatus.entered);
-                    },
-                  ),
-                ),
-              );
-            }
-          : null,
+      onPressed: hasUrl ? open : null,
       style: ElevatedButton.styleFrom(
-        backgroundColor: primary,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: const Color(0xFFE2E8F0),
-        disabledForegroundColor: const Color(0xFF94A3B8),
+        backgroundColor: _electricBlue,
+        foregroundColor: theme.primaryBtnText,
+        disabledBackgroundColor: theme.accent3,
+        disabledForegroundColor: theme.secondaryText,
         padding: pad,
         minimumSize: const Size(double.infinity, 48.0),
         elevation: 2,
-        shadowColor: const Color(0x45000000),
+        shadowColor: _electricBlue.withValues(alpha: 0.28),
         shape: const RoundedRectangleBorder(borderRadius: _actionRadius),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.open_in_new_rounded, size: 20.0),
+          Icon(Icons.open_in_new_rounded, size: 20.0, color: theme.primaryBtnText),
           const SizedBox(width: 10.0),
           Text(
             'Sign Up',
-            style: GoogleFonts.sora(
-              fontWeight: FontWeight.w600,
-              fontSize: 15.0,
-            ),
+            style: labelStyle.copyWith(color: theme.primaryBtnText),
           ),
         ],
       ),
