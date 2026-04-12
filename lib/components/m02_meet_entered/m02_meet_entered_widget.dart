@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/meet_preferences_api.dart';
@@ -32,15 +34,13 @@ class M02MeetEnteredWidget extends StatefulWidget {
 }
 
 class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late M02MeetEnteredModel _model;
 
   /// Plays when the user turns “I’ve entered this meet” on (after confirm).
   late final AnimationController _enteredCelebrateController;
   late final Animation<double> _celebrateScale;
   late final Animation<double> _celebrateFade;
-
-  static const double _verifiedSlotHeight = 22.0;
 
   static const Color _slateTitle = Color(0xFF1E293B);
   static const Color _slateSecondary = Color(0xFF64748B);
@@ -49,9 +49,16 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   /// Entered meet: left accent only (no green card fill).
   static const Color _enteredSidebarBlue = Color(0xFF007AFF);
   static const Color _verifiedGreen = Color(0xFF15803D);
-  static const Color _parentNoteYellow = Color(0xFFFEF9C3);
+  static const Color _parentNoteBg = Color(0xFFF8FAFC);
+  static const Color _softRedGlow = Color(0xFFFECACA);
+
+  /// Aligns calendar / clock / pin / sheet icons across logistics rows.
+  static const double _logisticsIconColWidth = 22.0;
+  static const double _logisticsIconGap = 6.0;
+  static const double _logisticsRowGap = 8.0;
 
   Timer? _deadlineTick;
+  late final AnimationController _deadlinePulseController;
 
   DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -84,25 +91,61 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     return _DeadlineUrgency.none;
   }
 
-  String _formatCountdownToDeadline(MonitoredMeetsRecord m) {
+  String _two(int n) => n.clamp(0, 99).toString().padLeft(2, '0');
+
+  /// Days:Hours:Mins until entry deadline (only shown when under 24h left).
+  String _formatDeadlineDhm(MonitoredMeetsRecord m) {
     final end = _entryDeadlineEnd(m);
     if (end == null) {
       return '';
     }
     final d = end.difference(DateTime.now());
     if (d <= Duration.zero) {
-      return '';
+      return '00:00:00';
     }
     final days = d.inDays;
     final hours = d.inHours.remainder(24);
     final mins = d.inMinutes.remainder(60);
-    if (days > 0) {
-      return '${days}d ${hours}h';
+    return '${_two(days)}:${_two(hours)}:${_two(mins)}';
+  }
+
+  bool _entryDeadlineWithin24h(MonitoredMeetsRecord m, bool entered) {
+    if (entered) {
+      return false;
     }
-    if (d.inHours > 0) {
-      return '${d.inHours}h ${mins}m';
+    final end = _entryDeadlineEnd(m);
+    if (end == null) {
+      return false;
     }
-    return '${d.inMinutes}m';
+    final rem = end.difference(DateTime.now());
+    return rem > Duration.zero && rem < const Duration(hours: 24);
+  }
+
+  int _calendarDaysUntilMeetStart(MonitoredMeetsRecord m) {
+    final s = m.startDate;
+    if (s == null) {
+      return 999;
+    }
+    return _dayOnly(s).difference(_dayOnly(DateTime.now())).inDays;
+  }
+
+  /// Subtle pill next to meet dates (time-to-start).
+  String? _timeToStartPillText(MonitoredMeetsRecord m) {
+    final d = _calendarDaysUntilMeetStart(m);
+    if (m.startDate == null) {
+      return null;
+    }
+    if (d < 0) {
+      return 'Started';
+    }
+    if (d < 3) {
+      return 'Starts ${dateTimeFormat('EEEE', m.startDate!)}!';
+    }
+    if (d <= 7) {
+      return d == 0 ? 'Starts today' : 'In $d days';
+    }
+    final w = math.max(1, (d + 6) ~/ 7);
+    return w == 1 ? 'In 1 week' : 'In $w weeks';
   }
 
   TextStyle _monoDeadlineStyle(Color color) => GoogleFonts.robotoMono(
@@ -191,18 +234,80 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         letterSpacing: 0.0,
       );
 
-  Widget _buildMeetDateRangeRow(BuildContext context, MonitoredMeetsRecord m) {
+  TextStyle _pillTextStyle() => GoogleFonts.sora(
+        fontSize: 11.0,
+        fontWeight: FontWeight.w600,
+        color: _slateSecondary,
+        letterSpacing: 0.0,
+      );
+
+  /// Shorter countdown when deadline is 24–48h away (not the DD:HH:MM line).
+  String? _deadlineApproachingShort(MonitoredMeetsRecord m, bool entered) {
+    if (entered || _entryDeadlineWithin24h(m, entered)) {
+      return null;
+    }
+    final end = _entryDeadlineEnd(m);
+    if (end == null) {
+      return null;
+    }
+    final d = end.difference(DateTime.now());
+    if (d <= Duration.zero || d > const Duration(hours: 48)) {
+      return null;
+    }
+    final days = d.inDays;
+    final hours = d.inHours.remainder(24);
+    if (days > 0) {
+      return '${days}d ${hours}h';
+    }
+    if (d.inHours > 0) {
+      return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+    }
+    return '${d.inMinutes}m';
+  }
+
+  /// Row 1: meet dates + time-to-start pill (single row).
+  Widget _buildLogisticsRow1DatesCountdown(MonitoredMeetsRecord m) {
     final dates =
         '${dateTimeFormat("MMM d", m.startDate)} - ${dateTimeFormat("MMM d, y", m.endDate)}';
-    return Text(
-      dates,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: _dateLineStyle(),
+    final pill = _timeToStartPillText(m);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: _logisticsIconColWidth,
+          child: Icon(
+            Icons.calendar_today_outlined,
+            size: 14.0,
+            color: _slateSecondary,
+          ),
+        ),
+        SizedBox(width: _logisticsIconGap),
+        Expanded(
+          child: Text(
+            dates,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _dateLineStyle(),
+          ),
+        ),
+        if (pill != null) ...[
+          const SizedBox(width: 8.0),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(999.0),
+              border: Border.all(color: _cardBorder, width: 1.0),
+            ),
+            child: Text(pill, style: _pillTextStyle()),
+          ),
+        ],
+      ],
     );
   }
 
-  Widget _buildDeadlineRow(
+  /// Row 2: entry deadline + countdown on one line.
+  Widget _buildLogisticsRow2Deadline(
     BuildContext context,
     MonitoredMeetsRecord m,
     bool entered,
@@ -223,62 +328,110 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             _DeadlineUrgency.approaching => Colors.orange,
             _DeadlineUrgency.none => _slateSecondary,
           };
-    final countdown = (!entered && urgency == _DeadlineUrgency.approaching)
-        ? _formatCountdownToDeadline(m)
-        : '';
-    final hasStructuredDeadline = _entryDeadlineEnd(m) != null;
+    final showUrgent = !entered && urgency == _DeadlineUrgency.approaching;
+    final within24h = _entryDeadlineWithin24h(m, entered);
+    final dhm = within24h ? _formatDeadlineDhm(m) : '';
+    final short = _deadlineApproachingShort(m, entered);
+    final trailingCountdown = dhm.isNotEmpty
+        ? 'Closes in $dhm'
+        : (short != null ? 'Expires in $short' : null);
 
-    final deadlineColumn = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Entry deadline: $dl',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: (entered || urgency == _DeadlineUrgency.none)
-              ? GoogleFonts.sora(
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.w500,
-                  color: lineColor,
-                  letterSpacing: 0.0,
-                )
-              : _monoDeadlineStyle(lineColor),
-        ),
-        if (countdown.isNotEmpty) ...[
-          const SizedBox(height: 4.0),
-          Text(
-            'Expires in: $countdown',
-            style: _monoDeadlineStyle(Colors.orange),
-          ),
-        ],
-      ],
+    final deadlineTextStyle = (entered || urgency == _DeadlineUrgency.none)
+        ? GoogleFonts.sora(
+            fontSize: 12.0,
+            fontWeight: FontWeight.w500,
+            color: lineColor,
+            letterSpacing: 0.0,
+          )
+        : _monoDeadlineStyle(lineColor);
+
+    final deadlineLabel = Text(
+      'Entry deadline: $dl',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: deadlineTextStyle,
     );
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 1.0),
-          child: Icon(Icons.access_time_rounded, size: 15.0, color: iconColor),
-        ),
-        const SizedBox(width: 6.0),
-        Expanded(
-          child: hasStructuredDeadline
-              ? SizedBox(
-                  height: 36.0,
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: deadlineColumn,
+    final Widget deadlineLabelVisual = showUrgent
+        ? AnimatedBuilder(
+            animation: _deadlinePulseController,
+            builder: (context, _) {
+              final t = 0.5 +
+                  0.5 *
+                      math.sin(
+                          _deadlinePulseController.value * 2.0 * math.pi);
+              return DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _softRedGlow.withValues(alpha: 0.35 + 0.35 * t),
+                      blurRadius: 10.0 + 6.0 * t,
+                      spreadRadius: 0.0,
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4.0,
+                    vertical: 2.0,
                   ),
-                )
-              : deadlineColumn,
+                  child: deadlineLabel,
+                ),
+              );
+            },
+          )
+        : deadlineLabel;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: _logisticsIconColWidth,
+          child: Icon(
+            Icons.access_time_rounded,
+            size: 15.0,
+            color: iconColor,
+          ),
+        ),
+        SizedBox(width: _logisticsIconGap),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: deadlineLabelVisual,
+                ),
+              ),
+              if (trailingCountdown != null) ...[
+                const SizedBox(width: 8.0),
+                Text(
+                  trailingCountdown,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: dhm.isNotEmpty
+                      ? _monoDeadlineStyle(Colors.red.shade700)
+                      : _monoDeadlineStyle(Colors.orange.shade800),
+                ),
+              ],
+              if (showUrgent) ...[
+                const SizedBox(width: 4.0),
+                Text(
+                  '⚠️',
+                  style: GoogleFonts.sora(fontSize: 13.0, height: 1.1),
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildMeetMetaRow(BuildContext context, MonitoredMeetsRecord m) {
+  /// Row 3: location + meet sheet (single row).
+  Widget _buildLogisticsRow3LocationSheet(MonitoredMeetsRecord m) {
     final location = m.location.trim();
     final sheetUrl = m.meetSheetUrl.trim();
     final hasSheet = sheetUrl.isNotEmpty;
@@ -288,26 +441,33 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     }
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (location.isNotEmpty) ...[
-          Icon(
-            Icons.location_on_outlined,
-            size: 14.0,
-            color: _metaIconColor(),
+        SizedBox(
+          width: _logisticsIconColWidth,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 1.0),
+            child: Icon(
+              Icons.location_on_outlined,
+              size: 14.0,
+              color: _metaIconColor(),
+            ),
           ),
-          const SizedBox(width: 4.0),
+        ),
+        SizedBox(width: _logisticsIconGap),
+        if (location.isNotEmpty)
           Expanded(
             child: Text(
               location,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: _metaTextStyle(),
             ),
-          ),
-        ],
-        if (location.isNotEmpty && hasSheet) const SizedBox(width: 12.0),
-        if (hasSheet)
+          )
+        else
+          Expanded(child: const SizedBox.shrink()),
+        if (hasSheet) ...[
+          SizedBox(width: location.isNotEmpty ? 12.0 : 8.0),
           InkWell(
             splashColor: Colors.transparent,
             focusColor: Colors.transparent,
@@ -329,6 +489,25 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               ],
             ),
           ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLogisticsSection(
+    BuildContext context,
+    MonitoredMeetsRecord m,
+    bool entered,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildLogisticsRow1DatesCountdown(m),
+        const SizedBox(height: _logisticsRowGap),
+        _buildLogisticsRow2Deadline(context, m, entered),
+        const SizedBox(height: _logisticsRowGap),
+        _buildLogisticsRow3LocationSheet(m),
       ],
     );
   }
@@ -378,6 +557,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     super.initState();
     _model = createModel(context, () => M02MeetEnteredModel());
 
+    _deadlinePulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
     _enteredCelebrateController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 680),
@@ -402,7 +585,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         _enteredCelebrateController.value = 1.0;
       }
     });
-    _deadlineTick = Timer.periodic(const Duration(seconds: 30), (_) {
+    _deadlineTick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
         safeSetState(() {});
       }
@@ -412,6 +595,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   @override
   void dispose() {
     _deadlineTick?.cancel();
+    _deadlinePulseController.dispose();
     _enteredCelebrateController.dispose();
     _model.maybeDispose();
 
@@ -470,6 +654,15 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final status = pref?.status ?? MeetPreferenceStatus.skipped;
     final hasAlert = pref?.hasAlert ?? false;
     final entered = status == MeetPreferenceStatus.entered;
+    final urgency = _deadlineUrgency(doc, entered);
+    if (!entered && urgency == _DeadlineUrgency.approaching) {
+      if (!_deadlinePulseController.isAnimating) {
+        _deadlinePulseController.repeat(reverse: true);
+      }
+    } else if (_deadlinePulseController.isAnimating) {
+      _deadlinePulseController.stop();
+      _deadlinePulseController.value = 0.0;
+    }
     return Padding(
           padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 30.0),
           child: Container(
@@ -508,41 +701,43 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Stack(
-                        clipBehavior: Clip.none,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: 4.0,
-                              right: 88.0,
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    valueOrDefault<String>(
-                                        doc.name, '[Meet Name]'),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.sora(
-                                      fontSize: 16.0,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.25,
-                                      letterSpacing: 0.0,
-                                      color: _slateTitle,
-                                    ),
-                                  ),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                valueOrDefault<String>(
+                                    doc.name, '[Meet Name]'),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.sora(
+                                  fontSize: 16.0,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.25,
+                                  letterSpacing: 0.0,
+                                  color: _slateTitle,
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (entered)
+                                Tooltip(
+                                  message: _verifiedTooltipMessage(context),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4.0,
+                                      vertical: 4.0,
+                                    ),
+                                    child: _buildVerifiedTitleBadge(context),
+                                  ),
+                                )
+                              else
                                 IconButton(
                                   visualDensity: VisualDensity.compact,
                                   padding: const EdgeInsets.all(8.0),
@@ -568,7 +763,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                       } else {
                                         await _mergePref(
                                           hasAlert: false,
-                                          status: MeetPreferenceStatus.skipped,
+                                          status:
+                                              MeetPreferenceStatus.skipped,
                                         );
                                       }
                                     }
@@ -583,38 +779,28 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                         : _slateSecondary,
                                   ),
                                 ),
-                                IconButton(
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.all(8.0),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 40,
-                                    minHeight: 40,
-                                  ),
-                                  tooltip: 'Hide meet',
-                                  onPressed: () => _mergePref(isHidden: true),
-                                  icon: Icon(
-                                    Icons.close_rounded,
-                                    size: 20.0,
-                                    color: _slateSecondary,
-                                  ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.all(8.0),
+                                constraints: const BoxConstraints(
+                                  minWidth: 40,
+                                  minHeight: 40,
                                 ),
-                              ],
-                            ),
+                                tooltip: 'Hide meet',
+                                onPressed: () => _mergePref(isHidden: true),
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  size: 20.0,
+                                  color: _slateSecondary,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildMeetDateRangeRow(context, doc),
-                            const SizedBox(height: 8.0),
-                            _buildDeadlineRow(context, doc, entered),
-                            const SizedBox(height: 4.0),
-                            _buildMeetMetaRow(context, doc),
-                          ],
-                        ),
+                        padding: const EdgeInsets.only(top: 6.0, bottom: 4.0),
+                        child: _buildLogisticsSection(context, doc, entered),
                       ),
                       Divider(
                         thickness: 1.0,
@@ -626,8 +812,6 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                         children: [
                           _buildParentNoteBox(context, pref),
                           const SizedBox(height: 8.0),
-                          _buildVerifiedSlot(context, entered),
-                          const SizedBox(height: 4.0),
                           _buildEnteredToggleRow(context, doc, status, hasAlert),
                           const SizedBox(height: 12.0),
                           SizedBox(
@@ -676,36 +860,59 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final notes = pref?.notes ?? '';
     final isEmpty = notes.isEmpty;
     return Material(
-      color: _parentNoteYellow,
-      borderRadius: BorderRadius.circular(8.0),
+      color: Colors.transparent,
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       child: InkWell(
+        borderRadius: BorderRadius.circular(8.0),
         onTap: () => _openParentNoteEditor(context, notes),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.edit_note,
-                size: 22.0,
-                color: _slateSecondary,
+        child: Stack(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: _parentNoteBg,
+                borderRadius: BorderRadius.circular(8.0),
               ),
-              const SizedBox(width: 10.0),
-              Expanded(
-                child: Text(
-                  isEmpty ? _parentNotePlaceholder : notes,
-                  style: GoogleFonts.sora(
-                    fontSize: 13.0,
-                    fontWeight: FontWeight.w500,
-                    height: 1.35,
-                    color: isEmpty ? _slateSecondary : _slateTitle,
-                    fontStyle: isEmpty ? FontStyle.italic : FontStyle.normal,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.attach_file,
+                      size: 20.0,
+                      color: _slateSecondary,
+                    ),
+                    const SizedBox(width: 10.0),
+                    Expanded(
+                      child: Text(
+                        isEmpty ? _parentNotePlaceholder : notes,
+                        style: GoogleFonts.sora(
+                          fontSize: 12.0,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                          color: isEmpty ? _slateSecondary : _slateTitle,
+                          fontStyle:
+                              isEmpty ? FontStyle.italic : FontStyle.normal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _DashedRRectPainter(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: 8.0,
+                    strokeWidth: 1.0,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -733,55 +940,34 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
-  Widget _buildVerifiedInline(BuildContext context) {
+  String _verifiedTooltipMessage(BuildContext context) {
     final raw = context.watch<FFAppState>().currentSwimmerName.trim();
     final firstName = raw.isEmpty
         ? 'Swimmer'
         : raw.split(RegExp(r'\s+')).first.trim();
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Icon(
-          Icons.check,
-          size: 12.0,
-          color: _verifiedGreen,
-        ),
-        const SizedBox(width: 6.0),
-        Expanded(
-          child: Text(
-            'Verified: $firstName is entered',
-            style: GoogleFonts.sora(
-              fontSize: 12.0,
-              fontWeight: FontWeight.w700,
-              color: _verifiedGreen,
-              height: 1.2,
-            ),
-          ),
-        ),
-      ],
-    );
+    return 'Verified: $firstName is entered';
   }
 
-  /// Fixed height so toggling entered does not shift the card layout.
-  Widget _buildVerifiedSlot(BuildContext context, bool entered) {
-    return SizedBox(
-      height: _verifiedSlotHeight,
-      width: double.infinity,
-      child: entered
-          ? AnimatedBuilder(
-              animation: _enteredCelebrateController,
-              builder: (context, _) {
-                return Transform.scale(
-                  scale: _celebrateScale.value,
-                  alignment: Alignment.centerLeft,
-                  child: Opacity(
-                    opacity: _celebrateFade.value.clamp(0.0, 1.0),
-                    child: _buildVerifiedInline(context),
-                  ),
-                );
-              },
-            )
-          : const SizedBox.shrink(),
+  Widget _buildVerifiedTitleBadge(BuildContext context) {
+    return Tooltip(
+      message: _verifiedTooltipMessage(context),
+      child: AnimatedBuilder(
+        animation: _enteredCelebrateController,
+        builder: (context, _) {
+          return Transform.scale(
+            scale: _celebrateScale.value,
+            alignment: Alignment.center,
+            child: Opacity(
+              opacity: _celebrateFade.value.clamp(0.0, 1.0),
+              child: Icon(
+                Icons.verified_rounded,
+                size: 22.0,
+                color: _verifiedGreen,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -1083,4 +1269,53 @@ class _ParentNoteEditorSheetState extends State<_ParentNoteEditorSheet> {
       ),
     );
   }
+}
+
+/// Dashed rounded outline (BorderStyle.dashed is not supported on all Flutter targets).
+class _DashedRRectPainter extends CustomPainter {
+  _DashedRRectPainter({
+    required this.color,
+    required this.borderRadius,
+    required this.strokeWidth,
+  });
+
+  final Color color;
+  final double borderRadius;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = strokeWidth / 2.0;
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
+    final r = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(math.max(0.0, borderRadius - inset)),
+    );
+    final path = Path()..addRRect(r);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    const dash = 5.0;
+    const gap = 3.0;
+    for (final ui.PathMetric metric in path.computeMetrics()) {
+      var dist = 0.0;
+      while (dist < metric.length) {
+        final next = math.min(dist + dash, metric.length);
+        canvas.drawPath(metric.extractPath(dist, next), paint);
+        dist = next + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.borderRadius != borderRadius ||
+      oldDelegate.strokeWidth != strokeWidth;
 }
