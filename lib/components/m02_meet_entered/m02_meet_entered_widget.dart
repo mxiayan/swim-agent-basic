@@ -48,6 +48,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   /// Entered meet: left accent only (no green card fill).
   static const Color _enteredSidebarBlue = Color(0xFF007AFF);
   static const Color _verifiedGreen = Color(0xFF15803D);
+  /// “Following” / interested (header heart), distinct from entered green.
+  static const Color _followingHeart = Color(0xFFE11D48);
   static const Color _parentNoteBg = Color(0xFFF8FAFC);
   static const Color _softRedGlow = Color(0xFFFECACA);
 
@@ -870,42 +872,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                   ),
                                   child: _buildVerifiedTitleBadge(context),
                                 )
-                              else if (!_isMeetLive(doc) &&
-                                  !(_meetSignupPendingContext(doc) &&
-                                      !entered))
-                                _meetHeaderIconAction(
-                                  context: context,
-                                  tooltip:
-                                      hasAlert ? 'Alert on' : 'Set alert',
-                                  onTap: () async {
-                                    final next = !hasAlert;
-                                    if (next) {
-                                      await _mergePref(
-                                        hasAlert: true,
-                                        status: status ==
-                                                MeetPreferenceStatus.entered
-                                            ? MeetPreferenceStatus.entered
-                                            : MeetPreferenceStatus.interested,
-                                      );
-                                    } else {
-                                      if (status ==
-                                          MeetPreferenceStatus.entered) {
-                                        await _mergePref(hasAlert: false);
-                                      } else {
-                                        await _mergePref(
-                                          hasAlert: false,
-                                          status:
-                                              MeetPreferenceStatus.skipped,
-                                        );
-                                      }
-                                    }
-                                  },
-                                  icon: hasAlert
-                                      ? Icons.notifications_active_rounded
-                                      : Icons.notifications_none_rounded,
-                                  iconColor: hasAlert
-                                      ? _electricBlue
-                                      : _slateSecondary,
+                              else if (status ==
+                                  MeetPreferenceStatus.interested)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4.0,
+                                    vertical: 4.0,
+                                  ),
+                                  child: _buildInterestedFollowBadge(context),
                                 ),
                               _meetHeaderIconAction(
                                 context: context,
@@ -1072,7 +1046,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
-  /// Bell / hide: `IconButton` merges semantics in ways that can trip
+  /// Hide: `IconButton` merges semantics in ways that can trip
   /// `parentDataDirty` on some Flutter versions; use [InkWell] under [Material] instead.
   Widget _meetHeaderIconAction({
     required BuildContext context,
@@ -1107,6 +1081,19 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         ? 'Swimmer'
         : raw.split(RegExp(r'\s+')).first.trim();
     return 'Verified: $firstName is entered';
+  }
+
+  Widget _buildInterestedFollowBadge(BuildContext context) {
+    return Tooltip(
+      message:
+          'Following this meet — you’ll get updates. See all followed meets in the Meets filter (tune icon → Interested only).',
+      child: Icon(
+        Icons.favorite_rounded,
+        size: 22.0,
+        color: _followingHeart,
+        semanticLabel: 'Following meet',
+      ),
+    );
   }
 
   Widget _buildVerifiedTitleBadge(BuildContext context) {
@@ -1199,7 +1186,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
-  /// Same persistence as the header bell for non-entered meets: `interested` + `has_alert`.
+  /// For pending sign-up: `interested` + `has_alert` when the user wants reminders.
   Widget _buildNotifyWhenSignUpOpensRow(
     BuildContext context,
     MeetPreferenceStatus status,
@@ -1250,6 +1237,20 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                 );
                 if (context.mounted) {
                   HapticFeedback.lightImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'You’ll get a reminder when sign-up opens. To see every meet you’re following, tap the tune icon on Meets, then turn on «Interested only».',
+                        style: GoogleFonts.sora(
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                        ),
+                      ),
+                      duration: const Duration(seconds: 5),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
                 }
               } else {
                 await _mergePref(
