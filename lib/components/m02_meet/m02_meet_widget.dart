@@ -302,6 +302,35 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     }
   }
 
+  /// Checkbox row plus the same glyphs as meet-card status disks, in neutral gray.
+  Widget _meetFilterCheckboxRow({
+    required bool selected,
+    required String label,
+    required Widget hint,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          selected
+              ? Icons.check_box_rounded
+              : Icons.check_box_outline_blank_rounded,
+          color: _electricBlue,
+          size: 22.0,
+        ),
+        const SizedBox(width: 8.0),
+        hint,
+        const SizedBox(width: 10.0),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.sora(fontSize: 14.0),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
   List<PopupMenuEntry<int>> _meetFilterMenuEntries(FFAppState app) {
     Widget zoneRow({
       required IconData icon,
@@ -420,46 +449,37 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       const PopupMenuDivider(),
       PopupMenuItem<int>(
         value: 5,
-        child: Row(
-          children: [
-            Icon(
-              app.meetFilterEnteredOnly
-                  ? Icons.check_box_rounded
-                  : Icons.check_box_outline_blank_rounded,
-              color: _electricBlue,
-              size: 22.0,
-            ),
-            const SizedBox(width: 10.0),
-            Expanded(
-              child: Text(
-                'My sign-ups only',
-                style: GoogleFonts.sora(fontSize: 14.0),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+        child: _meetFilterCheckboxRow(
+          selected: app.meetFilterEnteredOnly,
+          label: 'My sign-ups only',
+          hint: Icon(
+            Icons.check_rounded,
+            size: 20.0,
+            color: _bannerTitle.withValues(alpha: 0.52),
+          ),
         ),
       ),
       PopupMenuItem<int>(
         value: 6,
-        child: Row(
-          children: [
-            Icon(
-              app.meetFilterInterestedOnly
-                  ? Icons.check_box_rounded
-                  : Icons.check_box_outline_blank_rounded,
-              color: _electricBlue,
-              size: 22.0,
-            ),
-            const SizedBox(width: 10.0),
-            Expanded(
-              child: Text(
-                'Interested only',
-                style: GoogleFonts.sora(fontSize: 14.0),
-                overflow: TextOverflow.ellipsis,
+        child: _meetFilterCheckboxRow(
+          selected: app.meetFilterInterestedOnly,
+          label: 'Interested only',
+          hint: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.favorite_rounded,
+                size: 18.0,
+                color: _bannerTitle.withValues(alpha: 0.52),
               ),
-            ),
-          ],
+              const SizedBox(width: 5.0),
+              Icon(
+                Icons.notifications_active_rounded,
+                size: 18.0,
+                color: _bannerTitle.withValues(alpha: 0.52),
+              ),
+            ],
+          ),
         ),
       ),
     ];
@@ -768,9 +788,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                       'meets_${app.meetTimeSegment}_${list.length}_${prefs.length}',
                     ),
                     child: ListView.builder(
+                      // Extra top inset so corner status disks (~half of 28px above the card)
+                      // are not clipped under the Past / Live / Upcoming tabs.
                       padding: const EdgeInsets.fromLTRB(
                         20.0,
-                        8.0,
+                        28.0,
                         20.0,
                         24.0,
                       ),

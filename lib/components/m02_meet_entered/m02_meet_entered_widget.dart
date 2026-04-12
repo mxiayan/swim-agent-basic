@@ -45,11 +45,19 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _slateSecondary = Color(0xFF64748B);
   static const Color _electricBlue = Color(0xFF007AFF);
   static const Color _cardBorder = Color(0xFFE2E8F0);
-  /// Entered meet: left accent only (no green card fill).
-  static const Color _enteredSidebarBlue = Color(0xFF007AFF);
   static const Color _verifiedGreen = Color(0xFF15803D);
   /// “Following” / interested (header heart), distinct from entered green.
   static const Color _followingHeart = Color(0xFFE11D48);
+  /// Interested + reminders on (sign-up / alerts).
+  static const Color _watchingAmber = Color(0xFFF59E0B);
+  /// “Not interested” / skipped — light teal disk + darker glyph (no purple).
+  static const Color _skippedFill = Color(0xFFCCFBF1);
+  static const Color _skippedIcon = Color(0xFF0D9488);
+  static const Color _skippedStripe = Color(0xFF5EEAD4);
+  /// No Firestore preference yet — neutral “unset” look.
+  static const Color _untouchedFill = Color(0xFFF1F5F9);
+  static const Color _untouchedIcon = Color(0xFF94A3B8);
+  static const Color _untouchedStripe = Color(0xFFCBD5E1);
   static const Color _parentNoteBg = Color(0xFFF8FAFC);
   static const Color _softRedGlow = Color(0xFFFECACA);
 
@@ -738,14 +746,31 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
 
     if (hidden) {
       final theme = FlutterFlowTheme.of(context);
+      final hStatus = pref?.status ?? MeetPreferenceStatus.skipped;
+      final hHasAlert = pref?.hasAlert ?? false;
+      final hEntered = hStatus == MeetPreferenceStatus.entered;
+      final hHasPreference = pref != null;
+      final hAccent = _meetCardStatusAccentColor(
+        hasPreference: hHasPreference,
+        status: hStatus,
+        entered: hEntered,
+        hasAlert: hHasAlert,
+      );
+      final miniStatus = _buildMeetPreferenceStatusBadge(
+        context,
+        hasPreference: hHasPreference,
+        status: hStatus,
+        entered: hEntered,
+        hasAlert: hHasAlert,
+        diameter: 22.0,
+      );
       return Padding(
         padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 12.0),
-        child: Material(
-          color: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12.0),
-            side: const BorderSide(color: _cardBorder, width: 1.0),
+            border: _meetCardCompositeBorder(hAccent),
           ),
           clipBehavior: Clip.antiAlias,
           child: Padding(
@@ -753,6 +778,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                 16.0, 10.0, 8.0, 10.0),
             child: Row(
               children: [
+                if (miniStatus != null) ...[
+                  miniStatus,
+                  const SizedBox(width: 10.0),
+                ],
                 Expanded(
                   child: Text(
                     valueOrDefault<String>(doc.name, 'Meet'),
@@ -784,6 +813,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     }
 
     const innerHPad = 20.0;
+    final hasPreference = pref != null;
     final status = pref?.status ?? MeetPreferenceStatus.skipped;
     final hasAlert = pref?.hasAlert ?? false;
     final entered = status == MeetPreferenceStatus.entered;
@@ -792,6 +822,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     /// Space for [Stack]-positioned header actions (40px targets; two when not-interested shows).
     final titleEndInsetForHeaderActions =
         showNotInterestedAction ? 84.0 : 44.0;
+    final statusAccent = _meetCardStatusAccentColor(
+      hasPreference: hasPreference,
+      status: status,
+      entered: entered,
+      hasAlert: hasAlert,
+    );
     final urgency = _deadlineUrgency(doc, entered);
     final pulseEligible = !entered &&
         !_isMeetLive(doc) &&
@@ -828,18 +864,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      border: entered
-                          ? const Border(
-                              left: BorderSide(
-                                color: _enteredSidebarBlue,
-                                width: 4.0,
-                              ),
-                              top: BorderSide(color: _cardBorder, width: 1.0),
-                              right: BorderSide(color: _cardBorder, width: 1.0),
-                              bottom:
-                                  BorderSide(color: _cardBorder, width: 1.0),
-                            )
-                          : Border.all(color: _cardBorder, width: 1.0),
+                      border: _meetCardCompositeBorder(statusAccent),
                     ),
                     child: Padding(
                       padding: const EdgeInsetsDirectional.fromSTEB(
@@ -912,8 +937,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                 ),
                 ..._buildMeetCornerStateOverlay(
                   context,
+                  hasPreference: hasPreference,
                   status: status,
                   entered: entered,
+                  hasAlert: hasAlert,
                 ),
                 ..._buildMeetCardActionOverlay(
                   context,
@@ -1033,6 +1060,42 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
+  /// Stripe color for the meet card left edge; matches corner status disk colors.
+  Color _meetCardStatusAccentColor({
+    required bool hasPreference,
+    required MeetPreferenceStatus status,
+    required bool entered,
+    required bool hasAlert,
+  }) {
+    if (!hasPreference) {
+      return _untouchedStripe;
+    }
+    if (entered) {
+      return _verifiedGreen;
+    }
+    if (status == MeetPreferenceStatus.interested && hasAlert) {
+      return _watchingAmber;
+    }
+    if (status == MeetPreferenceStatus.interested) {
+      return _followingHeart;
+    }
+    if (status == MeetPreferenceStatus.skipped && hasPreference) {
+      return _skippedStripe;
+    }
+    return _untouchedStripe;
+  }
+
+  /// 4px left accent + thin frame on the other edges.
+  Border _meetCardCompositeBorder(Color accent) {
+    const thin = BorderSide(color: _cardBorder, width: 1.0);
+    return Border(
+      left: BorderSide(color: accent, width: 4.0),
+      top: thin,
+      right: thin,
+      bottom: thin,
+    );
+  }
+
   /// Hide: `IconButton` merges semantics in ways that can trip
   /// `parentDataDirty` on some Flutter versions; use [InkWell] under [Material] instead.
   Widget _meetHeaderIconAction({
@@ -1091,7 +1154,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                   }
                 },
                 icon: Icons.not_interested_rounded,
-                iconColor: _slateSecondary,
+                iconColor: _skippedIcon,
               ),
             _meetHeaderIconAction(
               context: context,
@@ -1109,48 +1172,83 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   /// Floating disks on the card vertex; does not consume in-card layout height.
   static const double _cornerStateBadgeSize = 28.0;
 
-  List<Widget> _buildMeetCornerStateOverlay(
+  double _cornerGlyphSize(double diameter, double atFullSize) {
+    return atFullSize * diameter / _cornerStateBadgeSize;
+  }
+
+  /// Same status disks as the corner overlay; [diameter] smaller for minimized rows.
+  Widget? _buildMeetPreferenceStatusBadge(
     BuildContext context, {
+    required bool hasPreference,
     required MeetPreferenceStatus status,
     required bool entered,
+    required bool hasAlert,
+    double diameter = _cornerStateBadgeSize,
   }) {
-    final half = _cornerStateBadgeSize / 2.0;
     if (entered) {
-      return [
-        PositionedDirectional(
-          start: -half,
-          top: -half,
-          child: _buildCornerEnteredBadge(context),
-        ),
-      ];
+      return _buildCornerEnteredBadge(context, diameter: diameter);
+    }
+    if (status == MeetPreferenceStatus.interested && hasAlert) {
+      return _buildCornerInterestedRemindersBadge(context, diameter: diameter);
     }
     if (status == MeetPreferenceStatus.interested) {
-      return [
-        PositionedDirectional(
-          start: -half,
-          top: -half,
-          child: _buildCornerInterestedBadge(context),
-        ),
-      ];
+      return _buildCornerInterestedBadge(context, diameter: diameter);
     }
-    return const <Widget>[];
+    if (status == MeetPreferenceStatus.skipped && hasPreference) {
+      return _buildCornerSkippedBadge(context, diameter: diameter);
+    }
+    if (!hasPreference) {
+      return _buildCornerUntouchedBadge(context, diameter: diameter);
+    }
+    return null;
+  }
+
+  List<Widget> _buildMeetCornerStateOverlay(
+    BuildContext context, {
+    required bool hasPreference,
+    required MeetPreferenceStatus status,
+    required bool entered,
+    required bool hasAlert,
+  }) {
+    final badge = _buildMeetPreferenceStatusBadge(
+      context,
+      hasPreference: hasPreference,
+      status: status,
+      entered: entered,
+      hasAlert: hasAlert,
+      diameter: _cornerStateBadgeSize,
+    );
+    if (badge == null) {
+      return const <Widget>[];
+    }
+    const half = _cornerStateBadgeSize / 2.0;
+    return [
+      PositionedDirectional(
+        start: -half,
+        top: -half,
+        child: badge,
+      ),
+    ];
   }
 
   Widget _buildCornerStateDisk({
     required Color backgroundColor,
     required Widget child,
+    double diameter = _cornerStateBadgeSize,
   }) {
+    final borderW = diameter >= 24.0 ? 2.5 : 2.0;
+    final blur = diameter >= 24.0 ? 8.0 : 5.0;
     return Container(
-      width: _cornerStateBadgeSize,
-      height: _cornerStateBadgeSize,
+      width: diameter,
+      height: diameter,
       decoration: BoxDecoration(
         color: backgroundColor,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2.5),
+        border: Border.all(color: Colors.white, width: borderW),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 8.0,
+            blurRadius: blur,
             offset: const Offset(0.0, 2.0),
           ),
         ],
@@ -1159,7 +1257,11 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
-  Widget _buildCornerEnteredBadge(BuildContext context) {
+  Widget _buildCornerEnteredBadge(
+    BuildContext context, {
+    double diameter = _cornerStateBadgeSize,
+  }) {
+    final g = _cornerGlyphSize(diameter, 16.0);
     return Tooltip(
       message: _verifiedTooltipMessage(context),
       child: AnimatedBuilder(
@@ -1171,11 +1273,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             child: Opacity(
               opacity: _celebrateFade.value.clamp(0.0, 1.0),
               child: _buildCornerStateDisk(
+                diameter: diameter,
                 backgroundColor: _verifiedGreen,
-                child: const Icon(
+                child: Icon(
                   Icons.check_rounded,
                   color: Colors.white,
-                  size: 16.0,
+                  size: g,
                 ),
               ),
             ),
@@ -1185,16 +1288,81 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
-  Widget _buildCornerInterestedBadge(BuildContext context) {
+  Widget _buildCornerInterestedBadge(
+    BuildContext context, {
+    double diameter = _cornerStateBadgeSize,
+  }) {
+    final g = _cornerGlyphSize(diameter, 14.0);
     return Tooltip(
       message:
-          'Following this meet — you’ll get updates. See all followed meets in the Meets filter (tune icon → Interested only).',
+          'Interested — following this meet. Turn on “notify when sign-up opens” for reminders, or use the Meets filter (tune → Interested only) to see all followed meets.',
       child: _buildCornerStateDisk(
+        diameter: diameter,
         backgroundColor: _followingHeart,
-        child: const Icon(
+        child: Icon(
           Icons.favorite_rounded,
           color: Colors.white,
-          size: 14.0,
+          size: g,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCornerInterestedRemindersBadge(
+    BuildContext context, {
+    double diameter = _cornerStateBadgeSize,
+  }) {
+    final g = _cornerGlyphSize(diameter, 15.0);
+    return Tooltip(
+      message:
+          'Reminders on — you’ll get updates about this meet. See all followed meets in the Meets filter (tune icon → Interested only).',
+      child: _buildCornerStateDisk(
+        diameter: diameter,
+        backgroundColor: _watchingAmber,
+        child: Icon(
+          Icons.notifications_active_rounded,
+          color: Colors.white,
+          size: g,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCornerSkippedBadge(
+    BuildContext context, {
+    double diameter = _cornerStateBadgeSize,
+  }) {
+    final g = _cornerGlyphSize(diameter, 15.0);
+    return Tooltip(
+      message:
+          'Not interested — no reminders. Use “notify when sign-up opens” or “I’ve entered” if you change your mind.',
+      child: _buildCornerStateDisk(
+        diameter: diameter,
+        backgroundColor: _skippedFill,
+        child: Icon(
+          Icons.not_interested_rounded,
+          color: _skippedIcon,
+          size: g,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCornerUntouchedBadge(
+    BuildContext context, {
+    double diameter = _cornerStateBadgeSize,
+  }) {
+    final g = _cornerGlyphSize(diameter, 15.0);
+    return Tooltip(
+      message:
+          'No preference saved yet — open the card to mark entered, follow for updates, or hide this meet.',
+      child: _buildCornerStateDisk(
+        diameter: diameter,
+        backgroundColor: _untouchedFill,
+        child: Icon(
+          Icons.radio_button_unchecked_rounded,
+          color: _untouchedIcon,
+          size: g,
         ),
       ),
     );
