@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -57,10 +56,63 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const double _logisticsIconGap = 6.0;
   static const double _logisticsRowGap = 8.0;
 
-  Timer? _deadlineTick;
   late final AnimationController _deadlinePulseController;
 
   DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// Today falls on a calendar day between meet start and end (inclusive).
+  bool _isMeetLive(MonitoredMeetsRecord m) {
+    final today = _dayOnly(DateTime.now());
+    final s = m.startTime;
+    final e = m.endTime ?? m.startTime;
+    if (s == null && e == null) {
+      return false;
+    }
+    final sd = s != null ? _dayOnly(s) : _dayOnly(e!);
+    final ed = e != null ? _dayOnly(e) : sd;
+    return !sd.isAfter(today) && !ed.isBefore(today);
+  }
+
+  bool _entryDeadlineHasPassed(MonitoredMeetsRecord m) {
+    final end = _entryDeadlineEnd(m);
+    if (end == null) {
+      return false;
+    }
+    return DateTime.now().isAfter(end);
+  }
+
+  /// Firestore meet `status` indicates registration is no longer open.
+  bool _meetSignupsClosedByStatus(MonitoredMeetsRecord m) {
+    final s = m.status.trim().toLowerCase();
+    if (s.isEmpty) {
+      return false;
+    }
+    return s.contains('closed') ||
+        s.contains('cancel') ||
+        s.contains('canceled');
+  }
+
+  /// Live meet, past entry deadline, or meet status says sign-ups are closed.
+  bool _signupsClosedContext(MonitoredMeetsRecord m) {
+    return _isMeetLive(m) ||
+        _meetSignupsClosedByStatus(m) ||
+        _entryDeadlineHasPassed(m);
+  }
+
+  /// Same rule as [MonitoredMeetsRecord.entryUrl]: numeric id gets a default OME URL.
+  bool _meetIdIsNumericFastswim(MonitoredMeetsRecord m) {
+    return RegExp(r'^\d+$').hasMatch(m.meetId.trim());
+  }
+
+  /// Firestore `status` is `pending` — host has not opened registration yet.
+  bool _meetStatusIsPending(MonitoredMeetsRecord m) {
+    return m.status.trim().toLowerCase() == 'pending';
+  }
+
+  /// Registration not open yet: `status: pending`, or placeholder meet id (e.g. `pac_…`) without a numeric FastSwim id.
+  bool _meetSignupPendingContext(MonitoredMeetsRecord m) {
+    return _meetStatusIsPending(m) || !_meetIdIsNumericFastswim(m);
+  }
 
   /// End of calendar day for deadline comparisons.
   DateTime? _entryDeadlineEnd(MonitoredMeetsRecord m) {
@@ -91,22 +143,17 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     return _DeadlineUrgency.none;
   }
 
-  String _two(int n) => n.clamp(0, 99).toString().padLeft(2, '0');
-
-  /// Days:Hours:Mins until entry deadline (only shown when under 24h left).
-  String _formatDeadlineDhm(MonitoredMeetsRecord m) {
-    final end = _entryDeadlineEnd(m);
-    if (end == null) {
-      return '';
-    }
+  /// One-shot "Closes in DD:HH:MM" (no timer; updates when this widget rebuilds).
+  String _formatClosesInFromEnd(DateTime end) {
     final d = end.difference(DateTime.now());
     if (d <= Duration.zero) {
-      return '00:00:00';
+      return 'Closes in 00:00:00';
     }
+    String two(int n) => n.clamp(0, 99).toString().padLeft(2, '0');
     final days = d.inDays;
     final hours = d.inHours.remainder(24);
     final mins = d.inMinutes.remainder(60);
-    return '${_two(days)}:${_two(hours)}:${_two(mins)}';
+    return 'Closes in ${two(days)}:${two(hours)}:${two(mins)}';
   }
 
   bool _entryDeadlineWithin24h(MonitoredMeetsRecord m, bool entered) {
@@ -131,6 +178,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
 
   /// Subtle pill next to meet dates (time-to-start).
   String? _timeToStartPillText(MonitoredMeetsRecord m) {
+    if (_isMeetLive(m)) {
+      return 'Live';
+    }
     final d = _calendarDaysUntilMeetStart(m);
     if (m.startDate == null) {
       return null;
@@ -306,12 +356,84 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
+  /// Muted row when sign-ups are not relevant (live meet, status closed, or past deadline).
+  Widget _buildSignupsClosedHintRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: _logisticsIconColWidth,
+          child: Icon(
+            Icons.event_busy_outlined,
+            size: 15.0,
+            color: _slateSecondary,
+          ),
+        ),
+        SizedBox(width: _logisticsIconGap),
+        Expanded(
+          child: Text(
+            'Sign up closed',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.sora(
+              fontSize: 12.0,
+              fontWeight: FontWeight.w600,
+              color: _slateSecondary,
+              letterSpacing: 0.0,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Row 2 variant: registration not open yet (pending status or placeholder meet id).
+  Widget _buildSignupsPendingHintRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: _logisticsIconColWidth,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 1.0),
+            child: Icon(
+              Icons.schedule_rounded,
+              size: 15.0,
+              color: _slateSecondary,
+            ),
+          ),
+        ),
+        SizedBox(width: _logisticsIconGap),
+        Expanded(
+          child: Text(
+            'Sign-up isn’t open yet. Use the switch below to be reminded when registration opens.',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.sora(
+              fontSize: 12.0,
+              fontWeight: FontWeight.w600,
+              color: _slateSecondary,
+              letterSpacing: 0.0,
+              height: 1.25,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// Row 2: entry deadline + countdown on one line.
   Widget _buildLogisticsRow2Deadline(
     BuildContext context,
     MonitoredMeetsRecord m,
     bool entered,
   ) {
+    if (_signupsClosedContext(m)) {
+      return _buildSignupsClosedHintRow();
+    }
+    if (_meetSignupPendingContext(m)) {
+      return _buildSignupsPendingHintRow();
+    }
     final dl = _deadlineShort(m);
     final urgency = _deadlineUrgency(m, entered);
     final iconColor = entered
@@ -330,11 +452,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           };
     final showUrgent = !entered && urgency == _DeadlineUrgency.approaching;
     final within24h = _entryDeadlineWithin24h(m, entered);
-    final dhm = within24h ? _formatDeadlineDhm(m) : '';
     final short = _deadlineApproachingShort(m, entered);
-    final trailingCountdown = dhm.isNotEmpty
-        ? 'Closes in $dhm'
-        : (short != null ? 'Expires in $short' : null);
+    final deadlineEnd = _entryDeadlineEnd(m);
 
     final deadlineTextStyle = (entered || urgency == _DeadlineUrgency.none)
         ? GoogleFonts.sora(
@@ -405,15 +524,21 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                   child: deadlineLabelVisual,
                 ),
               ),
-              if (trailingCountdown != null) ...[
+              if (within24h && deadlineEnd != null) ...[
                 const SizedBox(width: 8.0),
                 Text(
-                  trailingCountdown,
+                  _formatClosesInFromEnd(deadlineEnd),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: dhm.isNotEmpty
-                      ? _monoDeadlineStyle(Colors.red.shade700)
-                      : _monoDeadlineStyle(Colors.orange.shade800),
+                  style: _monoDeadlineStyle(Colors.red.shade700),
+                ),
+              ] else if (short != null) ...[
+                const SizedBox(width: 8.0),
+                Text(
+                  'Expires in $short',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _monoDeadlineStyle(Colors.orange.shade800),
                 ),
               ],
               if (showUrgent) ...[
@@ -468,25 +593,28 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           Expanded(child: const SizedBox.shrink()),
         if (hasSheet) ...[
           SizedBox(width: location.isNotEmpty ? 12.0 : 8.0),
-          InkWell(
-            splashColor: Colors.transparent,
-            focusColor: Colors.transparent,
-            hoverColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            onTap: () async {
-              await launchURL(sheetUrl);
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.article_outlined,
-                  size: 14.0,
-                  color: _metaIconColor(),
-                ),
-                const SizedBox(width: 4.0),
-                Text('Meet Sheet', style: _metaTextStyle()),
-              ],
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              splashColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              onTap: () async {
+                await launchURL(sheetUrl);
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.article_outlined,
+                    size: 14.0,
+                    color: _metaIconColor(),
+                  ),
+                  const SizedBox(width: 4.0),
+                  Text('Meet Sheet', style: _metaTextStyle()),
+                ],
+              ),
             ),
           ),
         ],
@@ -585,16 +713,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         _enteredCelebrateController.value = 1.0;
       }
     });
-    _deadlineTick = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        safeSetState(() {});
-      }
-    });
   }
 
   @override
   void dispose() {
-    _deadlineTick?.cancel();
     _deadlinePulseController.dispose();
     _enteredCelebrateController.dispose();
     _model.maybeDispose();
@@ -623,27 +745,36 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             borderRadius: BorderRadius.circular(12.0),
             side: const BorderSide(color: _cardBorder, width: 1.0),
           ),
-          child: ListTile(
-            title: Text(
-              valueOrDefault<String>(doc.name, 'Meet'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.sora(
-                fontSize: 14.0,
-                fontWeight: FontWeight.w500,
-                fontStyle: FontStyle.italic,
-                color: theme.secondaryText,
-              ),
-            ),
-            trailing: TextButton(
-              onPressed: () => _mergePref(isHidden: false),
-              child: Text(
-                'Show',
-                style: GoogleFonts.sora(
-                  fontWeight: FontWeight.w600,
-                  color: _electricBlue,
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+                16.0, 10.0, 8.0, 10.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    valueOrDefault<String>(doc.name, 'Meet'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.sora(
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.w500,
+                      fontStyle: FontStyle.italic,
+                      color: theme.secondaryText,
+                    ),
+                  ),
                 ),
-              ),
+                TextButton(
+                  onPressed: () => _mergePref(isHidden: false),
+                  child: Text(
+                    'Show',
+                    style: GoogleFonts.sora(
+                      fontWeight: FontWeight.w600,
+                      color: _electricBlue,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -655,7 +786,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final hasAlert = pref?.hasAlert ?? false;
     final entered = status == MeetPreferenceStatus.entered;
     final urgency = _deadlineUrgency(doc, entered);
-    if (!entered && urgency == _DeadlineUrgency.approaching) {
+    final pulseEligible = !entered &&
+        !_isMeetLive(doc) &&
+        !_meetSignupsClosedByStatus(doc) &&
+        !_meetSignupPendingContext(doc) &&
+        urgency == _DeadlineUrgency.approaching;
+    if (pulseEligible) {
       if (!_deadlinePulseController.isAnimating) {
         _deadlinePulseController.repeat(reverse: true);
       }
@@ -727,26 +863,21 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (entered)
-                                Tooltip(
-                                  message: _verifiedTooltipMessage(context),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4.0,
-                                      vertical: 4.0,
-                                    ),
-                                    child: _buildVerifiedTitleBadge(context),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4.0,
+                                    vertical: 4.0,
                                   ),
+                                  child: _buildVerifiedTitleBadge(context),
                                 )
-                              else
-                                IconButton(
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.all(8.0),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 40,
-                                    minHeight: 40,
-                                  ),
-                                  tooltip: hasAlert ? 'Alert on' : 'Set alert',
-                                  onPressed: () async {
+                              else if (!_isMeetLive(doc) &&
+                                  !(_meetSignupPendingContext(doc) &&
+                                      !entered))
+                                _meetHeaderIconAction(
+                                  context: context,
+                                  tooltip:
+                                      hasAlert ? 'Alert on' : 'Set alert',
+                                  onTap: () async {
                                     final next = !hasAlert;
                                     if (next) {
                                       await _mergePref(
@@ -769,30 +900,19 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                       }
                                     }
                                   },
-                                  icon: Icon(
-                                    hasAlert
-                                        ? Icons.notifications_active_rounded
-                                        : Icons.notifications_none_rounded,
-                                    size: 20.0,
-                                    color: hasAlert
-                                        ? _electricBlue
-                                        : _slateSecondary,
-                                  ),
+                                  icon: hasAlert
+                                      ? Icons.notifications_active_rounded
+                                      : Icons.notifications_none_rounded,
+                                  iconColor: hasAlert
+                                      ? _electricBlue
+                                      : _slateSecondary,
                                 ),
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.all(8.0),
-                                constraints: const BoxConstraints(
-                                  minWidth: 40,
-                                  minHeight: 40,
-                                ),
-                                tooltip: 'Hide meet',
-                                onPressed: () => _mergePref(isHidden: true),
-                                icon: Icon(
-                                  Icons.close_rounded,
-                                  size: 20.0,
-                                  color: _slateSecondary,
-                                ),
+                              _meetHeaderIconAction(
+                                context: context,
+                                tooltip: 'Hide meet from list',
+                                onTap: () => _mergePref(isHidden: true),
+                                icon: Icons.visibility_off_outlined,
+                                iconColor: _slateSecondary,
                               ),
                             ],
                           ),
@@ -812,7 +932,19 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                         children: [
                           _buildParentNoteBox(context, pref),
                           const SizedBox(height: 8.0),
-                          _buildEnteredToggleRow(context, doc, status, hasAlert),
+                          if (_meetSignupPendingContext(doc) && !entered)
+                            _buildNotifyWhenSignUpOpensRow(
+                              context,
+                              status,
+                              hasAlert,
+                            )
+                          else if (!_meetSignupPendingContext(doc))
+                            _buildEnteredToggleRow(
+                              context,
+                              doc,
+                              status,
+                              hasAlert,
+                            ),
                           const SizedBox(height: 12.0),
                           SizedBox(
                             width: double.infinity,
@@ -940,8 +1072,37 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
+  /// Bell / hide: `IconButton` merges semantics in ways that can trip
+  /// `parentDataDirty` on some Flutter versions; use [InkWell] under [Material] instead.
+  Widget _meetHeaderIconAction({
+    required BuildContext context,
+    required String tooltip,
+    required VoidCallback onTap,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 40.0,
+            height: 40.0,
+            child: Center(
+              child: Icon(icon, size: 20.0, color: iconColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _verifiedTooltipMessage(BuildContext context) {
-    final raw = context.watch<FFAppState>().currentSwimmerName.trim();
+    // read: avoid listenable subscriptions from tooltip/badge subtree (semantics).
+    final raw = context.read<FFAppState>().currentSwimmerName.trim();
     final firstName = raw.isEmpty
         ? 'Swimmer'
         : raw.split(RegExp(r'\s+')).first.trim();
@@ -1038,6 +1199,71 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
+  /// Same persistence as the header bell for non-entered meets: `interested` + `has_alert`.
+  Widget _buildNotifyWhenSignUpOpensRow(
+    BuildContext context,
+    MeetPreferenceStatus status,
+    bool hasAlert,
+  ) {
+    final theme = FlutterFlowTheme.of(context);
+    final notifyOn = hasAlert &&
+        (status == MeetPreferenceStatus.interested ||
+            status == MeetPreferenceStatus.entered);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            'I want to enter — notify me when sign-up opens',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.sora(
+              fontSize: 14.0,
+              fontWeight: FontWeight.w600,
+              color: _slateTitle,
+              height: 1.2,
+            ),
+          ),
+        ),
+        SwitchTheme(
+          data: SwitchThemeData(
+            thumbColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return Colors.white;
+              }
+              return null;
+            }),
+            trackColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return _electricBlue;
+              }
+              return theme.lineColor;
+            }),
+          ),
+          child: Switch(
+            value: notifyOn,
+            onChanged: (next) async {
+              if (next) {
+                await _mergePref(
+                  hasAlert: true,
+                  status: MeetPreferenceStatus.interested,
+                );
+                if (context.mounted) {
+                  HapticFeedback.lightImpact();
+                }
+              } else {
+                await _mergePref(
+                  hasAlert: false,
+                  status: MeetPreferenceStatus.skipped,
+                );
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildEntryUrlButton(
     BuildContext context,
     MonitoredMeetsRecord doc,
@@ -1047,7 +1273,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final hasUrl = doc.hasEntryPage;
     final url = doc.entryUrl.trim();
     final theme = FlutterFlowTheme.of(context);
-    final urgency = _deadlineUrgency(doc, entered);
+    final viewOnlyMeet = _signupsClosedContext(doc);
+    final signupPending = _meetSignupPendingContext(doc);
     const pad = EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0);
     final labelStyle =
         GoogleFonts.sora(fontWeight: FontWeight.w600, fontSize: 15.0);
@@ -1091,7 +1318,39 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       );
     }
 
-    if (urgency == _DeadlineUrgency.passed) {
+    if (viewOnlyMeet) {
+      return OutlinedButton(
+        onPressed: hasUrl ? open : null,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _electricBlue,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: _electricBlue, width: 1.5),
+          padding: pad,
+          minimumSize: const Size(double.infinity, 48.0),
+          shape: const RoundedRectangleBorder(borderRadius: _actionRadius),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.open_in_new_rounded,
+              size: 20.0,
+              color: hasUrl ? _electricBlue : theme.secondaryText,
+            ),
+            const SizedBox(width: 10.0),
+            Text(
+              'View the meet',
+              style: labelStyle.copyWith(
+                color: hasUrl ? _electricBlue : theme.secondaryText,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (signupPending) {
       return ElevatedButton(
         onPressed: null,
         style: ElevatedButton.styleFrom(
@@ -1108,11 +1367,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.lock_clock_rounded,
-                size: 20.0, color: theme.secondaryText),
+            Icon(
+              Icons.schedule_rounded,
+              size: 20.0,
+              color: theme.secondaryText,
+            ),
             const SizedBox(width: 10.0),
             Text(
-              'Sign Up Closed',
+              'Sign Up',
               style: labelStyle.copyWith(color: theme.secondaryText),
             ),
           ],

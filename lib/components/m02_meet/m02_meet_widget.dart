@@ -261,33 +261,31 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       required String label,
       required bool selected,
     }) {
-      return ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 220.0),
-        child: Row(
-          children: [
-            Icon(icon, size: 20.0, color: _bannerTitle),
-            const SizedBox(width: 10.0),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.sora(
-                  fontSize: 14.0,
-                  fontWeight: FontWeight.w500,
-                  color: _bannerTitle,
-                ),
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20.0, color: _bannerTitle),
+          const SizedBox(width: 10.0),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.sora(
+                fontSize: 14.0,
+                fontWeight: FontWeight.w500,
+                color: _bannerTitle,
               ),
             ),
-            if (selected)
-              Icon(Icons.check_rounded, color: _electricBlue, size: 22.0),
+          ),
+          if (selected) ...[
+            const SizedBox(width: 6.0),
+            Icon(Icons.check_rounded, color: _electricBlue, size: 22.0),
           ],
-        ),
+        ],
       );
     }
 
-    // Avoid disabled PopupMenuItem headers — they can trigger semantics
-    // `parentDataDirty` assertions when combined with other menu rows.
     return <PopupMenuEntry<int>>[
       PopupMenuItem<int>(
         value: 0,
@@ -637,50 +635,45 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                           (m) => _meetMatchesTimeSegment(m, app.meetTimeSegment))
                       .toList();
 
-                  return AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    child: list.isEmpty
-                        ? KeyedSubtree(
-                            key: const ValueKey<String>('meets_empty'),
-                            child: Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(24.0),
-                                child: Text(
-                                  'No meets match your filters.',
-                                  textAlign: TextAlign.center,
-                                  style:
-                                      FlutterFlowTheme.of(context).bodyMedium,
-                                ),
-                              ),
-                            ),
-                          )
-                        : KeyedSubtree(
-                            key: ValueKey<String>(
-                              'meets_${app.meetTimeSegment}_${list.length}_${prefs.length}',
-                            ),
-                            child: ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(
-                                20.0,
-                                8.0,
-                                20.0,
-                                24.0,
-                              ),
-                              itemCount: list.length,
-                              itemBuilder: (context, columnIndex) {
-                                final meet = list[columnIndex];
-                                final pref = prefs[meet.reference.id];
-                                return M02MeetEnteredWidget(
-                                  key: Key(
-                                    'meet_${meet.reference.id}_$columnIndex',
-                                  ),
-                                  meetDoc: meet,
-                                  preference: pref,
-                                );
-                              },
-                            ),
+                  if (list.isEmpty) {
+                    return KeyedSubtree(
+                      key: const ValueKey<String>('meets_empty'),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Text(
+                            'No meets match your filters.',
+                            textAlign: TextAlign.center,
+                            style: FlutterFlowTheme.of(context).bodyMedium,
                           ),
+                        ),
+                      ),
+                    );
+                  }
+                  return KeyedSubtree(
+                    key: ValueKey<String>(
+                      'meets_${app.meetTimeSegment}_${list.length}_${prefs.length}',
+                    ),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(
+                        20.0,
+                        8.0,
+                        20.0,
+                        24.0,
+                      ),
+                      itemCount: list.length,
+                      itemBuilder: (context, columnIndex) {
+                        final meet = list[columnIndex];
+                        final pref = prefs[meet.reference.id];
+                        return M02MeetEnteredWidget(
+                          key: Key(
+                            'meet_${meet.reference.id}_$columnIndex',
+                          ),
+                          meetDoc: meet,
+                          preference: pref,
+                        );
+                      },
+                    ),
                   );
                 },
               );
