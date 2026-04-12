@@ -881,6 +881,26 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                   ),
                                   child: _buildInterestedFollowBadge(context),
                                 ),
+                              if (!entered &&
+                                  (status ==
+                                          MeetPreferenceStatus.interested ||
+                                      hasAlert))
+                                _meetHeaderIconAction(
+                                  context: context,
+                                  tooltip:
+                                      'Not interested — stop reminders and following for this meet',
+                                  onTap: () async {
+                                    await _mergePref(
+                                      status: MeetPreferenceStatus.skipped,
+                                      hasAlert: false,
+                                    );
+                                    if (context.mounted) {
+                                      HapticFeedback.selectionClick();
+                                    }
+                                  },
+                                  icon: Icons.not_interested_rounded,
+                                  iconColor: _slateSecondary,
+                                ),
                               _meetHeaderIconAction(
                                 context: context,
                                 tooltip: 'Hide meet from list',
