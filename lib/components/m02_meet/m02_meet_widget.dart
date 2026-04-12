@@ -92,6 +92,29 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     return !sd.isAfter(today) && !ed.isBefore(today);
   }
 
+  /// Optional "my list" filters from the tune menu (entered / interested).
+  bool _matchesMyMeetListFilters(
+    MonitoredMeetsRecord m,
+    Map<String, MeetPreferencesRecord> prefs,
+    FFAppState app,
+  ) {
+    final enteredOnly = app.meetFilterEnteredOnly;
+    final interestedOnly = app.meetFilterInterestedOnly;
+    if (!enteredOnly && !interestedOnly) {
+      return true;
+    }
+    final pref = prefs[m.reference.id];
+    final status = pref?.status ?? MeetPreferenceStatus.skipped;
+    if (enteredOnly && interestedOnly) {
+      return status == MeetPreferenceStatus.entered ||
+          status == MeetPreferenceStatus.interested;
+    }
+    if (enteredOnly) {
+      return status == MeetPreferenceStatus.entered;
+    }
+    return status == MeetPreferenceStatus.interested;
+  }
+
   void _setClassFilter({
     required bool nextValue,
     required bool currentValue,
@@ -182,7 +205,18 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     if (parts.isEmpty) {
       return 'No meet types selected — tap filters to choose.';
     }
-    return 'Meet types: ${parts.join(' · ')}';
+    var line = 'Meet types: ${parts.join(' · ')}';
+    final my = <String>[];
+    if (app.meetFilterEnteredOnly) {
+      my.add('my sign-ups');
+    }
+    if (app.meetFilterInterestedOnly) {
+      my.add('interested');
+    }
+    if (my.isNotEmpty) {
+      line = '$line · Only: ${my.join(' & ')}';
+    }
+    return line;
   }
 
   /// Meets tab context line: zone-scoped vs all Pacific zones.
@@ -252,6 +286,19 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         currentValue: app.meetFilterShowOther,
         apply: (a, x) => a.meetFilterShowOther = x,
       );
+      return;
+    }
+    if (value == 5) {
+      app.update(() => app.meetFilterEnteredOnly = !app.meetFilterEnteredOnly);
+      app.persistMeetUiState();
+      return;
+    }
+    if (value == 6) {
+      app.update(
+        () => app.meetFilterInterestedOnly = !app.meetFilterInterestedOnly,
+      );
+      app.persistMeetUiState();
+      return;
     }
   }
 
@@ -316,7 +363,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
               size: 22.0,
             ),
             const SizedBox(width: 10.0),
-            Text('Age Group', style: GoogleFonts.sora(fontSize: 14.0)),
+            Expanded(
+              child: Text(
+                'Age Group',
+                style: GoogleFonts.sora(fontSize: 14.0),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -332,7 +385,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
               size: 22.0,
             ),
             const SizedBox(width: 10.0),
-            Text('Senior', style: GoogleFonts.sora(fontSize: 14.0)),
+            Expanded(
+              child: Text(
+                'Senior',
+                style: GoogleFonts.sora(fontSize: 14.0),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -348,7 +407,58 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
               size: 22.0,
             ),
             const SizedBox(width: 10.0),
-            Text('Other', style: GoogleFonts.sora(fontSize: 14.0)),
+            Expanded(
+              child: Text(
+                'Other',
+                style: GoogleFonts.sora(fontSize: 14.0),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const PopupMenuDivider(),
+      PopupMenuItem<int>(
+        value: 5,
+        child: Row(
+          children: [
+            Icon(
+              app.meetFilterEnteredOnly
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              color: _electricBlue,
+              size: 22.0,
+            ),
+            const SizedBox(width: 10.0),
+            Expanded(
+              child: Text(
+                'My sign-ups only',
+                style: GoogleFonts.sora(fontSize: 14.0),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+      PopupMenuItem<int>(
+        value: 6,
+        child: Row(
+          children: [
+            Icon(
+              app.meetFilterInterestedOnly
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              color: _electricBlue,
+              size: 22.0,
+            ),
+            const SizedBox(width: 10.0),
+            Expanded(
+              child: Text(
+                'Interested only',
+                style: GoogleFonts.sora(fontSize: 14.0),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -613,7 +723,9 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                   zoneId: app.currentSwimmerZoneForMeets,
                   priorityHostGroup: app.currentSwimmerGroup,
                   showAll: app.meetsShowAllZones,
-                  widePastWindow: app.meetTimeSegment == 0,
+                  widePastWindow: app.meetTimeSegment == 0 ||
+                      app.meetFilterEnteredOnly ||
+                      app.meetFilterInterestedOnly,
                 ),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
@@ -633,6 +745,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                       .where(_matchesClassFilters)
                       .where(
                           (m) => _meetMatchesTimeSegment(m, app.meetTimeSegment))
+                      .where((m) => _matchesMyMeetListFilters(m, prefs, app))
                       .toList();
 
                   if (list.isEmpty) {

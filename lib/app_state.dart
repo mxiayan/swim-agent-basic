@@ -171,6 +171,8 @@ class FFAppState extends ChangeNotifier {
   static const _kMeetFilterAge = 'ff_meetFilterShowAgeGroup';
   static const _kMeetFilterSenior = 'ff_meetFilterShowSenior';
   static const _kMeetFilterOther = 'ff_meetFilterShowOther';
+  static const _kMeetFilterEnteredOnly = 'ff_meetFilterEnteredOnly';
+  static const _kMeetFilterInterestedOnly = 'ff_meetFilterInterestedOnly';
   static const _kMeetTimeSegment = 'ff_meetTimeSegment';
   static const _kMeetsShowAllZones = 'ff_meetsShowAllZones';
 
@@ -186,6 +188,9 @@ class FFAppState extends ChangeNotifier {
     _meetFilterShowAgeGroup = prefs.getBool(_kMeetFilterAge) ?? true;
     _meetFilterShowSenior = prefs.getBool(_kMeetFilterSenior) ?? true;
     _meetFilterShowOther = prefs.getBool(_kMeetFilterOther) ?? true;
+    _meetFilterEnteredOnly = prefs.getBool(_kMeetFilterEnteredOnly) ?? false;
+    _meetFilterInterestedOnly =
+        prefs.getBool(_kMeetFilterInterestedOnly) ?? false;
     final rawSeg = prefs.getInt(_kMeetTimeSegment) ?? 1;
     _meetTimeSegment = rawSeg < 0 ? 0 : (rawSeg > 2 ? 2 : rawSeg);
     _meetsShowAllZones = prefs.getBool(_kMeetsShowAllZones) ?? false;
@@ -207,6 +212,8 @@ class FFAppState extends ChangeNotifier {
     await prefs.setBool(_kMeetFilterAge, _meetFilterShowAgeGroup);
     await prefs.setBool(_kMeetFilterSenior, _meetFilterShowSenior);
     await prefs.setBool(_kMeetFilterOther, _meetFilterShowOther);
+    await prefs.setBool(_kMeetFilterEnteredOnly, _meetFilterEnteredOnly);
+    await prefs.setBool(_kMeetFilterInterestedOnly, _meetFilterInterestedOnly);
     await prefs.setInt(_kMeetTimeSegment, _meetTimeSegment);
     await prefs.setBool(_kMeetsShowAllZones, _meetsShowAllZones);
   }
@@ -320,6 +327,20 @@ class FFAppState extends ChangeNotifier {
   bool get meetFilterShowOther => _meetFilterShowOther;
   set meetFilterShowOther(bool value) {
     _meetFilterShowOther = value;
+  }
+
+  /// Meets tab: show only meets marked entered (persisted).
+  bool _meetFilterEnteredOnly = false;
+  bool get meetFilterEnteredOnly => _meetFilterEnteredOnly;
+  set meetFilterEnteredOnly(bool value) {
+    _meetFilterEnteredOnly = value;
+  }
+
+  /// Meets tab: show only meets marked interested (persisted).
+  bool _meetFilterInterestedOnly = false;
+  bool get meetFilterInterestedOnly => _meetFilterInterestedOnly;
+  set meetFilterInterestedOnly(bool value) {
+    _meetFilterInterestedOnly = value;
   }
 
   /// 0 = Past, 1 = Live, 2 = Upcoming (persisted).
