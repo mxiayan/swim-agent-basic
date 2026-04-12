@@ -787,6 +787,11 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final status = pref?.status ?? MeetPreferenceStatus.skipped;
     final hasAlert = pref?.hasAlert ?? false;
     final entered = status == MeetPreferenceStatus.entered;
+    final showNotInterestedAction = !entered &&
+        (status == MeetPreferenceStatus.interested || hasAlert);
+    /// Space for [Stack]-positioned header actions (40px targets; two when not-interested shows).
+    final titleEndInsetForHeaderActions =
+        showNotInterestedAction ? 84.0 : 44.0;
     final urgency = _deadlineUrgency(doc, entered);
     final pulseEligible = !entered &&
         !_isMeetLive(doc) &&
@@ -815,146 +820,108 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                 ),
               ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: entered
-                      ? const Border(
-                          left: BorderSide(
-                            color: _enteredSidebarBlue,
-                            width: 4.0,
-                          ),
-                          top: BorderSide(color: _cardBorder, width: 1.0),
-                          right: BorderSide(color: _cardBorder, width: 1.0),
-                          bottom: BorderSide(color: _cardBorder, width: 1.0),
-                        )
-                      : Border.all(color: _cardBorder, width: 1.0),
-                ),
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(
-                      innerHPad, 16.0, innerHPad, 16.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                valueOrDefault<String>(
-                                    doc.name, '[Meet Name]'),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.sora(
-                                  fontSize: 16.0,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.25,
-                                  letterSpacing: 0.0,
-                                  color: _slateTitle,
-                                ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: entered
+                          ? const Border(
+                              left: BorderSide(
+                                color: _enteredSidebarBlue,
+                                width: 4.0,
                               ),
-                            ),
-                          ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (entered)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4.0,
-                                    vertical: 4.0,
-                                  ),
-                                  child: _buildVerifiedTitleBadge(context),
-                                )
-                              else if (status ==
-                                  MeetPreferenceStatus.interested)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4.0,
-                                    vertical: 4.0,
-                                  ),
-                                  child: _buildInterestedFollowBadge(context),
-                                ),
-                              if (!entered &&
-                                  (status ==
-                                          MeetPreferenceStatus.interested ||
-                                      hasAlert))
-                                _meetHeaderIconAction(
-                                  context: context,
-                                  tooltip:
-                                      'Not interested — stop reminders and following for this meet',
-                                  onTap: () async {
-                                    await _mergePref(
-                                      status: MeetPreferenceStatus.skipped,
-                                      hasAlert: false,
-                                    );
-                                    if (context.mounted) {
-                                      HapticFeedback.selectionClick();
-                                    }
-                                  },
-                                  icon: Icons.not_interested_rounded,
-                                  iconColor: _slateSecondary,
-                                ),
-                              _meetHeaderIconAction(
-                                context: context,
-                                tooltip: 'Hide meet from list',
-                                onTap: () => _mergePref(isHidden: true),
-                                icon: Icons.visibility_off_outlined,
-                                iconColor: _slateSecondary,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6.0, bottom: 4.0),
-                        child: _buildLogisticsSection(context, doc, entered),
-                      ),
-                      Divider(
-                        thickness: 1.0,
-                        color: FlutterFlowTheme.of(context).lineColor,
-                      ),
-                      Column(
+                              top: BorderSide(color: _cardBorder, width: 1.0),
+                              right: BorderSide(color: _cardBorder, width: 1.0),
+                              bottom:
+                                  BorderSide(color: _cardBorder, width: 1.0),
+                            )
+                          : Border.all(color: _cardBorder, width: 1.0),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          innerHPad, 12.0, innerHPad, 16.0),
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildParentNoteBox(context, pref),
-                          const SizedBox(height: 8.0),
-                          if (_meetSignupPendingContext(doc) && !entered)
-                            _buildNotifyWhenSignUpOpensRow(
-                              context,
-                              status,
-                              hasAlert,
-                            )
-                          else if (!_meetSignupPendingContext(doc))
-                            _buildEnteredToggleRow(
-                              context,
-                              doc,
-                              status,
-                              hasAlert,
+                          Padding(
+                            padding: EdgeInsetsDirectional.only(
+                              end: titleEndInsetForHeaderActions,
                             ),
-                          const SizedBox(height: 12.0),
-                          SizedBox(
-                            width: double.infinity,
-                            child: _buildEntryUrlButton(
-                              context,
-                              doc,
-                              status,
-                              entered,
+                            child: Text(
+                              valueOrDefault<String>(doc.name, '[Meet Name]'),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.sora(
+                                fontSize: 16.0,
+                                fontWeight: FontWeight.w700,
+                                height: 1.25,
+                                letterSpacing: 0.0,
+                                color: _slateTitle,
+                              ),
                             ),
                           ),
-                        ],
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(top: 6.0, bottom: 4.0),
+                            child: _buildLogisticsSection(context, doc, entered),
+                          ),
+                          Divider(
+                            thickness: 1.0,
+                            color: FlutterFlowTheme.of(context).lineColor,
+                          ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildParentNoteBox(context, pref),
+                              const SizedBox(height: 8.0),
+                              if (_meetSignupPendingContext(doc) && !entered)
+                                _buildNotifyWhenSignUpOpensRow(
+                                  context,
+                                  status,
+                                  hasAlert,
+                                )
+                              else if (!_meetSignupPendingContext(doc))
+                                _buildEnteredToggleRow(
+                                  context,
+                                  doc,
+                                  status,
+                                  hasAlert,
+                                ),
+                              const SizedBox(height: 12.0),
+                              SizedBox(
+                                width: double.infinity,
+                                child: _buildEntryUrlButton(
+                                  context,
+                                  doc,
+                                  status,
+                                  entered,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ].divide(const SizedBox(height: 12.0)),
                       ),
-                    ].divide(const SizedBox(height: 12.0)),
+                    ),
                   ),
                 ),
-              ),
+                ..._buildMeetCornerStateOverlay(
+                  context,
+                  status: status,
+                  entered: entered,
+                ),
+                ..._buildMeetCardActionOverlay(
+                  context,
+                  status: status,
+                  entered: entered,
+                  hasAlert: hasAlert,
+                ),
+              ],
             ),
           ),
         );
@@ -1094,29 +1061,105 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
-  String _verifiedTooltipMessage(BuildContext context) {
-    // read: avoid listenable subscriptions from tooltip/badge subtree (semantics).
-    final raw = context.read<FFAppState>().currentSwimmerName.trim();
-    final firstName = raw.isEmpty
-        ? 'Swimmer'
-        : raw.split(RegExp(r'\s+')).first.trim();
-    return 'Verified: $firstName is entered';
+  /// Header actions in the [Stack] so they do not reserve a full-width row above the title.
+  List<Widget> _buildMeetCardActionOverlay(
+    BuildContext context, {
+    required MeetPreferenceStatus status,
+    required bool entered,
+    required bool hasAlert,
+  }) {
+    return [
+      PositionedDirectional(
+        top: 2.0,
+        end: 2.0,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!entered &&
+                (status == MeetPreferenceStatus.interested || hasAlert))
+              _meetHeaderIconAction(
+                context: context,
+                tooltip:
+                    'Not interested — stop reminders and following for this meet',
+                onTap: () async {
+                  await _mergePref(
+                    status: MeetPreferenceStatus.skipped,
+                    hasAlert: false,
+                  );
+                  if (context.mounted) {
+                    HapticFeedback.selectionClick();
+                  }
+                },
+                icon: Icons.not_interested_rounded,
+                iconColor: _slateSecondary,
+              ),
+            _meetHeaderIconAction(
+              context: context,
+              tooltip: 'Hide meet from list',
+              onTap: () => _mergePref(isHidden: true),
+              icon: Icons.visibility_off_outlined,
+              iconColor: _slateSecondary,
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
-  Widget _buildInterestedFollowBadge(BuildContext context) {
-    return Tooltip(
-      message:
-          'Following this meet — you’ll get updates. See all followed meets in the Meets filter (tune icon → Interested only).',
-      child: Icon(
-        Icons.favorite_rounded,
-        size: 22.0,
-        color: _followingHeart,
-        semanticLabel: 'Following meet',
+  /// Floating disks on the card vertex; does not consume in-card layout height.
+  static const double _cornerStateBadgeSize = 28.0;
+
+  List<Widget> _buildMeetCornerStateOverlay(
+    BuildContext context, {
+    required MeetPreferenceStatus status,
+    required bool entered,
+  }) {
+    final half = _cornerStateBadgeSize / 2.0;
+    if (entered) {
+      return [
+        PositionedDirectional(
+          start: -half,
+          top: -half,
+          child: _buildCornerEnteredBadge(context),
+        ),
+      ];
+    }
+    if (status == MeetPreferenceStatus.interested) {
+      return [
+        PositionedDirectional(
+          start: -half,
+          top: -half,
+          child: _buildCornerInterestedBadge(context),
+        ),
+      ];
+    }
+    return const <Widget>[];
+  }
+
+  Widget _buildCornerStateDisk({
+    required Color backgroundColor,
+    required Widget child,
+  }) {
+    return Container(
+      width: _cornerStateBadgeSize,
+      height: _cornerStateBadgeSize,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 8.0,
+            offset: const Offset(0.0, 2.0),
+          ),
+        ],
       ),
+      child: Center(child: child),
     );
   }
 
-  Widget _buildVerifiedTitleBadge(BuildContext context) {
+  Widget _buildCornerEnteredBadge(BuildContext context) {
     return Tooltip(
       message: _verifiedTooltipMessage(context),
       child: AnimatedBuilder(
@@ -1127,16 +1170,43 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             alignment: Alignment.center,
             child: Opacity(
               opacity: _celebrateFade.value.clamp(0.0, 1.0),
-              child: Icon(
-                Icons.verified_rounded,
-                size: 22.0,
-                color: _verifiedGreen,
+              child: _buildCornerStateDisk(
+                backgroundColor: _verifiedGreen,
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 16.0,
+                ),
               ),
             ),
           );
         },
       ),
     );
+  }
+
+  Widget _buildCornerInterestedBadge(BuildContext context) {
+    return Tooltip(
+      message:
+          'Following this meet — you’ll get updates. See all followed meets in the Meets filter (tune icon → Interested only).',
+      child: _buildCornerStateDisk(
+        backgroundColor: _followingHeart,
+        child: const Icon(
+          Icons.favorite_rounded,
+          color: Colors.white,
+          size: 14.0,
+        ),
+      ),
+    );
+  }
+
+  String _verifiedTooltipMessage(BuildContext context) {
+    // read: avoid listenable subscriptions from tooltip/badge subtree (semantics).
+    final raw = context.read<FFAppState>().currentSwimmerName.trim();
+    final firstName = raw.isEmpty
+        ? 'Swimmer'
+        : raw.split(RegExp(r'\s+')).first.trim();
+    return 'Verified: $firstName is entered';
   }
 
   Widget _buildEnteredToggleRow(
