@@ -117,10 +117,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     app.persistMeetUiState();
   }
 
-  static const Color _chipUnselectedFg = Color(0xFF475569);
-  static const Color _chipBorder = Color(0xFFE2E8F0);
   static const Color _electricBlue = Color(0xFF007AFF);
   static const Color _pageBackground = Color(0xFFF1F5F9);
+  static const Color _bannerTint = Color(0xFFEFF6FF);
+  static const Color _bannerTitle = Color(0xFF0F172A);
+  static const Color _bannerMuted = Color(0xFF64748B);
 
   Widget _buildTimeSegmentTab(
     BuildContext context, {
@@ -166,41 +167,22 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     );
   }
 
-  Widget _buildCategoryPill({
-    required BuildContext context,
-    required String label,
-    required bool selected,
-    required ValueChanged<bool> onSelected,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onSelected(!selected),
-        borderRadius: BorderRadius.circular(12.0),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
-          decoration: BoxDecoration(
-            color: selected ? _electricBlue : Colors.transparent,
-            borderRadius: BorderRadius.circular(12.0),
-            border: Border.all(
-              color: selected ? _electricBlue : _chipBorder,
-              width: 1.0,
-            ),
-          ),
-          child: Text(
-            label,
-            style: GoogleFonts.sora(
-              fontWeight: FontWeight.w600,
-              fontSize: 11.0,
-              letterSpacing: 0.0,
-              color: selected ? Colors.white : _chipUnselectedFg,
-            ),
-          ),
-        ),
-      ),
-    );
+  /// Short line listing active meet-class filters (shown under the scope title).
+  String _classFiltersSummary(FFAppState app) {
+    final parts = <String>[];
+    if (app.meetFilterShowAgeGroup) {
+      parts.add('Age Group');
+    }
+    if (app.meetFilterShowSenior) {
+      parts.add('Senior');
+    }
+    if (app.meetFilterShowOther) {
+      parts.add('Other');
+    }
+    if (parts.isEmpty) {
+      return 'No meet types selected — tap filters to choose.';
+    }
+    return 'Meet types: ${parts.join(' · ')}';
   }
 
   /// Meets tab context line: zone-scoped vs all Pacific zones.
@@ -221,6 +203,321 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       return 'Showing Meets of $meetsId';
     }
     return 'Showing Meets of Pacific Swimming';
+  }
+
+  /// Shorter headline under the label (drops the repeated "Showing Meets of" prefix).
+  String _meetsScopeHeadline(FFAppState app) {
+    final full = _meetsContextMessage(app);
+    const prefix = 'Showing Meets of ';
+    if (full.startsWith(prefix)) {
+      return full.substring(prefix.length);
+    }
+    return full;
+  }
+
+  void _onMeetFilterMenuSelected(
+    BuildContext context,
+    FFAppState app,
+    int value,
+  ) {
+    if (value == 0) {
+      app.update(() => app.meetsShowAllZones = false);
+      app.persistMeetUiState();
+      return;
+    }
+    if (value == 1) {
+      app.update(() => app.meetsShowAllZones = true);
+      app.persistMeetUiState();
+      return;
+    }
+    if (value == 2) {
+      _setClassFilter(
+        nextValue: !app.meetFilterShowAgeGroup,
+        currentValue: app.meetFilterShowAgeGroup,
+        apply: (a, x) => a.meetFilterShowAgeGroup = x,
+      );
+      return;
+    }
+    if (value == 3) {
+      _setClassFilter(
+        nextValue: !app.meetFilterShowSenior,
+        currentValue: app.meetFilterShowSenior,
+        apply: (a, x) => a.meetFilterShowSenior = x,
+      );
+      return;
+    }
+    if (value == 4) {
+      _setClassFilter(
+        nextValue: !app.meetFilterShowOther,
+        currentValue: app.meetFilterShowOther,
+        apply: (a, x) => a.meetFilterShowOther = x,
+      );
+    }
+  }
+
+  List<PopupMenuEntry<int>> _meetFilterMenuEntries(FFAppState app) {
+    Widget zoneRow({
+      required IconData icon,
+      required String label,
+      required bool selected,
+    }) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 220.0),
+        child: Row(
+          children: [
+            Icon(icon, size: 20.0, color: _bannerTitle),
+            const SizedBox(width: 10.0),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.sora(
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.w500,
+                  color: _bannerTitle,
+                ),
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_rounded, color: _electricBlue, size: 22.0),
+          ],
+        ),
+      );
+    }
+
+    // Avoid disabled PopupMenuItem headers — they can trigger semantics
+    // `parentDataDirty` assertions when combined with other menu rows.
+    return <PopupMenuEntry<int>>[
+      PopupMenuItem<int>(
+        value: 0,
+        child: zoneRow(
+          icon: Icons.near_me_outlined,
+          label: 'Current zone only',
+          selected: !app.meetsShowAllZones,
+        ),
+      ),
+      PopupMenuItem<int>(
+        value: 1,
+        child: zoneRow(
+          icon: Icons.public_rounded,
+          label: 'All Pacific zones',
+          selected: app.meetsShowAllZones,
+        ),
+      ),
+      const PopupMenuDivider(),
+      PopupMenuItem<int>(
+        value: 2,
+        child: Row(
+          children: [
+            Icon(
+              app.meetFilterShowAgeGroup
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              color: _electricBlue,
+              size: 22.0,
+            ),
+            const SizedBox(width: 10.0),
+            Text('Age Group', style: GoogleFonts.sora(fontSize: 14.0)),
+          ],
+        ),
+      ),
+      PopupMenuItem<int>(
+        value: 3,
+        child: Row(
+          children: [
+            Icon(
+              app.meetFilterShowSenior
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              color: _electricBlue,
+              size: 22.0,
+            ),
+            const SizedBox(width: 10.0),
+            Text('Senior', style: GoogleFonts.sora(fontSize: 14.0)),
+          ],
+        ),
+      ),
+      PopupMenuItem<int>(
+        value: 4,
+        child: Row(
+          children: [
+            Icon(
+              app.meetFilterShowOther
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              color: _electricBlue,
+              size: 22.0,
+            ),
+            const SizedBox(width: 10.0),
+            Text('Other', style: GoogleFonts.sora(fontSize: 14.0)),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _openMeetFilterMenu(
+    BuildContext buttonContext,
+    BuildContext pageContext,
+    FFAppState app,
+  ) async {
+    final overlayObject = Overlay.of(buttonContext, rootOverlay: true)
+        .context
+        .findRenderObject();
+    if (overlayObject is! RenderBox) {
+      return;
+    }
+    final overlay = overlayObject;
+    final box = buttonContext.findRenderObject()! as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        box.localToGlobal(Offset.zero, ancestor: overlay),
+        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final selected = await showMenu<int>(
+      context: buttonContext,
+      position: position,
+      items: _meetFilterMenuEntries(app),
+    );
+    if (!pageContext.mounted || selected == null) {
+      return;
+    }
+    _onMeetFilterMenuSelected(pageContext, app, selected);
+  }
+
+  Widget _buildMeetsScopeBanner(BuildContext context, FFAppState app) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 56.0),
+      decoration: BoxDecoration(
+        color: _bannerTint,
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10.0,
+            offset: const Offset(0.0, 2.0),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 4.0,
+            color: _electricBlue,
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12.0, 12.0, 4.0, 12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36.0,
+                    height: 36.0,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    child: Icon(
+                      Icons.visibility_outlined,
+                      size: 20.0,
+                      color: _electricBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 12.0),
+                  Expanded(
+                    child: !_meetBannerReady
+                        ? SizedBox(
+                            height: 20.0,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                width: 20.0,
+                                height: 20.0,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.0,
+                                  color: _electricBlue,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'YOUR MEET LIST',
+                                style: GoogleFonts.sora(
+                                  fontSize: 10.0,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.85,
+                                  color: _bannerMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 4.0),
+                              Text(
+                                _meetsScopeHeadline(app),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.sora(
+                                  fontSize: 15.0,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.25,
+                                  letterSpacing: 0.0,
+                                  color: _bannerTitle,
+                                ),
+                              ),
+                              const SizedBox(height: 4.0),
+                              Text(
+                                _classFiltersSummary(app),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.sora(
+                                  fontSize: 12.0,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.25,
+                                  color: _bannerMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                  Builder(
+                    builder: (buttonContext) {
+                      return IconButton(
+                        tooltip: 'Zone & meet type filters',
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.all(8.0),
+                        constraints: const BoxConstraints(
+                          minWidth: 40.0,
+                          minHeight: 40.0,
+                        ),
+                        icon: Icon(
+                          Icons.tune_rounded,
+                          color: _electricBlue,
+                          size: 24.0,
+                        ),
+                        onPressed: () => _openMeetFilterMenu(
+                          buttonContext,
+                          context,
+                          app,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -267,94 +564,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                constraints: const BoxConstraints(minHeight: 40.0),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12.0,
-                  vertical: 8.0,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12.0),
-                  border: Border.all(
-                    color: const Color(0xFFCBD5E1),
-                    width: 1.5,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 16.0,
-                      color: FlutterFlowTheme.of(context).secondaryText,
-                    ),
-                    const SizedBox(width: 8.0),
-                    Expanded(
-                      child: !_meetBannerReady
-                          ? SizedBox(
-                              height: 18.0,
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.0,
-                                    color: _electricBlue,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : Text(
-                              _meetsContextMessage(app),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.sora(
-                                fontSize: 13.0,
-                                fontWeight: FontWeight.w400,
-                                height: 1.2,
-                                letterSpacing: 0.0,
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryText,
-                              ),
-                            ),
-                    ),
-                    Tooltip(
-                      message: app.meetsShowAllZones
-                          ? 'Zone filter off (all zones)'
-                          : 'Show all zones',
-                      child: IconButton(
-                        iconSize: 18.0,
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.all(4.0),
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
-                        ),
-                        style: IconButton.styleFrom(
-                          foregroundColor: app.meetsShowAllZones
-                              ? _electricBlue
-                              : FlutterFlowTheme.of(context).secondaryText,
-                        ),
-                        onPressed: () {
-                          app.update(
-                            () =>
-                                app.meetsShowAllZones = !app.meetsShowAllZones,
-                          );
-                          app.persistMeetUiState();
-                        },
-                        icon: Icon(
-                          app.meetsShowAllZones
-                              ? Icons.public_rounded
-                              : Icons.location_on_outlined,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildMeetsScopeBanner(context, app),
               const SizedBox(height: 14.0),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -391,63 +601,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                     },
                   ),
                 ],
-              ),
-              const SizedBox(height: 12.0),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth: constraints.maxWidth,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildCategoryPill(
-                            context: context,
-                            label: 'Age Group',
-                            selected: app.meetFilterShowAgeGroup,
-                            onSelected: (v) {
-                              _setClassFilter(
-                                nextValue: v,
-                                currentValue: app.meetFilterShowAgeGroup,
-                                apply: (a, x) => a.meetFilterShowAgeGroup = x,
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 8.0),
-                          _buildCategoryPill(
-                            context: context,
-                            label: 'Senior',
-                            selected: app.meetFilterShowSenior,
-                            onSelected: (v) {
-                              _setClassFilter(
-                                nextValue: v,
-                                currentValue: app.meetFilterShowSenior,
-                                apply: (a, x) => a.meetFilterShowSenior = x,
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 8.0),
-                          _buildCategoryPill(
-                            context: context,
-                            label: 'Other',
-                            selected: app.meetFilterShowOther,
-                            onSelected: (v) {
-                              _setClassFilter(
-                                nextValue: v,
-                                currentValue: app.meetFilterShowOther,
-                                apply: (a, x) => a.meetFilterShowOther = x,
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
               ),
             ],
           ),

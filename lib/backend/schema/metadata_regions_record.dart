@@ -26,6 +26,27 @@ String? pacificCatalogRegionIdFromGranular(String? raw) {
   return 'PC_Z$n$suf'.toUpperCase();
 }
 
+/// Firestore may store `order` as int, double, or string (e.g. catalog rows like `SN_ALL`).
+int? orderFieldFromFirestore(dynamic value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.round();
+  }
+  if (value is String) {
+    final t = value.trim();
+    if (t.isEmpty) {
+      return null;
+    }
+    return int.tryParse(t);
+  }
+  return null;
+}
+
 class MetadataRegionsRecord extends FirestoreRecord {
   MetadataRegionsRecord._(
     DocumentReference reference,
@@ -70,7 +91,7 @@ class MetadataRegionsRecord extends FirestoreRecord {
     _lscCode = snapshotData['lsc_code'] as String?;
     _lscName = snapshotData['lsc_name'] as String?;
     _type = snapshotData['type'] as String?;
-    _order = castToType<int>(snapshotData['order']);
+    _order = orderFieldFromFirestore(snapshotData['order']);
   }
 
   static CollectionReference get collection =>
