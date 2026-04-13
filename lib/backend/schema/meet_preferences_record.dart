@@ -5,6 +5,7 @@ import '/backend/schema/util/firestore_util.dart';
 /// Stored under `users/{uid}/meet_preferences/{meetId}`.
 enum MeetPreferenceStatus {
   interested,
+  planning,
   entered,
   skipped,
 }
@@ -13,6 +14,8 @@ MeetPreferenceStatus meetPreferenceStatusFromString(String? raw) {
   switch ((raw ?? '').trim().toLowerCase()) {
     case 'interested':
       return MeetPreferenceStatus.interested;
+    case 'planning':
+      return MeetPreferenceStatus.planning;
     case 'entered':
       return MeetPreferenceStatus.entered;
     case 'skipped':
@@ -30,6 +33,7 @@ class MeetPreferencesRecord {
     required this.status,
     required this.hasAlert,
     required this.isHidden,
+    required this.skipSelected,
     this.notes = '',
   });
 
@@ -38,6 +42,7 @@ class MeetPreferencesRecord {
   final MeetPreferenceStatus status;
   final bool hasAlert;
   final bool isHidden;
+  final bool skipSelected;
 
   /// Parent reminder text (`users/{uid}/meet_preferences/{meetId}` → `notes`).
   final String notes;
@@ -50,6 +55,7 @@ class MeetPreferencesRecord {
       status: meetPreferenceStatusFromString(data['status'] as String?),
       hasAlert: data['has_alert'] as bool? ?? false,
       isHidden: data['is_hidden'] as bool? ?? false,
+      skipSelected: data['skip_selected'] as bool? ?? false,
       notes: (data['notes'] as String?)?.trim() ?? '',
     );
   }
@@ -58,6 +64,7 @@ class MeetPreferencesRecord {
     MeetPreferenceStatus? status,
     bool? hasAlert,
     bool? isHidden,
+    bool? skipSelected,
     String? notes,
   }) {
     final m = <String, dynamic>{
@@ -71,6 +78,9 @@ class MeetPreferencesRecord {
     }
     if (isHidden != null) {
       m['is_hidden'] = isHidden;
+    }
+    if (skipSelected != null) {
+      m['skip_selected'] = skipSelected;
     }
     if (notes != null) {
       m['notes'] = notes;

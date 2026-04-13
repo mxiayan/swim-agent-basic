@@ -107,10 +107,12 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     final status = pref?.status ?? MeetPreferenceStatus.skipped;
     if (enteredOnly && interestedOnly) {
       return status == MeetPreferenceStatus.entered ||
+          status == MeetPreferenceStatus.planning ||
           status == MeetPreferenceStatus.interested;
     }
     if (enteredOnly) {
-      return status == MeetPreferenceStatus.entered;
+      return status == MeetPreferenceStatus.entered ||
+          status == MeetPreferenceStatus.planning;
     }
     return status == MeetPreferenceStatus.interested;
   }
@@ -553,7 +555,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                       borderRadius: BorderRadius.circular(10.0),
                     ),
                     child: Icon(
-                      Icons.visibility_outlined,
+                      Icons.pool_rounded,
                       size: 20.0,
                       color: _electricBlue,
                     ),

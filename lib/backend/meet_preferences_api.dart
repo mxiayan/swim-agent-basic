@@ -31,6 +31,7 @@ Future<void> mergeMeetPreference(
   MeetPreferenceStatus? status,
   bool? hasAlert,
   bool? isHidden,
+  bool? skipSelected,
   String? notes,
 }) async {
   final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -45,8 +46,21 @@ Future<void> mergeMeetPreference(
           status: status,
           hasAlert: hasAlert,
           isHidden: isHidden,
+          skipSelected: skipSelected,
           notes: notes,
         ),
         SetOptions(merge: true),
       );
+}
+
+
+Future<void> deleteMeetPreference(String uid, String meetId) async {
+  final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (authUid.isEmpty || meetId.isEmpty) {
+    return;
+  }
+  if (uid.isNotEmpty && uid != authUid) {
+    return;
+  }
+  await _meetPreferencesCol(authUid).doc(meetId).delete();
 }

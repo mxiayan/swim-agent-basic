@@ -7,7 +7,6 @@ import '/backend/schema/meet_preferences_record.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,6 +15,9 @@ import 'm02_meet_entered_model.dart';
 export 'm02_meet_entered_model.dart';
 
 enum _DeadlineUrgency { none, approaching, passed }
+
+/// Visual state for paired YES / NO actions (no implicit default).
+enum _BinaryChoice { none, no, yes }
 
 /// Meet card with Firestore-backed [MeetPreferencesRecord] (optional).
 class M02MeetEnteredWidget extends StatefulWidget {
@@ -50,14 +52,16 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _followingHeart = Color(0xFFE11D48);
   /// Interested + reminders on (sign-up / alerts).
   static const Color _watchingAmber = Color(0xFFF59E0B);
-  /// “Not interested” / skipped — light teal disk + darker glyph (no purple).
-  static const Color _skippedFill = Color(0xFFCCFBF1);
-  static const Color _skippedIcon = Color(0xFF0D9488);
-  static const Color _skippedStripe = Color(0xFF5EEAD4);
-  /// No Firestore preference yet — neutral “unset” look.
-  static const Color _untouchedFill = Color(0xFFF1F5F9);
-  static const Color _untouchedIcon = Color(0xFF94A3B8);
-  static const Color _untouchedStripe = Color(0xFFCBD5E1);
+  /// “Not decided” / no saved choice yet — light yellow stripe so it’s easy to spot.
+  static const Color _untouchedStripe = Color(0xFFFDE047);
+  /// Skipped — muted slate (no longer “action needed” like yellow/orange).
+  static const Color _skippedFill = Color(0xFFE2E8F0);
+  static const Color _skippedIcon = Color(0xFF64748B);
+  static const Color _skippedStripe = Color(0xFF94A3B8);
+  /// Pending entries / planning — orange family (complete sign-up or entries).
+  static const Color _pendingEntriesFill = Color(0xFFFFEDD5);
+  static const Color _pendingEntriesIcon = Color(0xFFEA580C);
+  static const Color _pendingEntriesStripe = Color(0xFFFB923C);
   static const Color _parentNoteBg = Color(0xFFF8FAFC);
   static const Color _softRedGlow = Color(0xFFFECACA);
 
@@ -215,29 +219,6 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         height: 1.2,
         fontFeatures: [FontFeature.tabularFigures()],
       );
-
-  Future<bool?> _confirmEntryDialog(BuildContext context, String meetName) {
-    return showCupertinoDialog<bool>(
-      context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('Confirm Entry'),
-        content: Text(
-          'Are you sure you have already submitted your entry for $meetName?',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
-    );
-  }
 
   TextStyle _metaTextStyle() => GoogleFonts.sora(
         fontSize: 12.0,
@@ -416,7 +397,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         SizedBox(width: _logisticsIconGap),
         Expanded(
           child: Text(
-            'Sign-up isn’t open yet. Use the switch below to be reminded when registration opens.',
+            'Sign-up isn’t open yet. Tap YES under “Enter this meet?” below, then choose whether to get a reminder when registration opens.',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.sora(
@@ -654,6 +635,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     MeetPreferenceStatus? status,
     bool? hasAlert,
     bool? isHidden,
+    bool? skipSelected,
     String? notes,
   }) async {
     final doc = widget.meetDoc;
@@ -667,6 +649,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         status: status,
         hasAlert: hasAlert,
         isHidden: isHidden,
+        skipSelected: skipSelected,
         notes: notes,
       );
       return true;
@@ -742,7 +725,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     }
 
     final pref = widget.preference;
-    final hidden = pref?.isHidden ?? false;
+    /// No Firestore doc yet → start collapsed so the list stays scannable.
+    final hidden = pref?.isHidden ?? true;
 
     if (hidden) {
       final theme = FlutterFlowTheme.of(context);
@@ -750,64 +734,92 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       final hHasAlert = pref?.hasAlert ?? false;
       final hEntered = hStatus == MeetPreferenceStatus.entered;
       final hHasPreference = pref != null;
+      final hSkipSelected = pref?.skipSelected ?? false;
       final hAccent = _meetCardStatusAccentColor(
         hasPreference: hHasPreference,
         status: hStatus,
         entered: hEntered,
         hasAlert: hHasAlert,
+        skipSelected: hSkipSelected,
       );
-      final miniStatus = _buildMeetPreferenceStatusBadge(
-        context,
+      final hTagLabel = _meetStatusTagLabel(
         hasPreference: hHasPreference,
         status: hStatus,
         entered: hEntered,
         hasAlert: hHasAlert,
-        diameter: 22.0,
+        skipSelected: hSkipSelected,
       );
       return Padding(
         padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 12.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12.0),
-            border: _meetCardCompositeBorder(hAccent),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(
-                16.0, 10.0, 8.0, 10.0),
-            child: Row(
-              children: [
-                if (miniStatus != null) ...[
-                  miniStatus,
-                  const SizedBox(width: 10.0),
-                ],
-                Expanded(
-                  child: Text(
-                    valueOrDefault<String>(doc.name, 'Meet'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.sora(
-                      fontSize: 14.0,
-                      fontWeight: FontWeight.w500,
-                      fontStyle: FontStyle.italic,
-                      color: theme.secondaryText,
-                    ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12.0),
+              clipBehavior: Clip.antiAlias,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: _meetCardCompositeBorder(hAccent),
+                ),
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                      16.0, 14.0, 8.0, 10.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          valueOrDefault<String>(doc.name, 'Meet'),
+                          maxLines: 8,
+                          softWrap: true,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.sora(
+                            fontSize: 12.0,
+                            fontWeight: FontWeight.w500,
+                            fontStyle: FontStyle.italic,
+                            height: 1.25,
+                            color: theme.secondaryText,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsetsDirectional.only(
+                            start: 6.0,
+                            top: 0.0,
+                            bottom: 0.0,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => _mergePref(isHidden: false, skipSelected: false),
+                        child: Text(
+                          'Show',
+                          style: GoogleFonts.sora(
+                            fontSize: 13.0,
+                            fontWeight: FontWeight.w600,
+                            color: _electricBlue,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                TextButton(
-                  onPressed: () => _mergePref(isHidden: false),
-                  child: Text(
-                    'Show',
-                    style: GoogleFonts.sora(
-                      fontWeight: FontWeight.w600,
-                      color: _electricBlue,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            PositionedDirectional(
+              start: 10.0,
+              top: -6.0,
+              child: _buildMeetStatusTagPill(
+                context,
+                label: hTagLabel,
+                accent: hAccent,
+                compact: true,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -817,16 +829,26 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final status = pref?.status ?? MeetPreferenceStatus.skipped;
     final hasAlert = pref?.hasAlert ?? false;
     final entered = status == MeetPreferenceStatus.entered;
-    final showNotInterestedAction = !entered &&
-        (status == MeetPreferenceStatus.interested || hasAlert);
-    /// Space for [Stack]-positioned header actions (40px targets; two when not-interested shows).
+    final skipSelected = pref?.skipSelected ?? false;
+    final wantsToEnter = entered ||
+        status == MeetPreferenceStatus.planning ||
+        status == MeetPreferenceStatus.interested;
+    final showNotInterestedHeaderIcon = !entered &&
+        !(status == MeetPreferenceStatus.skipped && skipSelected) &&
+        !_meetCardIsUndecided(
+          hasPreference: hasPreference,
+          status: status,
+          skipSelected: skipSelected,
+        );
+    /// Space for [Stack]-positioned header actions (40px targets; two when slotted actions show).
     final titleEndInsetForHeaderActions =
-        showNotInterestedAction ? 84.0 : 44.0;
+        showNotInterestedHeaderIcon ? 84.0 : 44.0;
     final statusAccent = _meetCardStatusAccentColor(
       hasPreference: hasPreference,
       status: status,
       entered: entered,
       hasAlert: hasAlert,
+      skipSelected: skipSelected,
     );
     final urgency = _deadlineUrgency(doc, entered);
     final pulseEligible = !entered &&
@@ -905,19 +927,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                             children: [
                               _buildParentNoteBox(context, pref),
                               const SizedBox(height: 8.0),
-                              if (_meetSignupPendingContext(doc) && !entered)
-                                _buildNotifyWhenSignUpOpensRow(
-                                  context,
-                                  status,
-                                  hasAlert,
-                                )
-                              else if (!_meetSignupPendingContext(doc))
-                                _buildEnteredToggleRow(
-                                  context,
-                                  doc,
-                                  status,
-                                  hasAlert,
-                                ),
+                              _buildMeetDecisionRows(
+                                context,
+                                doc: doc,
+                                status: status,
+                                hasAlert: hasAlert,
+                                hasPreference: hasPreference,
+                                skipSelected: skipSelected,
+                              ),
                               const SizedBox(height: 12.0),
                               SizedBox(
                                 width: double.infinity,
@@ -926,6 +943,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                   doc,
                                   status,
                                   entered,
+                                  wantsToEnter,
                                 ),
                               ),
                             ],
@@ -941,12 +959,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                   status: status,
                   entered: entered,
                   hasAlert: hasAlert,
+                  skipSelected: skipSelected,
                 ),
                 ..._buildMeetCardActionOverlay(
                   context,
+                  hasPreference: hasPreference,
                   status: status,
                   entered: entered,
-                  hasAlert: hasAlert,
+                  skipSelected: skipSelected,
                 ),
               ],
             ),
@@ -956,19 +976,6 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
 
   static const BorderRadius _actionRadius =
       BorderRadius.all(Radius.circular(12.0));
-
-  Future<void> _setEnteredState({
-    required bool entered,
-    required bool hasAlert,
-  }) async {
-    if (entered) {
-      await _mergePref(status: MeetPreferenceStatus.entered);
-    } else if (hasAlert) {
-      await _mergePref(status: MeetPreferenceStatus.interested);
-    } else {
-      await _mergePref(status: MeetPreferenceStatus.skipped);
-    }
-  }
 
   static const String _parentNotePlaceholder =
       'Tap to add a reminder (e.g. Bring extra towels...)';
@@ -1066,6 +1073,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required MeetPreferenceStatus status,
     required bool entered,
     required bool hasAlert,
+    required bool skipSelected,
   }) {
     if (!hasPreference) {
       return _untouchedStripe;
@@ -1076,10 +1084,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     if (status == MeetPreferenceStatus.interested && hasAlert) {
       return _watchingAmber;
     }
+    if (status == MeetPreferenceStatus.planning ||
+        (status == MeetPreferenceStatus.interested && !hasAlert)) {
+      return _pendingEntriesStripe;
+    }
     if (status == MeetPreferenceStatus.interested) {
       return _followingHeart;
     }
-    if (status == MeetPreferenceStatus.skipped && hasPreference) {
+    if (skipSelected && status == MeetPreferenceStatus.skipped && hasPreference) {
       return _skippedStripe;
     }
     return _untouchedStripe;
@@ -1124,12 +1136,25 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
+  /// No Firestore doc, or saved neutral row — user still owes a YES/NO on “Enter this meet?”.
+  bool _meetCardIsUndecided({
+    required bool hasPreference,
+    required MeetPreferenceStatus status,
+    required bool skipSelected,
+  }) {
+    if (!hasPreference) {
+      return true;
+    }
+    return status == MeetPreferenceStatus.skipped && !skipSelected;
+  }
+
   /// Header actions in the [Stack] so they do not reserve a full-width row above the title.
   List<Widget> _buildMeetCardActionOverlay(
     BuildContext context, {
+    required bool hasPreference,
     required MeetPreferenceStatus status,
     required bool entered,
-    required bool hasAlert,
+    required bool skipSelected,
   }) {
     return [
       PositionedDirectional(
@@ -1139,7 +1164,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!entered &&
-                (status == MeetPreferenceStatus.interested || hasAlert))
+                !(status == MeetPreferenceStatus.skipped && skipSelected) &&
+                !_meetCardIsUndecided(
+                  hasPreference: hasPreference,
+                  status: status,
+                  skipSelected: skipSelected,
+                ))
               _meetHeaderIconAction(
                 context: context,
                 tooltip:
@@ -1148,6 +1178,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                   await _mergePref(
                     status: MeetPreferenceStatus.skipped,
                     hasAlert: false,
+                    skipSelected: true,
                   );
                   if (context.mounted) {
                     HapticFeedback.selectionClick();
@@ -1183,6 +1214,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required MeetPreferenceStatus status,
     required bool entered,
     required bool hasAlert,
+    required bool skipSelected,
     double diameter = _cornerStateBadgeSize,
   }) {
     if (entered) {
@@ -1191,16 +1223,102 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     if (status == MeetPreferenceStatus.interested && hasAlert) {
       return _buildCornerInterestedRemindersBadge(context, diameter: diameter);
     }
+    if (status == MeetPreferenceStatus.planning ||
+        (status == MeetPreferenceStatus.interested && !hasAlert)) {
+      return _buildCornerPlanningBadge(context, diameter: diameter);
+    }
     if (status == MeetPreferenceStatus.interested) {
       return _buildCornerInterestedBadge(context, diameter: diameter);
     }
-    if (status == MeetPreferenceStatus.skipped && hasPreference) {
+    if (skipSelected && status == MeetPreferenceStatus.skipped && hasPreference) {
       return _buildCornerSkippedBadge(context, diameter: diameter);
     }
-    if (!hasPreference) {
-      return _buildCornerUntouchedBadge(context, diameter: diameter);
-    }
     return null;
+  }
+
+  String _meetStatusTagLabel({
+    required bool hasPreference,
+    required MeetPreferenceStatus status,
+    required bool entered,
+    required bool hasAlert,
+    required bool skipSelected,
+  }) {
+    if (!hasPreference) {
+      return 'Not decided';
+    }
+    if (entered) {
+      return 'Entered';
+    }
+    if (status == MeetPreferenceStatus.interested && hasAlert) {
+      return 'Remind me';
+    }
+    if (status == MeetPreferenceStatus.planning ||
+        (status == MeetPreferenceStatus.interested && !hasAlert)) {
+      return 'Pending entries';
+    }
+    if (skipSelected && status == MeetPreferenceStatus.skipped && hasPreference) {
+      return 'Skipped';
+    }
+    return 'Not decided';
+  }
+
+  /// Solid (opaque) fill so the tag never shows the card edge through it.
+  Color _opaqueMeetTagFill(Color accent, {required bool compact}) {
+    return Color.lerp(
+      Colors.white,
+      accent,
+      compact ? 0.30 : 0.36,
+    )!;
+  }
+
+  Color _opaqueMeetTagBorder(Color accent) {
+    return Color.lerp(accent, _slateTitle, 0.42)!;
+  }
+
+  /// Small pill beside the corner disk; sits in the card [Stack] (outside [ClipRRect]).
+  Widget _buildMeetStatusTagPill(
+    BuildContext context, {
+    required String label,
+    required Color accent,
+    required bool compact,
+  }) {
+    final padH = compact ? 6.0 : 8.0;
+    final padV = compact ? 3.0 : 4.0;
+    final fontSize = compact ? 9.0 : 10.5;
+    final fill = _opaqueMeetTagFill(accent, compact: compact);
+    final stroke = _opaqueMeetTagBorder(accent);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(999.0),
+        border: Border.all(
+          color: stroke,
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 5.0,
+            offset: const Offset(0.0, 1.5),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.sora(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.12,
+            height: 1.0,
+            color: _slateTitle,
+          ),
+        ),
+      ),
+    );
   }
 
   List<Widget> _buildMeetCornerStateOverlay(
@@ -1209,6 +1327,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required MeetPreferenceStatus status,
     required bool entered,
     required bool hasAlert,
+    required bool skipSelected,
   }) {
     final badge = _buildMeetPreferenceStatusBadge(
       context,
@@ -1216,17 +1335,45 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       status: status,
       entered: entered,
       hasAlert: hasAlert,
+      skipSelected: skipSelected,
       diameter: _cornerStateBadgeSize,
     );
-    if (badge == null) {
-      return const <Widget>[];
-    }
+    final accent = _meetCardStatusAccentColor(
+      hasPreference: hasPreference,
+      status: status,
+      entered: entered,
+      hasAlert: hasAlert,
+      skipSelected: skipSelected,
+    );
+    final tagLabel = _meetStatusTagLabel(
+      hasPreference: hasPreference,
+      status: status,
+      entered: entered,
+      hasAlert: hasAlert,
+      skipSelected: skipSelected,
+    );
     const half = _cornerStateBadgeSize / 2.0;
+    final hasDisk = badge != null;
     return [
       PositionedDirectional(
-        start: -half,
-        top: -half,
-        child: badge,
+        start: hasDisk ? -half : 10.0,
+        top: hasDisk ? -half : -6.0,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (badge != null) ...[
+              badge,
+              const SizedBox(width: 6.0),
+            ],
+            _buildMeetStatusTagPill(
+              context,
+              label: tagLabel,
+              accent: accent,
+              compact: false,
+            ),
+          ],
+        ),
       ),
     ];
   }
@@ -1328,6 +1475,27 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
+
+  Widget _buildCornerPlanningBadge(
+    BuildContext context, {
+    double diameter = _cornerStateBadgeSize,
+  }) {
+    final g = _cornerGlyphSize(diameter, 15.0);
+    return Tooltip(
+      message:
+          'Pending entries — you want to enter this meet, but entries are not confirmed yet.',
+      child: _buildCornerStateDisk(
+        diameter: diameter,
+        backgroundColor: _pendingEntriesFill,
+        child: Icon(
+          Icons.pending_actions_rounded,
+          color: _pendingEntriesIcon,
+          size: g,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCornerSkippedBadge(
     BuildContext context, {
     double diameter = _cornerStateBadgeSize,
@@ -1335,33 +1503,13 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final g = _cornerGlyphSize(diameter, 15.0);
     return Tooltip(
       message:
-          'Not interested — no reminders. Use “notify when sign-up opens” or “I’ve entered” if you change your mind.',
+          'Skipped — no reminders for this meet. Turn off skip or choose entry when you are ready.',
       child: _buildCornerStateDisk(
         diameter: diameter,
         backgroundColor: _skippedFill,
         child: Icon(
           Icons.not_interested_rounded,
           color: _skippedIcon,
-          size: g,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCornerUntouchedBadge(
-    BuildContext context, {
-    double diameter = _cornerStateBadgeSize,
-  }) {
-    final g = _cornerGlyphSize(diameter, 15.0);
-    return Tooltip(
-      message:
-          'No preference saved yet — open the card to mark entered, follow for updates, or hide this meet.',
-      child: _buildCornerStateDisk(
-        diameter: diameter,
-        backgroundColor: _untouchedFill,
-        child: Icon(
-          Icons.radio_button_unchecked_rounded,
-          color: _untouchedIcon,
           size: g,
         ),
       ),
@@ -1377,25 +1525,25 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     return 'Verified: $firstName is entered';
   }
 
-  Widget _buildEnteredToggleRow(
-    BuildContext context,
-    MonitoredMeetsRecord doc,
-    MeetPreferenceStatus status,
-    bool hasAlert,
-  ) {
-    final entered = status == MeetPreferenceStatus.entered;
+  /// Follow-up steps only (after “Enter this meet?”); primary choice stays YES/NO.
+  Widget _buildFollowUpToggleRow(
+    BuildContext context, {
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
     final theme = FlutterFlowTheme.of(context);
-    final meetName = valueOrDefault<String>(doc.name, 'this meet');
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Text(
-            "I've entered this meet",
+            label,
             style: GoogleFonts.sora(
               fontSize: 14.0,
               fontWeight: FontWeight.w600,
               color: _slateTitle,
+              height: 1.25,
             ),
           ),
         ),
@@ -1414,32 +1562,220 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               return theme.lineColor;
             }),
           ),
-          child: Switch(
+          child: Switch(value: value, onChanged: onChanged),
+        ),
+      ],
+    );
+  }
+
+  /// Gray band + label + NO / YES (matches meet-card mockup; avoids switch “off = NO”).
+  Widget _buildBinaryChoiceBand(
+    BuildContext context, {
+    required String label,
+    required _BinaryChoice selected,
+    required Future<void> Function() onNo,
+    required Future<void> Function() onYes,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsetsDirectional.fromSTEB(14.0, 12.0, 14.0, 12.0),
+      decoration: BoxDecoration(
+        color: _parentNoteBg,
+        borderRadius: BorderRadius.circular(10.0),
+        border: Border.all(color: _cardBorder, width: 1.0),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.sora(
+                fontSize: 14.0,
+                fontWeight: FontWeight.w600,
+                color: _slateSecondary,
+                height: 1.25,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10.0),
+          _binaryNoChip(
+            context,
+            selected: selected,
+            onPressed: () async {
+              await onNo();
+            },
+          ),
+          const SizedBox(width: 8.0),
+          _binaryYesChip(
+            context,
+            selected: selected,
+            onPressed: () async {
+              await onYes();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _binaryNoChip(
+    BuildContext context, {
+    required _BinaryChoice selected,
+    required Future<void> Function() onPressed,
+  }) {
+    final on = selected == _BinaryChoice.no;
+    return OutlinedButton(
+      onPressed: () async {
+        await onPressed();
+      },
+      style: OutlinedButton.styleFrom(
+        foregroundColor: on ? _slateTitle : _slateSecondary,
+        backgroundColor: Colors.white,
+        side: BorderSide(
+          color: on ? _slateTitle : _cardBorder,
+          width: on ? 2.0 : 1.0,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+        minimumSize: const Size(56.0, 40.0),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+      ),
+      child: Text(
+        'NO',
+        style: GoogleFonts.sora(
+          fontWeight: FontWeight.w800,
+          fontSize: 13.0,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+
+  Widget _binaryYesChip(
+    BuildContext context, {
+    required _BinaryChoice selected,
+    required Future<void> Function() onPressed,
+  }) {
+    final on = selected == _BinaryChoice.yes;
+    final muted = selected == _BinaryChoice.no;
+    return ElevatedButton(
+      onPressed: () async {
+        await onPressed();
+      },
+      style: ElevatedButton.styleFrom(
+        elevation: on ? 2.0 : 0.0,
+        shadowColor: on ? _electricBlue.withValues(alpha: 0.25) : Colors.transparent,
+        backgroundColor: muted
+            ? _cardBorder
+            : (on ? _electricBlue : _electricBlue.withValues(alpha: 0.92)),
+        foregroundColor: muted ? _slateSecondary : Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+        minimumSize: const Size(56.0, 40.0),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+      ),
+      child: Text(
+        'YES',
+        style: GoogleFonts.sora(
+          fontWeight: FontWeight.w800,
+          fontSize: 13.0,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeetDecisionRows(
+    BuildContext context, {
+    required MonitoredMeetsRecord doc,
+    required MeetPreferenceStatus status,
+    required bool hasAlert,
+    required bool hasPreference,
+    required bool skipSelected,
+  }) {
+    final registrationPending = _meetSignupPendingContext(doc);
+    final wantsToEnter = status == MeetPreferenceStatus.entered ||
+        status == MeetPreferenceStatus.planning ||
+        status == MeetPreferenceStatus.interested;
+    final entered = status == MeetPreferenceStatus.entered;
+    final skipped =
+        skipSelected && status == MeetPreferenceStatus.skipped && hasPreference;
+    final interestedPick = wantsToEnter
+        ? _BinaryChoice.yes
+        : (skipped ? _BinaryChoice.no : _BinaryChoice.none);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildBinaryChoiceBand(
+          context,
+          label: 'Enter this meet?',
+          selected: interestedPick,
+          onNo: () async {
+            await _mergePref(
+              status: MeetPreferenceStatus.skipped,
+              hasAlert: false,
+              skipSelected: true,
+              isHidden: false,
+            );
+            if (context.mounted) {
+              _enteredCelebrateController.reset();
+            }
+          },
+          onYes: () async {
+            await _mergePref(
+              status: MeetPreferenceStatus.planning,
+              hasAlert: false,
+              skipSelected: false,
+            );
+            if (context.mounted) {
+              HapticFeedback.lightImpact();
+            }
+          },
+        ),
+        if (wantsToEnter && registrationPending) ...[
+          const SizedBox(height: 10.0),
+          _buildNotifyWhenSignUpOpensRow(
+            context,
+            status,
+            hasAlert,
+          ),
+        ],
+        if (wantsToEnter && !registrationPending) ...[
+          const SizedBox(height: 10.0),
+          _buildFollowUpToggleRow(
+            context,
+            label: 'Have you created your entries?',
             value: entered,
             onChanged: (next) async {
               if (next) {
-                final ok = await _confirmEntryDialog(context, meetName);
-                if (!context.mounted) {
-                  return;
-                }
-                if (ok == true) {
-                  await _setEnteredState(entered: true, hasAlert: hasAlert);
-                  if (!context.mounted) {
-                    return;
-                  }
+                await _mergePref(
+                  status: MeetPreferenceStatus.entered,
+                  hasAlert: false,
+                  skipSelected: false,
+                );
+                if (context.mounted) {
                   HapticFeedback.lightImpact();
                   _enteredCelebrateController.forward(from: 0);
                 }
               } else {
-                await _setEnteredState(entered: false, hasAlert: hasAlert);
-                if (!context.mounted) {
-                  return;
+                await _mergePref(
+                  status: MeetPreferenceStatus.planning,
+                  hasAlert: false,
+                );
+                if (context.mounted) {
+                  _enteredCelebrateController.reset();
                 }
-                _enteredCelebrateController.reset();
               }
             },
           ),
-        ),
+        ],
       ],
     );
   }
@@ -1450,76 +1786,45 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     MeetPreferenceStatus status,
     bool hasAlert,
   ) {
-    final theme = FlutterFlowTheme.of(context);
     final notifyOn = hasAlert &&
         (status == MeetPreferenceStatus.interested ||
             status == MeetPreferenceStatus.entered);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Text(
-            'I want to enter — notify me when sign-up opens',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.sora(
-              fontSize: 14.0,
-              fontWeight: FontWeight.w600,
-              color: _slateTitle,
-              height: 1.2,
-            ),
-          ),
-        ),
-        SwitchTheme(
-          data: SwitchThemeData(
-            thumbColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return Colors.white;
-              }
-              return null;
-            }),
-            trackColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return _electricBlue;
-              }
-              return theme.lineColor;
-            }),
-          ),
-          child: Switch(
-            value: notifyOn,
-            onChanged: (next) async {
-              if (next) {
-                await _mergePref(
-                  hasAlert: true,
-                  status: MeetPreferenceStatus.interested,
-                );
-                if (context.mounted) {
-                  HapticFeedback.lightImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'You’ll get a reminder when sign-up opens. To see every meet you’re following, tap the tune icon on Meets, then turn on «Interested only».',
-                        style: GoogleFonts.sora(
-                          fontSize: 14.0,
-                          fontWeight: FontWeight.w500,
-                          height: 1.35,
-                        ),
-                      ),
-                      duration: const Duration(seconds: 5),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              } else {
-                await _mergePref(
-                  hasAlert: false,
-                  status: MeetPreferenceStatus.skipped,
-                );
-              }
-            },
-          ),
-        ),
-      ],
+    return _buildFollowUpToggleRow(
+      context,
+      label: 'Want a reminder when sign-up opens?',
+      value: notifyOn,
+      onChanged: (next) async {
+        if (next) {
+          await _mergePref(
+            hasAlert: true,
+            status: MeetPreferenceStatus.interested,
+            skipSelected: false,
+          );
+          if (context.mounted) {
+            HapticFeedback.lightImpact();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'You’ll get a reminder when sign-up opens. To see every meet you’re following, tap the tune icon on Meets, then turn on «Interested only».',
+                  style: GoogleFonts.sora(
+                    fontSize: 14.0,
+                    fontWeight: FontWeight.w500,
+                    height: 1.35,
+                  ),
+                ),
+                duration: const Duration(seconds: 5),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } else {
+          await _mergePref(
+            hasAlert: false,
+            status: MeetPreferenceStatus.planning,
+            skipSelected: false,
+          );
+        }
+      },
     );
   }
 
@@ -1528,6 +1833,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     MonitoredMeetsRecord doc,
     MeetPreferenceStatus status,
     bool entered,
+    bool wantsToEnter,
   ) {
     final hasUrl = doc.hasEntryPage;
     final url = doc.entryUrl.trim();
@@ -1639,6 +1945,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           ],
         ),
       );
+    }
+
+    if (!wantsToEnter) {
+      return const SizedBox.shrink();
     }
 
     return ElevatedButton(
