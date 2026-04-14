@@ -300,7 +300,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     return false;
   }
 
-  void _setClassFilter({
+  void _setClassFilter(
+    BuildContext snackContext, {
     required bool nextValue,
     required bool currentValue,
     required void Function(FFAppState app, bool v) apply,
@@ -313,7 +314,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         (app.meetFilterShowSenior ? 1 : 0) +
         (app.meetFilterShowOther ? 1 : 0);
     if (!nextValue && activeCount <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(snackContext).showSnackBar(
         const SnackBar(
           content: Text('Keep at least one class filter active.'),
           duration: Duration(seconds: 2),
@@ -545,313 +546,32 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     return full;
   }
 
-  void _onMeetFilterMenuSelected(
-    BuildContext context,
-    FFAppState app,
-    int value,
-  ) {
-    if (value == 0) {
-      app.update(() => app.meetsShowAllZones = false);
-      app.persistMeetUiState();
-      return;
-    }
-    if (value == 1) {
-      app.update(() => app.meetsShowAllZones = true);
-      app.persistMeetUiState();
-      return;
-    }
-    if (value == 2) {
-      _setClassFilter(
-        nextValue: !app.meetFilterShowAgeGroup,
-        currentValue: app.meetFilterShowAgeGroup,
-        apply: (a, x) => a.meetFilterShowAgeGroup = x,
-      );
-      return;
-    }
-    if (value == 3) {
-      _setClassFilter(
-        nextValue: !app.meetFilterShowSenior,
-        currentValue: app.meetFilterShowSenior,
-        apply: (a, x) => a.meetFilterShowSenior = x,
-      );
-      return;
-    }
-    if (value == 4) {
-      _setClassFilter(
-        nextValue: !app.meetFilterShowOther,
-        currentValue: app.meetFilterShowOther,
-        apply: (a, x) => a.meetFilterShowOther = x,
-      );
-      return;
-    }
-    if (value == 5) {
-      app.update(
-        () => app.meetFilterPendingEntries = !app.meetFilterPendingEntries,
-      );
-      app.persistMeetUiState();
-      return;
-    }
-    if (value == 6) {
-      app.update(() => app.meetFilterEntered = !app.meetFilterEntered);
-      app.persistMeetUiState();
-      return;
-    }
-    if (value == 7) {
-      app.update(() => app.meetFilterNotGoing = !app.meetFilterNotGoing);
-      app.persistMeetUiState();
-      return;
-    }
-    if (value == 8) {
-      app.update(() => app.meetFilterRemindMe = !app.meetFilterRemindMe);
-      app.persistMeetUiState();
-      return;
-    }
-    if (value == 9) {
-      app.update(
-        () => app.meetShowNotGoingInList = !app.meetShowNotGoingInList,
-      );
-      app.persistMeetUiState();
-      return;
-    }
-  }
-
-  /// Checkbox row plus the same glyphs as meet-card status disks, in neutral gray.
-  Widget _meetFilterCheckboxRow({
-    required bool selected,
-    required String label,
-    required Widget hint,
-  }) {
-    return Row(
-      children: [
-        Icon(
-          selected
-              ? Icons.check_box_rounded
-              : Icons.check_box_outline_blank_rounded,
-          color: _electricBlue,
-          size: 22.0,
-        ),
-        const SizedBox(width: 8.0),
-        hint,
-        const SizedBox(width: 10.0),
-        Expanded(
-          child: Text(
-            label,
-            style: GoogleFonts.sora(fontSize: 14.0),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+  Future<void> _openMeetRefineSheet(BuildContext pageContext) async {
+    await showModalBottomSheet<void>(
+      context: pageContext,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+      ),
+      builder: (sheetContext) {
+        return _MeetRefineSheetContent(
+          onMeetClassToggle: ({
+            required bool nextValue,
+            required bool currentValue,
+            required void Function(FFAppState app, bool v) apply,
+          }) {
+            _setClassFilter(
+              pageContext,
+              nextValue: nextValue,
+              currentValue: currentValue,
+              apply: apply,
+            );
+          },
+        );
+      },
     );
-  }
-
-  List<PopupMenuEntry<int>> _meetFilterMenuEntries(FFAppState app) {
-    Widget zoneRow({
-      required IconData icon,
-      required String label,
-      required bool selected,
-    }) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20.0, color: _bannerTitle),
-          const SizedBox(width: 10.0),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.sora(
-                fontSize: 14.0,
-                fontWeight: FontWeight.w500,
-                color: _bannerTitle,
-              ),
-            ),
-          ),
-          if (selected) ...[
-            const SizedBox(width: 6.0),
-            Icon(Icons.check_rounded, color: _electricBlue, size: 22.0),
-          ],
-        ],
-      );
-    }
-
-    return <PopupMenuEntry<int>>[
-      PopupMenuItem<int>(
-        value: 0,
-        child: zoneRow(
-          icon: Icons.near_me_outlined,
-          label: 'Current zone only',
-          selected: !app.meetsShowAllZones,
-        ),
-      ),
-      PopupMenuItem<int>(
-        value: 1,
-        child: zoneRow(
-          icon: Icons.public_rounded,
-          label: 'All Pacific zones',
-          selected: app.meetsShowAllZones,
-        ),
-      ),
-      const PopupMenuDivider(),
-      PopupMenuItem<int>(
-        value: 2,
-        child: Row(
-          children: [
-            Icon(
-              app.meetFilterShowAgeGroup
-                  ? Icons.check_box_rounded
-                  : Icons.check_box_outline_blank_rounded,
-              color: _electricBlue,
-              size: 22.0,
-            ),
-            const SizedBox(width: 10.0),
-            Expanded(
-              child: Text(
-                'Age Group',
-                style: GoogleFonts.sora(fontSize: 14.0),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      PopupMenuItem<int>(
-        value: 3,
-        child: Row(
-          children: [
-            Icon(
-              app.meetFilterShowSenior
-                  ? Icons.check_box_rounded
-                  : Icons.check_box_outline_blank_rounded,
-              color: _electricBlue,
-              size: 22.0,
-            ),
-            const SizedBox(width: 10.0),
-            Expanded(
-              child: Text(
-                'Senior',
-                style: GoogleFonts.sora(fontSize: 14.0),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      PopupMenuItem<int>(
-        value: 4,
-        child: Row(
-          children: [
-            Icon(
-              app.meetFilterShowOther
-                  ? Icons.check_box_rounded
-                  : Icons.check_box_outline_blank_rounded,
-              color: _electricBlue,
-              size: 22.0,
-            ),
-            const SizedBox(width: 10.0),
-            Expanded(
-              child: Text(
-                'Other',
-                style: GoogleFonts.sora(fontSize: 14.0),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      const PopupMenuDivider(),
-      PopupMenuItem<int>(
-        value: 5,
-        child: _meetFilterCheckboxRow(
-          selected: app.meetFilterPendingEntries,
-          label: 'Pending entries',
-          hint: Icon(
-            Icons.pending_actions_rounded,
-            size: 20.0,
-            color: _bannerTitle.withValues(alpha: 0.52),
-          ),
-        ),
-      ),
-      PopupMenuItem<int>(
-        value: 6,
-        child: _meetFilterCheckboxRow(
-          selected: app.meetFilterEntered,
-          label: 'Entered',
-          hint: Icon(
-            Icons.check_rounded,
-            size: 20.0,
-            color: _bannerTitle.withValues(alpha: 0.52),
-          ),
-        ),
-      ),
-      PopupMenuItem<int>(
-        value: 7,
-        child: _meetFilterCheckboxRow(
-          selected: app.meetFilterNotGoing,
-          label: 'Not Going',
-          hint: Icon(
-            Icons.close_rounded,
-            size: 20.0,
-            color: _bannerTitle.withValues(alpha: 0.52),
-          ),
-        ),
-      ),
-      PopupMenuItem<int>(
-        value: 8,
-        child: _meetFilterCheckboxRow(
-          selected: app.meetFilterRemindMe,
-          label: 'Remind me',
-          hint: Icon(
-            Icons.notifications_active_rounded,
-            size: 20.0,
-            color: _bannerTitle.withValues(alpha: 0.52),
-          ),
-        ),
-      ),
-      const PopupMenuDivider(),
-      PopupMenuItem<int>(
-        value: 9,
-        child: _meetFilterCheckboxRow(
-          selected: app.meetShowNotGoingInList,
-          label: "Show 'Not going' meets in list",
-          hint: Icon(
-            Icons.visibility_outlined,
-            size: 20.0,
-            color: _bannerTitle.withValues(alpha: 0.52),
-          ),
-        ),
-      ),
-    ];
-  }
-
-  Future<void> _openMeetFilterMenu(
-    BuildContext buttonContext,
-    BuildContext pageContext,
-    FFAppState app,
-  ) async {
-    final overlayObject =
-        Overlay.of(buttonContext, rootOverlay: true).context.findRenderObject();
-    if (overlayObject is! RenderBox) {
-      return;
-    }
-    final overlay = overlayObject;
-    final box = buttonContext.findRenderObject()! as RenderBox;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        box.localToGlobal(Offset.zero, ancestor: overlay),
-        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
-      ),
-      Offset.zero & overlay.size,
-    );
-    final selected = await showMenu<int>(
-      context: buttonContext,
-      position: position,
-      items: _meetFilterMenuEntries(app),
-    );
-    if (!pageContext.mounted || selected == null) {
-      return;
-    }
-    _onMeetFilterMenuSelected(pageContext, app, selected);
   }
 
   Widget _buildMeetsScopeBanner(BuildContext context, FFAppState app) {
@@ -955,15 +675,14 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                           ),
                   ),
                   Builder(
-                    builder: (buttonContext) {
+                    builder: (_) {
                       final filtersOn = _meetTuneFiltersNonDefault(app);
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
                           IconButton(
-                            tooltip: filtersOn
-                                ? 'Filters active — zone & meet types'
-                                : 'Zone & meet type filters',
+                            tooltip: filtersOn ? 'Refine — filters active'
+                                : 'Refine meets list',
                             visualDensity: VisualDensity.compact,
                             padding: const EdgeInsets.all(8.0),
                             constraints: const BoxConstraints(
@@ -975,11 +694,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                               color: _electricBlue,
                               size: 24.0,
                             ),
-                            onPressed: () => _openMeetFilterMenu(
-                              buttonContext,
-                              context,
-                              app,
-                            ),
+                            onPressed: () => _openMeetRefineSheet(context),
                           ),
                           if (filtersOn)
                             PositionedDirectional(
@@ -1282,6 +997,365 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+typedef _MeetClassToggle = void Function({
+  required bool nextValue,
+  required bool currentValue,
+  required void Function(FFAppState app, bool v) apply,
+});
+
+/// Full-screen style refine sheet: Location, Meet Type chips, collapsible Status, Advanced.
+class _MeetRefineSheetContent extends StatelessWidget {
+  const _MeetRefineSheetContent({
+    required this.onMeetClassToggle,
+  });
+
+  final _MeetClassToggle onMeetClassToggle;
+
+  static const Color _refineBlue = Color(0xFF4A86E8);
+  static const Color _refineTitle = Color(0xFF0F172A);
+  static const Color _refineMuted = Color(0xFF64748B);
+  static const Color _chipBorder = Color(0xFFE2E8F0);
+
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0, top: 4.0),
+      child: Text(
+        text,
+        style: GoogleFonts.sora(
+          fontSize: 13.0,
+          fontWeight: FontWeight.w600,
+          color: _refineMuted,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _locationTile({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+              color: selected ? _refineBlue : _chipBorder,
+              size: 22.0,
+            ),
+            const SizedBox(width: 12.0),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.sora(
+                  fontSize: 15.0,
+                  fontWeight: FontWeight.w500,
+                  color: _refineTitle,
+                ),
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_rounded, color: _refineBlue, size: 22.0),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999.0),
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+            decoration: BoxDecoration(
+              color: selected ? _refineBlue : Colors.white,
+              borderRadius: BorderRadius.circular(999.0),
+              border: Border.all(
+                color: selected ? _refineBlue : _chipBorder,
+                width: 1.0,
+              ),
+            ),
+            child: Text(
+              label,
+              style: GoogleFonts.sora(
+                fontSize: 13.0,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white : _refineTitle,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chipScroller(List<Widget> chips) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: chips),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<FFAppState>();
+    final line = FlutterFlowTheme.of(context).lineColor;
+
+    void persist() => app.persistMeetUiState();
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20.0,
+        8.0,
+        20.0,
+        MediaQuery.paddingOf(context).bottom + 16.0,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 44.0,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: _refineMuted,
+                        size: 26.0,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                  Text(
+                    'Refine',
+                    style: GoogleFonts.sora(
+                      fontSize: 18.0,
+                      fontWeight: FontWeight.w700,
+                      color: _refineTitle,
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        app.update(() {
+                          app.meetsShowAllZones = false;
+                          app.meetFilterShowAgeGroup = true;
+                          app.meetFilterShowSenior = true;
+                          app.meetFilterShowOther = true;
+                          app.meetFilterPendingEntries = false;
+                          app.meetFilterEntered = false;
+                          app.meetFilterNotGoing = false;
+                          app.meetFilterRemindMe = false;
+                          app.meetShowNotGoingInList = false;
+                          app.meetListChipFilter = 0;
+                        });
+                        persist();
+                      },
+                      child: Text(
+                        'Reset',
+                        style: GoogleFonts.sora(
+                          fontSize: 15.0,
+                          fontWeight: FontWeight.w600,
+                          color: _refineBlue,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _sectionLabel('Location'),
+            _locationTile(
+              label: 'Current Zone',
+              selected: !app.meetsShowAllZones,
+              onTap: () {
+                app.update(() => app.meetsShowAllZones = false);
+                persist();
+              },
+            ),
+            _locationTile(
+              label: 'All Zones',
+              selected: app.meetsShowAllZones,
+              onTap: () {
+                app.update(() => app.meetsShowAllZones = true);
+                persist();
+              },
+            ),
+            Divider(height: 24.0, thickness: 1.0, color: line),
+            _sectionLabel('Meet Type'),
+            _chipScroller([
+              _filterChip(
+                label: 'Age Group',
+                selected: app.meetFilterShowAgeGroup,
+                onTap: () => onMeetClassToggle(
+                  nextValue: !app.meetFilterShowAgeGroup,
+                  currentValue: app.meetFilterShowAgeGroup,
+                  apply: (a, x) => a.meetFilterShowAgeGroup = x,
+                ),
+              ),
+              _filterChip(
+                label: 'Senior',
+                selected: app.meetFilterShowSenior,
+                onTap: () => onMeetClassToggle(
+                  nextValue: !app.meetFilterShowSenior,
+                  currentValue: app.meetFilterShowSenior,
+                  apply: (a, x) => a.meetFilterShowSenior = x,
+                ),
+              ),
+              _filterChip(
+                label: 'Other',
+                selected: app.meetFilterShowOther,
+                onTap: () => onMeetClassToggle(
+                  nextValue: !app.meetFilterShowOther,
+                  currentValue: app.meetFilterShowOther,
+                  apply: (a, x) => a.meetFilterShowOther = x,
+                ),
+              ),
+            ]),
+            const SizedBox(height: 8.0),
+            Divider(height: 24.0, thickness: 1.0, color: line),
+            Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+                splashColor: _refineBlue.withValues(alpha: 0.08),
+              ),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                initiallyExpanded: true,
+                title: Text(
+                  'Status',
+                  style: GoogleFonts.sora(
+                    fontSize: 13.0,
+                    fontWeight: FontWeight.w600,
+                    color: _refineMuted,
+                  ),
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: _chipScroller([
+                      _filterChip(
+                        label: 'Pending',
+                        selected: app.meetFilterPendingEntries,
+                        onTap: () {
+                          app.update(
+                            () => app.meetFilterPendingEntries =
+                                !app.meetFilterPendingEntries,
+                          );
+                          persist();
+                        },
+                      ),
+                      _filterChip(
+                        label: 'Entered',
+                        selected: app.meetFilterEntered,
+                        onTap: () {
+                          app.update(
+                            () =>
+                                app.meetFilterEntered = !app.meetFilterEntered,
+                          );
+                          persist();
+                        },
+                      ),
+                      _filterChip(
+                        label: 'Not Going',
+                        selected: app.meetFilterNotGoing,
+                        onTap: () {
+                          app.update(
+                            () => app.meetFilterNotGoing =
+                                !app.meetFilterNotGoing,
+                          );
+                          persist();
+                        },
+                      ),
+                      _filterChip(
+                        label: 'Remind Me',
+                        selected: app.meetFilterRemindMe,
+                        onTap: () {
+                          app.update(
+                            () =>
+                                app.meetFilterRemindMe = !app.meetFilterRemindMe,
+                          );
+                          persist();
+                        },
+                      ),
+                    ]),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 24.0, thickness: 1.0, color: line),
+            _sectionLabel('Advanced'),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Hide Not Going Meets',
+                style: GoogleFonts.sora(
+                  fontSize: 15.0,
+                  fontWeight: FontWeight.w500,
+                  color: _refineTitle,
+                ),
+              ),
+              value: !app.meetShowNotGoingInList,
+              onChanged: (v) {
+                if (v == null) {
+                  return;
+                }
+                app.update(() => app.meetShowNotGoingInList = !v);
+                persist();
+              },
+              activeColor: _refineBlue,
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            const SizedBox(height: 24.0),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _refineBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  elevation: 0.0,
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'View Results',
+                  style: GoogleFonts.sora(
+                    fontSize: 16.0,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
