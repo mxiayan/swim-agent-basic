@@ -18,10 +18,8 @@ bool isSwimmerZonePlaceholder(String? raw) {
   if (raw == null) {
     return true;
   }
-  final t = raw
-      .trim()
-      .toLowerCase()
-      .replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '');
+  final t =
+      raw.trim().toLowerCase().replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '');
   if (t.isEmpty) {
     return true;
   }
@@ -177,6 +175,8 @@ class FFAppState extends ChangeNotifier {
   static const _kMeetFilterRemindMe = 'ff_meetFilterRemindMe';
   static const _kMeetTimeSegment = 'ff_meetTimeSegment';
   static const _kMeetsShowAllZones = 'ff_meetsShowAllZones';
+  static const _kMeetShowNotGoingInList = 'ff_meetShowNotGoingInList';
+  static const _kMeetListChipFilter = 'ff_meetListChipFilter';
 
   Future initializePersistedState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -198,6 +198,9 @@ class FFAppState extends ChangeNotifier {
     final rawSeg = prefs.getInt(_kMeetTimeSegment) ?? 1;
     _meetTimeSegment = rawSeg < 0 ? 0 : (rawSeg > 2 ? 2 : rawSeg);
     _meetsShowAllZones = prefs.getBool(_kMeetsShowAllZones) ?? false;
+    _meetShowNotGoingInList = prefs.getBool(_kMeetShowNotGoingInList) ?? false;
+    final rawChip = prefs.getInt(_kMeetListChipFilter) ?? 0;
+    _meetListChipFilter = rawChip < 0 ? 0 : (rawChip > 3 ? 3 : rawChip);
     notifyListeners();
     await persistSwimmerContext();
     await persistMeetUiState();
@@ -222,6 +225,8 @@ class FFAppState extends ChangeNotifier {
     await prefs.setBool(_kMeetFilterRemindMe, _meetFilterRemindMe);
     await prefs.setInt(_kMeetTimeSegment, _meetTimeSegment);
     await prefs.setBool(_kMeetsShowAllZones, _meetsShowAllZones);
+    await prefs.setBool(_kMeetShowNotGoingInList, _meetShowNotGoingInList);
+    await prefs.setInt(_kMeetListChipFilter, _meetListChipFilter);
   }
 
   /// Call after sign-out so Home / Meets do not show stale data.
@@ -358,6 +363,26 @@ class FFAppState extends ChangeNotifier {
   bool get meetFilterRemindMe => _meetFilterRemindMe;
   set meetFilterRemindMe(bool value) {
     _meetFilterRemindMe = value;
+  }
+
+  /// When false (default), meets marked Not going are hidden from the main list.
+  bool _meetShowNotGoingInList = false;
+  bool get meetShowNotGoingInList => _meetShowNotGoingInList;
+  set meetShowNotGoingInList(bool value) {
+    _meetShowNotGoingInList = value;
+  }
+
+  /// Meets list chip row: 0 All, 1 Need Action, 2 Entered, 3 Not Going (persisted).
+  int _meetListChipFilter = 0;
+  int get meetListChipFilter => _meetListChipFilter;
+  set meetListChipFilter(int value) {
+    if (value < 0) {
+      _meetListChipFilter = 0;
+    } else if (value > 3) {
+      _meetListChipFilter = 3;
+    } else {
+      _meetListChipFilter = value;
+    }
   }
 
   /// 0 = Past, 1 = Live, 2 = Upcoming (persisted).

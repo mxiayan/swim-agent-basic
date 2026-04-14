@@ -13,7 +13,7 @@ import 'meet_list_quick_filter.dart';
 import 'm02_meet_model.dart';
 export 'm02_meet_model.dart';
 
-enum _MeetQuickFilter { none, needAction, deadlineThisWeek }
+enum _MeetQuickFilter { none, deadlineThisWeek }
 
 class M02MeetWidget extends StatefulWidget {
   const M02MeetWidget({super.key});
@@ -105,7 +105,160 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   bool _anyQuickFilterOn() => _meetQuickFilter != _MeetQuickFilter.none;
 
   bool _anyMyListOrQuickFilterOn(FFAppState app) =>
-      _anyMyListFilterOn(app) || _anyQuickFilterOn();
+      _anyMyListFilterOn(app) ||
+      _anyQuickFilterOn() ||
+      app.meetListChipFilter != 0;
+
+  /// Hide Not going meets unless user opted in or the list filter is "Not going only".
+  bool _passesNotGoingListVisibility(
+    MonitoredMeetsRecord m,
+    Map<String, MeetPreferencesRecord> prefs,
+    FFAppState app,
+  ) {
+    if (app.meetShowNotGoingInList || app.meetFilterNotGoing) {
+      return true;
+    }
+    return !MeetListQuickFilter.isNotGoingCategory(prefs[m.reference.id]);
+  }
+
+  /// Tune icon badge: any non-default filter (including showing Not going meets).
+  bool _meetTuneFiltersNonDefault(FFAppState app) {
+    if (app.meetsShowAllZones) {
+      return true;
+    }
+    if (!app.meetFilterShowAgeGroup ||
+        !app.meetFilterShowSenior ||
+        !app.meetFilterShowOther) {
+      return true;
+    }
+    if (_anyMyListFilterOn(app)) {
+      return true;
+    }
+    if (app.meetShowNotGoingInList) {
+      return true;
+    }
+    if (app.meetListChipFilter != 0) {
+      return true;
+    }
+    return false;
+  }
+
+  /// After class / time / tune filters: apply default Not-going hiding and list chips.
+  List<MonitoredMeetsRecord> _applyNotGoingVisibilityAndChips(
+    List<MonitoredMeetsRecord> base,
+    Map<String, MeetPreferencesRecord> prefs,
+    FFAppState app,
+  ) {
+    switch (app.meetListChipFilter) {
+      case 3:
+        return base
+            .where(
+              (m) => MeetListQuickFilter.isNotGoingCategory(
+                prefs[m.reference.id],
+              ),
+            )
+            .toList();
+      case 1:
+        return base
+            .where((m) => _passesNotGoingListVisibility(m, prefs, app))
+            .where(
+              (m) => MeetListQuickFilter.meetNeedsAction(
+                m,
+                prefs[m.reference.id],
+              ),
+            )
+            .toList();
+      case 2:
+        return base
+            .where((m) => _passesNotGoingListVisibility(m, prefs, app))
+            .where(
+              (m) =>
+                  prefs[m.reference.id]?.status ==
+                  MeetPreferenceStatus.entered,
+            )
+            .toList();
+      default:
+        return base
+            .where((m) => _passesNotGoingListVisibility(m, prefs, app))
+            .toList();
+    }
+  }
+
+  Widget _buildMeetListChipStrip(BuildContext context, FFAppState app) {
+    Widget chip(String label, int index) {
+      final selected = app.meetListChipFilter == index;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8.0),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              app.update(() => app.meetListChipFilter = index);
+              app.persistMeetUiState();
+            },
+            borderRadius: BorderRadius.circular(999.0),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: selected ? _electricBlue : Colors.white,
+                borderRadius: BorderRadius.circular(999.0),
+                border: Border.all(
+                  color: selected ? _electricBlue : const Color(0xFFE2E8F0),
+                  width: 1.0,
+                ),
+              ),
+              child: Text(
+                label,
+                style: GoogleFonts.sora(
+                  fontSize: 13.0,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : _bannerTitle,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          chip('All', 0),
+          chip('Need Action', 1),
+          chip('Entered', 2),
+          chip('Not Going', 3),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeetSegmentChipsAndDivider(BuildContext context, FFAppState app) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20.0, 14.0, 20.0, 0.0),
+          child: _buildMeetTimeSegmentRow(context, app),
+        ),
+        const SizedBox(height: 10.0),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 0.0),
+          child: _buildMeetListChipStrip(context, app),
+        ),
+        const SizedBox(height: 8.0),
+        Divider(
+          height: 1.0,
+          thickness: 1.0,
+          color: FlutterFlowTheme.of(context).lineColor,
+        ),
+        const SizedBox(height: 4.0),
+      ],
+    );
+  }
 
   /// Optional my-list filters from the tune menu (pending / entered / not going / remind).
   /// When several are on, a meet passes if it matches any selected category.
@@ -177,9 +330,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   static const Color _bannerTint = Color(0xFFEFF6FF);
   static const Color _bannerTitle = Color(0xFF0F172A);
   static const Color _bannerMuted = Color(0xFF64748B);
-  static const Color _quickFilterNeedBg = Color(0xFFFFF8E7);
-  static const Color _quickFilterNeedBorder = Color(0xFFEAB308);
-  static const Color _quickFilterNeedIcon = Color(0xFFD97706);
   static const Color _quickFilterDeadlineBg = Color(0xFFDC2626);
   static const Color _quickFilterDeadlineBorder = Color(0xFFB91C1C);
 
@@ -359,6 +509,9 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     if (my.isNotEmpty) {
       line = '$line · Only: ${my.join(' · ')}';
     }
+    if (app.meetShowNotGoingInList) {
+      line = '$line · “Not going” meets visible';
+    }
     return line;
   }
 
@@ -450,6 +603,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     }
     if (value == 8) {
       app.update(() => app.meetFilterRemindMe = !app.meetFilterRemindMe);
+      app.persistMeetUiState();
+      return;
+    }
+    if (value == 9) {
+      app.update(
+        () => app.meetShowNotGoingInList = !app.meetShowNotGoingInList,
+      );
       app.persistMeetUiState();
       return;
     }
@@ -648,6 +808,19 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
           ),
         ),
       ),
+      const PopupMenuDivider(),
+      PopupMenuItem<int>(
+        value: 9,
+        child: _meetFilterCheckboxRow(
+          selected: app.meetShowNotGoingInList,
+          label: "Show 'Not going' meets in list",
+          hint: Icon(
+            Icons.visibility_outlined,
+            size: 20.0,
+            color: _bannerTitle.withValues(alpha: 0.52),
+          ),
+        ),
+      ),
     ];
   }
 
@@ -783,24 +956,49 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                   ),
                   Builder(
                     builder: (buttonContext) {
-                      return IconButton(
-                        tooltip: 'Zone & meet type filters',
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.all(8.0),
-                        constraints: const BoxConstraints(
-                          minWidth: 40.0,
-                          minHeight: 40.0,
-                        ),
-                        icon: Icon(
-                          Icons.tune_rounded,
-                          color: _electricBlue,
-                          size: 24.0,
-                        ),
-                        onPressed: () => _openMeetFilterMenu(
-                          buttonContext,
-                          context,
-                          app,
-                        ),
+                      final filtersOn = _meetTuneFiltersNonDefault(app);
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            tooltip: filtersOn
+                                ? 'Filters active — zone & meet types'
+                                : 'Zone & meet type filters',
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(8.0),
+                            constraints: const BoxConstraints(
+                              minWidth: 40.0,
+                              minHeight: 40.0,
+                            ),
+                            icon: Icon(
+                              Icons.tune_rounded,
+                              color: _electricBlue,
+                              size: 24.0,
+                            ),
+                            onPressed: () => _openMeetFilterMenu(
+                              buttonContext,
+                              context,
+                              app,
+                            ),
+                          ),
+                          if (filtersOn)
+                            PositionedDirectional(
+                              top: 4.0,
+                              end: 4.0,
+                              child: Container(
+                                width: 9.0,
+                                height: 9.0,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEA580C),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       );
                     },
                   ),
@@ -874,11 +1072,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                                20.0, 14.0, 20.0, 0.0),
-                            child: _buildMeetTimeSegmentRow(context, app),
-                          ),
+                          _buildMeetSegmentChipsAndDivider(context, app),
                           Expanded(
                             child: Center(
                               child: SizedBox(
@@ -896,7 +1090,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         ],
                       );
                     }
-                    final scoped = snapshot.data!
+                    final afterTune = snapshot.data!
                         .where(_matchesClassFilters)
                         .where(
                           (m) =>
@@ -905,27 +1099,19 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         .where((m) => _matchesMyMeetListFilters(m, prefs, app))
                         .toList();
 
-                    var needActionCount = 0;
                     var deadlineWeekCount = 0;
-                    for (final m in scoped) {
-                      final pref = prefs[m.reference.id];
-                      if (MeetListQuickFilter.meetNeedsAction(m, pref)) {
-                        needActionCount++;
-                      }
+                    for (final m in afterTune) {
                       if (MeetListQuickFilter.entryDeadlineThisCalendarWeek(
                         m,
-                        pref,
+                        prefs[m.reference.id],
                       )) {
                         deadlineWeekCount++;
                       }
                     }
 
-                    final quickFilterStale =
-                        (_meetQuickFilter == _MeetQuickFilter.needAction &&
-                                needActionCount == 0) ||
-                            (_meetQuickFilter ==
-                                    _MeetQuickFilter.deadlineThisWeek &&
-                                deadlineWeekCount == 0);
+                    final quickFilterStale = _meetQuickFilter ==
+                            _MeetQuickFilter.deadlineThisWeek &&
+                        deadlineWeekCount == 0;
                     if (quickFilterStale) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) {
@@ -935,17 +1121,10 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                       });
                     }
 
-                    Iterable<MonitoredMeetsRecord> afterQuick = scoped;
-                    if (_meetQuickFilter == _MeetQuickFilter.needAction) {
-                      afterQuick = scoped.where(
-                        (m) => MeetListQuickFilter.meetNeedsAction(
-                          m,
-                          prefs[m.reference.id],
-                        ),
-                      );
-                    } else if (_meetQuickFilter ==
+                    Iterable<MonitoredMeetsRecord> afterQuick = afterTune;
+                    if (_meetQuickFilter ==
                         _MeetQuickFilter.deadlineThisWeek) {
-                      afterQuick = scoped.where(
+                      afterQuick = afterTune.where(
                         (m) =>
                             MeetListQuickFilter.entryDeadlineThisCalendarWeek(
                           m,
@@ -953,27 +1132,19 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         ),
                       );
                     }
-                    final list = afterQuick.toList();
+                    final list = _applyNotGoingVisibilityAndChips(
+                      afterQuick.toList(),
+                      prefs,
+                      app,
+                    );
 
-                    final showQuickRow =
-                        needActionCount > 0 || deadlineWeekCount > 0;
-
-                    if (scoped.isEmpty) {
+                    if (afterTune.isEmpty) {
                       return KeyedSubtree(
                         key: const ValueKey<String>('meets_empty'),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                20.0,
-                                14.0,
-                                20.0,
-                                0.0,
-                              ),
-                              child: _buildMeetTimeSegmentRow(context, app),
-                            ),
-                            const SizedBox(height: 10.0),
+                            _buildMeetSegmentChipsAndDivider(context, app),
                             Expanded(
                               child: Center(
                                 child: Padding(
@@ -997,17 +1168,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                20.0,
-                                14.0,
-                                20.0,
-                                0.0,
-                              ),
-                              child: _buildMeetTimeSegmentRow(context, app),
-                            ),
-                            const SizedBox(height: 10.0),
-                            if (showQuickRow) ...[
+                            _buildMeetSegmentChipsAndDivider(context, app),
+                            if (deadlineWeekCount > 0) ...[
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   40.0,
@@ -1015,51 +1177,21 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                   40.0,
                                   0.0,
                                 ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    if (needActionCount > 0) ...[
-                                      _buildMeetQuickFilterPill(
-                                        label:
-                                            '$needActionCount ${needActionCount == 1 ? 'Meet' : 'Meets'} Need Action',
-                                        icon: Icons.warning_amber_rounded,
-                                        selected: _meetQuickFilter ==
-                                            _MeetQuickFilter.needAction,
-                                        backgroundColor: _quickFilterNeedBg,
-                                        borderColor: _quickFilterNeedBorder,
-                                        foregroundColor: _bannerTitle,
-                                        iconColor: _quickFilterNeedIcon,
-                                        onTap: () => setState(() {
-                                          _meetQuickFilter = _meetQuickFilter ==
-                                                  _MeetQuickFilter.needAction
-                                              ? _MeetQuickFilter.none
-                                              : _MeetQuickFilter.needAction;
-                                        }),
-                                      ),
-                                      if (deadlineWeekCount > 0)
-                                        const SizedBox(height: 10.0),
-                                    ],
-                                    if (deadlineWeekCount > 0)
-                                      _buildMeetQuickFilterPill(
-                                        label:
-                                            '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
-                                        icon: Icons.event_busy_rounded,
-                                        selected: _meetQuickFilter ==
-                                            _MeetQuickFilter.deadlineThisWeek,
-                                        backgroundColor: _quickFilterDeadlineBg,
-                                        borderColor: _quickFilterDeadlineBorder,
-                                        foregroundColor: Colors.white,
-                                        onTap: () => setState(() {
-                                          _meetQuickFilter = _meetQuickFilter ==
-                                                  _MeetQuickFilter
-                                                      .deadlineThisWeek
-                                              ? _MeetQuickFilter.none
-                                              : _MeetQuickFilter
-                                                  .deadlineThisWeek;
-                                        }),
-                                      ),
-                                  ],
+                                child: _buildMeetQuickFilterPill(
+                                  label:
+                                      '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
+                                  icon: Icons.event_busy_rounded,
+                                  selected: _meetQuickFilter ==
+                                      _MeetQuickFilter.deadlineThisWeek,
+                                  backgroundColor: _quickFilterDeadlineBg,
+                                  borderColor: _quickFilterDeadlineBorder,
+                                  foregroundColor: Colors.white,
+                                  onTap: () => setState(() {
+                                    _meetQuickFilter = _meetQuickFilter ==
+                                            _MeetQuickFilter.deadlineThisWeek
+                                        ? _MeetQuickFilter.none
+                                        : _MeetQuickFilter.deadlineThisWeek;
+                                  }),
                                 ),
                               ),
                               const SizedBox(height: 8.0),
@@ -1084,22 +1216,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                     return KeyedSubtree(
                       key: ValueKey<String>(
                         'meets_${app.meetTimeSegment}_${list.length}_${prefs.length}_'
-                        '${_meetQuickFilter.name}',
+                        '${_meetQuickFilter.name}_${app.meetListChipFilter}',
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              20.0,
-                              14.0,
-                              20.0,
-                              0.0,
-                            ),
-                            child: _buildMeetTimeSegmentRow(context, app),
-                          ),
-                          const SizedBox(height: 10.0),
-                          if (showQuickRow) ...[
+                          _buildMeetSegmentChipsAndDivider(context, app),
+                          if (deadlineWeekCount > 0) ...[
                             Padding(
                               padding: const EdgeInsets.fromLTRB(
                                 40.0,
@@ -1107,56 +1230,29 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                 40.0,
                                 0.0,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (needActionCount > 0) ...[
-                                    _buildMeetQuickFilterPill(
-                                      label:
-                                          '$needActionCount ${needActionCount == 1 ? 'Meet' : 'Meets'} Need Action',
-                                      icon: Icons.warning_amber_rounded,
-                                      selected: _meetQuickFilter ==
-                                          _MeetQuickFilter.needAction,
-                                      backgroundColor: _quickFilterNeedBg,
-                                      borderColor: _quickFilterNeedBorder,
-                                      foregroundColor: _bannerTitle,
-                                      iconColor: _quickFilterNeedIcon,
-                                      onTap: () => setState(() {
-                                        _meetQuickFilter = _meetQuickFilter ==
-                                                _MeetQuickFilter.needAction
-                                            ? _MeetQuickFilter.none
-                                            : _MeetQuickFilter.needAction;
-                                      }),
-                                    ),
-                                    if (deadlineWeekCount > 0)
-                                      const SizedBox(height: 10.0),
-                                  ],
-                                  if (deadlineWeekCount > 0)
-                                    _buildMeetQuickFilterPill(
-                                      label:
-                                          '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
-                                      icon: Icons.event_busy_rounded,
-                                      selected: _meetQuickFilter ==
-                                          _MeetQuickFilter.deadlineThisWeek,
-                                      backgroundColor: _quickFilterDeadlineBg,
-                                      borderColor: _quickFilterDeadlineBorder,
-                                      foregroundColor: Colors.white,
-                                      onTap: () => setState(() {
-                                        _meetQuickFilter = _meetQuickFilter ==
-                                                _MeetQuickFilter
-                                                    .deadlineThisWeek
-                                            ? _MeetQuickFilter.none
-                                            : _MeetQuickFilter.deadlineThisWeek;
-                                      }),
-                                    ),
-                                ],
+                              child: _buildMeetQuickFilterPill(
+                                label:
+                                    '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
+                                icon: Icons.event_busy_rounded,
+                                selected: _meetQuickFilter ==
+                                    _MeetQuickFilter.deadlineThisWeek,
+                                backgroundColor: _quickFilterDeadlineBg,
+                                borderColor: _quickFilterDeadlineBorder,
+                                foregroundColor: Colors.white,
+                                onTap: () => setState(() {
+                                  _meetQuickFilter = _meetQuickFilter ==
+                                          _MeetQuickFilter.deadlineThisWeek
+                                      ? _MeetQuickFilter.none
+                                      : _MeetQuickFilter.deadlineThisWeek;
+                                }),
                               ),
                             ),
                             const SizedBox(height: 8.0),
                           ],
                           Expanded(
                             child: ListView.builder(
-                              clipBehavior: Clip.none,
+                              // Default clip (hardEdge) — Clip.none lets cards paint above
+                              // the header/tabs in the parent [Column].
                               padding: const EdgeInsets.fromLTRB(
                                 20.0,
                                 12.0,
