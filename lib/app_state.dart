@@ -171,8 +171,10 @@ class FFAppState extends ChangeNotifier {
   static const _kMeetFilterAge = 'ff_meetFilterShowAgeGroup';
   static const _kMeetFilterSenior = 'ff_meetFilterShowSenior';
   static const _kMeetFilterOther = 'ff_meetFilterShowOther';
-  static const _kMeetFilterEnteredOnly = 'ff_meetFilterEnteredOnly';
-  static const _kMeetFilterInterestedOnly = 'ff_meetFilterInterestedOnly';
+  static const _kMeetFilterPendingEntries = 'ff_meetFilterPendingEntries';
+  static const _kMeetFilterEntered = 'ff_meetFilterEntered';
+  static const _kMeetFilterNotGoing = 'ff_meetFilterNotGoing';
+  static const _kMeetFilterRemindMe = 'ff_meetFilterRemindMe';
   static const _kMeetTimeSegment = 'ff_meetTimeSegment';
   static const _kMeetsShowAllZones = 'ff_meetsShowAllZones';
 
@@ -188,9 +190,11 @@ class FFAppState extends ChangeNotifier {
     _meetFilterShowAgeGroup = prefs.getBool(_kMeetFilterAge) ?? true;
     _meetFilterShowSenior = prefs.getBool(_kMeetFilterSenior) ?? true;
     _meetFilterShowOther = prefs.getBool(_kMeetFilterOther) ?? true;
-    _meetFilterEnteredOnly = prefs.getBool(_kMeetFilterEnteredOnly) ?? false;
-    _meetFilterInterestedOnly =
-        prefs.getBool(_kMeetFilterInterestedOnly) ?? false;
+    _meetFilterPendingEntries =
+        prefs.getBool(_kMeetFilterPendingEntries) ?? false;
+    _meetFilterEntered = prefs.getBool(_kMeetFilterEntered) ?? false;
+    _meetFilterNotGoing = prefs.getBool(_kMeetFilterNotGoing) ?? false;
+    _meetFilterRemindMe = prefs.getBool(_kMeetFilterRemindMe) ?? false;
     final rawSeg = prefs.getInt(_kMeetTimeSegment) ?? 1;
     _meetTimeSegment = rawSeg < 0 ? 0 : (rawSeg > 2 ? 2 : rawSeg);
     _meetsShowAllZones = prefs.getBool(_kMeetsShowAllZones) ?? false;
@@ -212,8 +216,10 @@ class FFAppState extends ChangeNotifier {
     await prefs.setBool(_kMeetFilterAge, _meetFilterShowAgeGroup);
     await prefs.setBool(_kMeetFilterSenior, _meetFilterShowSenior);
     await prefs.setBool(_kMeetFilterOther, _meetFilterShowOther);
-    await prefs.setBool(_kMeetFilterEnteredOnly, _meetFilterEnteredOnly);
-    await prefs.setBool(_kMeetFilterInterestedOnly, _meetFilterInterestedOnly);
+    await prefs.setBool(_kMeetFilterPendingEntries, _meetFilterPendingEntries);
+    await prefs.setBool(_kMeetFilterEntered, _meetFilterEntered);
+    await prefs.setBool(_kMeetFilterNotGoing, _meetFilterNotGoing);
+    await prefs.setBool(_kMeetFilterRemindMe, _meetFilterRemindMe);
     await prefs.setInt(_kMeetTimeSegment, _meetTimeSegment);
     await prefs.setBool(_kMeetsShowAllZones, _meetsShowAllZones);
   }
@@ -329,18 +335,29 @@ class FFAppState extends ChangeNotifier {
     _meetFilterShowOther = value;
   }
 
-  /// Meets tab: show only meets marked entered (persisted).
-  bool _meetFilterEnteredOnly = false;
-  bool get meetFilterEnteredOnly => _meetFilterEnteredOnly;
-  set meetFilterEnteredOnly(bool value) {
-    _meetFilterEnteredOnly = value;
+  /// Meets tab: my-list filters (persisted). If all false, no list filter is applied.
+  bool _meetFilterPendingEntries = false;
+  bool get meetFilterPendingEntries => _meetFilterPendingEntries;
+  set meetFilterPendingEntries(bool value) {
+    _meetFilterPendingEntries = value;
   }
 
-  /// Meets tab: show only meets marked interested (persisted).
-  bool _meetFilterInterestedOnly = false;
-  bool get meetFilterInterestedOnly => _meetFilterInterestedOnly;
-  set meetFilterInterestedOnly(bool value) {
-    _meetFilterInterestedOnly = value;
+  bool _meetFilterEntered = false;
+  bool get meetFilterEntered => _meetFilterEntered;
+  set meetFilterEntered(bool value) {
+    _meetFilterEntered = value;
+  }
+
+  bool _meetFilterNotGoing = false;
+  bool get meetFilterNotGoing => _meetFilterNotGoing;
+  set meetFilterNotGoing(bool value) {
+    _meetFilterNotGoing = value;
+  }
+
+  bool _meetFilterRemindMe = false;
+  bool get meetFilterRemindMe => _meetFilterRemindMe;
+  set meetFilterRemindMe(bool value) {
+    _meetFilterRemindMe = value;
   }
 
   /// 0 = Past, 1 = Live, 2 = Upcoming (persisted).

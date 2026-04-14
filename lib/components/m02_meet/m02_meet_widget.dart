@@ -9,8 +9,11 @@ import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'meet_list_quick_filter.dart';
 import 'm02_meet_model.dart';
 export 'm02_meet_model.dart';
+
+enum _MeetQuickFilter { none, needAction, deadlineThisWeek }
 
 class M02MeetWidget extends StatefulWidget {
   const M02MeetWidget({super.key});
@@ -23,6 +26,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   late M02MeetModel _model;
 
   bool _meetBannerReady = false;
+  _MeetQuickFilter _meetQuickFilter = _MeetQuickFilter.none;
 
   static const List<String> _otherClassTokens = <String>[
     'observed',
@@ -92,29 +96,55 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     return !sd.isAfter(today) && !ed.isBefore(today);
   }
 
-  /// Optional "my list" filters from the tune menu (entered / interested).
+  bool _anyMyListFilterOn(FFAppState app) =>
+      app.meetFilterPendingEntries ||
+      app.meetFilterEntered ||
+      app.meetFilterNotGoing ||
+      app.meetFilterRemindMe;
+
+  bool _anyQuickFilterOn() => _meetQuickFilter != _MeetQuickFilter.none;
+
+  bool _anyMyListOrQuickFilterOn(FFAppState app) =>
+      _anyMyListFilterOn(app) || _anyQuickFilterOn();
+
+  /// Optional my-list filters from the tune menu (pending / entered / not going / remind).
+  /// When several are on, a meet passes if it matches any selected category.
   bool _matchesMyMeetListFilters(
     MonitoredMeetsRecord m,
     Map<String, MeetPreferencesRecord> prefs,
     FFAppState app,
   ) {
-    final enteredOnly = app.meetFilterEnteredOnly;
-    final interestedOnly = app.meetFilterInterestedOnly;
-    if (!enteredOnly && !interestedOnly) {
+    if (!_anyMyListFilterOn(app)) {
       return true;
     }
     final pref = prefs[m.reference.id];
+    final hasPreference = pref != null;
     final status = pref?.status ?? MeetPreferenceStatus.skipped;
-    if (enteredOnly && interestedOnly) {
-      return status == MeetPreferenceStatus.entered ||
-          status == MeetPreferenceStatus.planning ||
-          status == MeetPreferenceStatus.interested;
+    final skipSelected = pref?.skipSelected ?? false;
+    final hasAlert = pref?.hasAlert ?? false;
+
+    final pendingEntries = hasPreference &&
+        (status == MeetPreferenceStatus.planning ||
+            (status == MeetPreferenceStatus.interested && !hasAlert));
+    final entered = hasPreference && status == MeetPreferenceStatus.entered;
+    final notGoing =
+        hasPreference && skipSelected && status == MeetPreferenceStatus.skipped;
+    final remindMe =
+        hasPreference && status == MeetPreferenceStatus.interested && hasAlert;
+
+    if (app.meetFilterPendingEntries && pendingEntries) {
+      return true;
     }
-    if (enteredOnly) {
-      return status == MeetPreferenceStatus.entered ||
-          status == MeetPreferenceStatus.planning;
+    if (app.meetFilterEntered && entered) {
+      return true;
     }
-    return status == MeetPreferenceStatus.interested;
+    if (app.meetFilterNotGoing && notGoing) {
+      return true;
+    }
+    if (app.meetFilterRemindMe && remindMe) {
+      return true;
+    }
+    return false;
   }
 
   void _setClassFilter({
@@ -147,6 +177,111 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   static const Color _bannerTint = Color(0xFFEFF6FF);
   static const Color _bannerTitle = Color(0xFF0F172A);
   static const Color _bannerMuted = Color(0xFF64748B);
+  static const Color _quickFilterNeedBg = Color(0xFFFFF8E7);
+  static const Color _quickFilterNeedBorder = Color(0xFFEAB308);
+  static const Color _quickFilterNeedIcon = Color(0xFFD97706);
+  static const Color _quickFilterDeadlineBg = Color(0xFFDC2626);
+  static const Color _quickFilterDeadlineBorder = Color(0xFFB91C1C);
+
+  Widget _buildMeetQuickFilterPill({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required Color backgroundColor,
+    required Color borderColor,
+    required Color foregroundColor,
+    Color? iconColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999.0),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(999.0),
+            border: Border.all(
+              color: selected ? _electricBlue : borderColor,
+              width: selected ? 2.5 : 1.5,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: _electricBlue.withValues(alpha: 0.22),
+                      blurRadius: 10.0,
+                      offset: const Offset(0.0, 3.0),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: iconColor ?? foregroundColor,
+                size: 22.0,
+              ),
+              const SizedBox(width: 10.0),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.sora(
+                    fontSize: 15.0,
+                    fontWeight: FontWeight.w600,
+                    color: foregroundColor,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeetTimeSegmentRow(BuildContext context, FFAppState app) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTimeSegmentTab(
+          context,
+          label: 'Past',
+          segment: 0,
+          selected: app.meetTimeSegment,
+          onTap: () {
+            app.update(() => app.meetTimeSegment = 0);
+            app.persistMeetUiState();
+          },
+        ),
+        _buildTimeSegmentTab(
+          context,
+          label: 'Live',
+          segment: 1,
+          selected: app.meetTimeSegment,
+          onTap: () {
+            app.update(() => app.meetTimeSegment = 1);
+            app.persistMeetUiState();
+          },
+        ),
+        _buildTimeSegmentTab(
+          context,
+          label: 'Upcoming',
+          segment: 2,
+          selected: app.meetTimeSegment,
+          onTap: () {
+            app.update(() => app.meetTimeSegment = 2);
+            app.persistMeetUiState();
+          },
+        ),
+      ],
+    );
+  }
 
   Widget _buildTimeSegmentTab(
     BuildContext context, {
@@ -209,14 +344,20 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     }
     var line = 'Meet types: ${parts.join(' · ')}';
     final my = <String>[];
-    if (app.meetFilterEnteredOnly) {
-      my.add('my sign-ups');
+    if (app.meetFilterPendingEntries) {
+      my.add('pending entries');
     }
-    if (app.meetFilterInterestedOnly) {
-      my.add('interested');
+    if (app.meetFilterEntered) {
+      my.add('entered');
+    }
+    if (app.meetFilterNotGoing) {
+      my.add('not going');
+    }
+    if (app.meetFilterRemindMe) {
+      my.add('remind me');
     }
     if (my.isNotEmpty) {
-      line = '$line · Only: ${my.join(' & ')}';
+      line = '$line · Only: ${my.join(' · ')}';
     }
     return line;
   }
@@ -291,14 +432,24 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       return;
     }
     if (value == 5) {
-      app.update(() => app.meetFilterEnteredOnly = !app.meetFilterEnteredOnly);
+      app.update(
+        () => app.meetFilterPendingEntries = !app.meetFilterPendingEntries,
+      );
       app.persistMeetUiState();
       return;
     }
     if (value == 6) {
-      app.update(
-        () => app.meetFilterInterestedOnly = !app.meetFilterInterestedOnly,
-      );
+      app.update(() => app.meetFilterEntered = !app.meetFilterEntered);
+      app.persistMeetUiState();
+      return;
+    }
+    if (value == 7) {
+      app.update(() => app.meetFilterNotGoing = !app.meetFilterNotGoing);
+      app.persistMeetUiState();
+      return;
+    }
+    if (value == 8) {
+      app.update(() => app.meetFilterRemindMe = !app.meetFilterRemindMe);
       app.persistMeetUiState();
       return;
     }
@@ -452,10 +603,10 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       PopupMenuItem<int>(
         value: 5,
         child: _meetFilterCheckboxRow(
-          selected: app.meetFilterEnteredOnly,
-          label: 'My sign-ups only',
+          selected: app.meetFilterPendingEntries,
+          label: 'Pending entries',
           hint: Icon(
-            Icons.check_rounded,
+            Icons.pending_actions_rounded,
             size: 20.0,
             color: _bannerTitle.withValues(alpha: 0.52),
           ),
@@ -464,23 +615,36 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       PopupMenuItem<int>(
         value: 6,
         child: _meetFilterCheckboxRow(
-          selected: app.meetFilterInterestedOnly,
-          label: 'Interested only',
-          hint: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.favorite_rounded,
-                size: 18.0,
-                color: _bannerTitle.withValues(alpha: 0.52),
-              ),
-              const SizedBox(width: 5.0),
-              Icon(
-                Icons.notifications_active_rounded,
-                size: 18.0,
-                color: _bannerTitle.withValues(alpha: 0.52),
-              ),
-            ],
+          selected: app.meetFilterEntered,
+          label: 'Entered',
+          hint: Icon(
+            Icons.check_rounded,
+            size: 20.0,
+            color: _bannerTitle.withValues(alpha: 0.52),
+          ),
+        ),
+      ),
+      PopupMenuItem<int>(
+        value: 7,
+        child: _meetFilterCheckboxRow(
+          selected: app.meetFilterNotGoing,
+          label: 'Not Going',
+          hint: Icon(
+            Icons.close_rounded,
+            size: 20.0,
+            color: _bannerTitle.withValues(alpha: 0.52),
+          ),
+        ),
+      ),
+      PopupMenuItem<int>(
+        value: 8,
+        child: _meetFilterCheckboxRow(
+          selected: app.meetFilterRemindMe,
+          label: 'Remind me',
+          hint: Icon(
+            Icons.notifications_active_rounded,
+            size: 20.0,
+            color: _bannerTitle.withValues(alpha: 0.52),
           ),
         ),
       ),
@@ -492,9 +656,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     BuildContext pageContext,
     FFAppState app,
   ) async {
-    final overlayObject = Overlay.of(buttonContext, rootOverlay: true)
-        .context
-        .findRenderObject();
+    final overlayObject =
+        Overlay.of(buttonContext, rootOverlay: true).context.findRenderObject();
     if (overlayObject is! RenderBox) {
       return;
     }
@@ -688,135 +851,339 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       child: Column(
         mainAxisSize: MainAxisSize.max,
         children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 0.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildMeetsScopeBanner(context, app),
-              const SizedBox(height: 14.0),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTimeSegmentTab(
-                    context,
-                    label: 'Past',
-                    segment: 0,
-                    selected: app.meetTimeSegment,
-                    onTap: () {
-                      app.update(() => app.meetTimeSegment = 0);
-                      app.persistMeetUiState();
-                    },
-                  ),
-                  _buildTimeSegmentTab(
-                    context,
-                    label: 'Live',
-                    segment: 1,
-                    selected: app.meetTimeSegment,
-                    onTap: () {
-                      app.update(() => app.meetTimeSegment = 1);
-                      app.persistMeetUiState();
-                    },
-                  ),
-                  _buildTimeSegmentTab(
-                    context,
-                    label: 'Upcoming',
-                    segment: 2,
-                    selected: app.meetTimeSegment,
-                    onTap: () {
-                      app.update(() => app.meetTimeSegment = 2);
-                      app.persistMeetUiState();
-                    },
-                  ),
-                ],
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 0.0),
+            child: _buildMeetsScopeBanner(context, app),
           ),
-        ),
-        Expanded(
-          child: StreamBuilder<Map<String, MeetPreferencesRecord>>(
-            stream: streamMeetPreferencesMap(currentUserUid),
-            builder: (context, prefSnap) {
-              final prefs = prefSnap.data ?? <String, MeetPreferencesRecord>{};
-              return StreamBuilder<List<MonitoredMeetsRecord>>(
-                stream: streamMonitoredMeetsForSwimmer(
-                  zoneId: app.currentSwimmerZoneForMeets,
-                  priorityHostGroup: app.currentSwimmerGroup,
-                  showAll: app.meetsShowAllZones,
-                  widePastWindow: app.meetTimeSegment == 0 ||
-                      app.meetFilterEnteredOnly ||
-                      app.meetFilterInterestedOnly,
-                ),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return Center(
-                      child: SizedBox(
-                        width: 50.0,
-                        height: 50.0,
-                        child: CircularProgressIndicator(
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            _electricBlue,
+          Expanded(
+            child: StreamBuilder<Map<String, MeetPreferencesRecord>>(
+              stream: streamMeetPreferencesMap(currentUserUid),
+              builder: (context, prefSnap) {
+                final prefs =
+                    prefSnap.data ?? <String, MeetPreferencesRecord>{};
+                return StreamBuilder<List<MonitoredMeetsRecord>>(
+                  stream: streamMonitoredMeetsForSwimmer(
+                    zoneId: app.currentSwimmerZoneForMeets,
+                    priorityHostGroup: app.currentSwimmerGroup,
+                    showAll: app.meetsShowAllZones,
+                    widePastWindow: app.meetTimeSegment == 0 ||
+                        _anyMyListOrQuickFilterOn(app),
+                  ),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                                20.0, 14.0, 20.0, 0.0),
+                            child: _buildMeetTimeSegmentRow(context, app),
                           ),
-                        ),
-                      ),
-                    );
-                  }
-                  final list = snapshot.data!
-                      .where(_matchesClassFilters)
-                      .where(
-                          (m) => _meetMatchesTimeSegment(m, app.meetTimeSegment))
-                      .where((m) => _matchesMyMeetListFilters(m, prefs, app))
-                      .toList();
+                          Expanded(
+                            child: Center(
+                              child: SizedBox(
+                                width: 50.0,
+                                height: 50.0,
+                                child: CircularProgressIndicator(
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                    _electricBlue,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    final scoped = snapshot.data!
+                        .where(_matchesClassFilters)
+                        .where(
+                          (m) =>
+                              _meetMatchesTimeSegment(m, app.meetTimeSegment),
+                        )
+                        .where((m) => _matchesMyMeetListFilters(m, prefs, app))
+                        .toList();
 
-                  if (list.isEmpty) {
-                    return KeyedSubtree(
-                      key: const ValueKey<String>('meets_empty'),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Text(
-                            'No meets match your filters.',
-                            textAlign: TextAlign.center,
-                            style: FlutterFlowTheme.of(context).bodyMedium,
-                          ),
+                    var needActionCount = 0;
+                    var deadlineWeekCount = 0;
+                    for (final m in scoped) {
+                      final pref = prefs[m.reference.id];
+                      if (MeetListQuickFilter.meetNeedsAction(m, pref)) {
+                        needActionCount++;
+                      }
+                      if (MeetListQuickFilter.entryDeadlineThisCalendarWeek(
+                        m,
+                        pref,
+                      )) {
+                        deadlineWeekCount++;
+                      }
+                    }
+
+                    final quickFilterStale =
+                        (_meetQuickFilter == _MeetQuickFilter.needAction &&
+                                needActionCount == 0) ||
+                            (_meetQuickFilter ==
+                                    _MeetQuickFilter.deadlineThisWeek &&
+                                deadlineWeekCount == 0);
+                    if (quickFilterStale) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(
+                              () => _meetQuickFilter = _MeetQuickFilter.none);
+                        }
+                      });
+                    }
+
+                    Iterable<MonitoredMeetsRecord> afterQuick = scoped;
+                    if (_meetQuickFilter == _MeetQuickFilter.needAction) {
+                      afterQuick = scoped.where(
+                        (m) => MeetListQuickFilter.meetNeedsAction(
+                          m,
+                          prefs[m.reference.id],
                         ),
+                      );
+                    } else if (_meetQuickFilter ==
+                        _MeetQuickFilter.deadlineThisWeek) {
+                      afterQuick = scoped.where(
+                        (m) =>
+                            MeetListQuickFilter.entryDeadlineThisCalendarWeek(
+                          m,
+                          prefs[m.reference.id],
+                        ),
+                      );
+                    }
+                    final list = afterQuick.toList();
+
+                    final showQuickRow =
+                        needActionCount > 0 || deadlineWeekCount > 0;
+
+                    if (scoped.isEmpty) {
+                      return KeyedSubtree(
+                        key: const ValueKey<String>('meets_empty'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                20.0,
+                                14.0,
+                                20.0,
+                                0.0,
+                              ),
+                              child: _buildMeetTimeSegmentRow(context, app),
+                            ),
+                            const SizedBox(height: 10.0),
+                            Expanded(
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24.0),
+                                  child: Text(
+                                    'No meets match your filters.',
+                                    textAlign: TextAlign.center,
+                                    style:
+                                        FlutterFlowTheme.of(context).bodyMedium,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    if (list.isEmpty) {
+                      return KeyedSubtree(
+                        key: const ValueKey<String>('meets_quick_empty'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                20.0,
+                                14.0,
+                                20.0,
+                                0.0,
+                              ),
+                              child: _buildMeetTimeSegmentRow(context, app),
+                            ),
+                            const SizedBox(height: 10.0),
+                            if (showQuickRow) ...[
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  40.0,
+                                  0.0,
+                                  40.0,
+                                  0.0,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (needActionCount > 0) ...[
+                                      _buildMeetQuickFilterPill(
+                                        label:
+                                            '$needActionCount ${needActionCount == 1 ? 'Meet' : 'Meets'} Need Action',
+                                        icon: Icons.warning_amber_rounded,
+                                        selected: _meetQuickFilter ==
+                                            _MeetQuickFilter.needAction,
+                                        backgroundColor: _quickFilterNeedBg,
+                                        borderColor: _quickFilterNeedBorder,
+                                        foregroundColor: _bannerTitle,
+                                        iconColor: _quickFilterNeedIcon,
+                                        onTap: () => setState(() {
+                                          _meetQuickFilter = _meetQuickFilter ==
+                                                  _MeetQuickFilter.needAction
+                                              ? _MeetQuickFilter.none
+                                              : _MeetQuickFilter.needAction;
+                                        }),
+                                      ),
+                                      if (deadlineWeekCount > 0)
+                                        const SizedBox(height: 10.0),
+                                    ],
+                                    if (deadlineWeekCount > 0)
+                                      _buildMeetQuickFilterPill(
+                                        label:
+                                            '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
+                                        icon: Icons.event_busy_rounded,
+                                        selected: _meetQuickFilter ==
+                                            _MeetQuickFilter.deadlineThisWeek,
+                                        backgroundColor: _quickFilterDeadlineBg,
+                                        borderColor: _quickFilterDeadlineBorder,
+                                        foregroundColor: Colors.white,
+                                        onTap: () => setState(() {
+                                          _meetQuickFilter = _meetQuickFilter ==
+                                                  _MeetQuickFilter
+                                                      .deadlineThisWeek
+                                              ? _MeetQuickFilter.none
+                                              : _MeetQuickFilter
+                                                  .deadlineThisWeek;
+                                        }),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                            ],
+                            Expanded(
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24.0),
+                                  child: Text(
+                                    'No meets match your filters.',
+                                    textAlign: TextAlign.center,
+                                    style:
+                                        FlutterFlowTheme.of(context).bodyMedium,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return KeyedSubtree(
+                      key: ValueKey<String>(
+                        'meets_${app.meetTimeSegment}_${list.length}_${prefs.length}_'
+                        '${_meetQuickFilter.name}',
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              20.0,
+                              14.0,
+                              20.0,
+                              0.0,
+                            ),
+                            child: _buildMeetTimeSegmentRow(context, app),
+                          ),
+                          const SizedBox(height: 10.0),
+                          if (showQuickRow) ...[
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                40.0,
+                                0.0,
+                                40.0,
+                                0.0,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (needActionCount > 0) ...[
+                                    _buildMeetQuickFilterPill(
+                                      label:
+                                          '$needActionCount ${needActionCount == 1 ? 'Meet' : 'Meets'} Need Action',
+                                      icon: Icons.warning_amber_rounded,
+                                      selected: _meetQuickFilter ==
+                                          _MeetQuickFilter.needAction,
+                                      backgroundColor: _quickFilterNeedBg,
+                                      borderColor: _quickFilterNeedBorder,
+                                      foregroundColor: _bannerTitle,
+                                      iconColor: _quickFilterNeedIcon,
+                                      onTap: () => setState(() {
+                                        _meetQuickFilter = _meetQuickFilter ==
+                                                _MeetQuickFilter.needAction
+                                            ? _MeetQuickFilter.none
+                                            : _MeetQuickFilter.needAction;
+                                      }),
+                                    ),
+                                    if (deadlineWeekCount > 0)
+                                      const SizedBox(height: 10.0),
+                                  ],
+                                  if (deadlineWeekCount > 0)
+                                    _buildMeetQuickFilterPill(
+                                      label:
+                                          '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
+                                      icon: Icons.event_busy_rounded,
+                                      selected: _meetQuickFilter ==
+                                          _MeetQuickFilter.deadlineThisWeek,
+                                      backgroundColor: _quickFilterDeadlineBg,
+                                      borderColor: _quickFilterDeadlineBorder,
+                                      foregroundColor: Colors.white,
+                                      onTap: () => setState(() {
+                                        _meetQuickFilter = _meetQuickFilter ==
+                                                _MeetQuickFilter
+                                                    .deadlineThisWeek
+                                            ? _MeetQuickFilter.none
+                                            : _MeetQuickFilter.deadlineThisWeek;
+                                      }),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8.0),
+                          ],
+                          Expanded(
+                            child: ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(
+                                20.0,
+                                20.0,
+                                20.0,
+                                24.0,
+                              ),
+                              itemCount: list.length,
+                              itemBuilder: (context, columnIndex) {
+                                final meet = list[columnIndex];
+                                final pref = prefs[meet.reference.id];
+                                return M02MeetEnteredWidget(
+                                  key: Key(
+                                    'meet_${meet.reference.id}_$columnIndex',
+                                  ),
+                                  meetDoc: meet,
+                                  preference: pref,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     );
-                  }
-                  return KeyedSubtree(
-                    key: ValueKey<String>(
-                      'meets_${app.meetTimeSegment}_${list.length}_${prefs.length}',
-                    ),
-                    child: ListView.builder(
-                      // Extra top inset so corner status disks (~half of 28px above the card)
-                      // are not clipped under the Past / Live / Upcoming tabs.
-                      padding: const EdgeInsets.fromLTRB(
-                        20.0,
-                        28.0,
-                        20.0,
-                        24.0,
-                      ),
-                      itemCount: list.length,
-                      itemBuilder: (context, columnIndex) {
-                        final meet = list[columnIndex];
-                        final pref = prefs[meet.reference.id];
-                        return M02MeetEnteredWidget(
-                          key: Key(
-                            'meet_${meet.reference.id}_$columnIndex',
-                          ),
-                          meetDoc: meet,
-                          preference: pref,
-                        );
-                      },
-                    ),
-                  );
-                },
-              );
-            },
+                  },
+                );
+              },
+            ),
           ),
-        ),
         ],
       ),
     );
