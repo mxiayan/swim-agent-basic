@@ -1,9 +1,14 @@
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/backend/meet_preferences_api.dart';
+import '/backend/schema/meet_preferences_record.dart';
 import '/components/m01_activity_card/m01_activity_card_widget.dart';
+import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'm01_activity_model.dart';
 export 'm01_activity_model.dart';
@@ -20,6 +25,75 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
   late M01ActivityModel _model;
 
   final animationsMap = <String, AnimationInfo>{};
+
+  /// Activity doc paths swiped away locally (activities stream is unrelated to meet_preferences).
+  final Set<String> _swipeDismissedActivityPaths = <String>{};
+
+  static const Color _swipeBackgroundGrey = Color(0xFFF1F5F9);
+  static const Color _swipeIconSlate = Color(0xFF64748B);
+
+  bool _isMeetActivity(ActivitiesRecord a) =>
+      a.activityType.trim().toLowerCase() == 'meet';
+
+  /// Meet preference doc id: OME URL segment or numeric Firestore activity id.
+  String? _meetIdFromActivity(ActivitiesRecord a) {
+    final url = a.details.signupUrl.trim();
+    final fromUrl =
+        RegExp(r'/meets/([^/?#]+)').firstMatch(url)?.group(1)?.trim();
+    if (fromUrl != null && fromUrl.isNotEmpty) {
+      return fromUrl;
+    }
+    final id = a.reference.id.trim();
+    if (RegExp(r'^\d+$').hasMatch(id)) {
+      return id;
+    }
+    return null;
+  }
+
+  bool _canSwipeSkipMeet(ActivitiesRecord a) =>
+      _isMeetActivity(a) &&
+      _meetIdFromActivity(a) != null &&
+      currentUserUid.isNotEmpty;
+
+  Future<void> _onMeetActivityDismissed(ActivitiesRecord activitiesItem) async {
+    final path = activitiesItem.reference.path;
+    final meetId = _meetIdFromActivity(activitiesItem)!;
+    setState(() => _swipeDismissedActivityPaths.add(path));
+    try {
+      await mergeMeetPreference(
+        currentUserUid,
+        meetId,
+        isHidden: true,
+        status: MeetPreferenceStatus.skipped,
+        skipSelected: true,
+      );
+    } catch (_) {}
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Meet skipped. You can view or restore skipped meets in Filters.',
+        ),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            setState(() => _swipeDismissedActivityPaths.remove(path));
+            try {
+              await mergeMeetPreference(
+                currentUserUid,
+                meetId,
+                isHidden: false,
+              );
+              await refreshSwimmerAppState();
+            } catch (_) {}
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   void setState(VoidCallback callback) {
@@ -123,6 +197,8 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
           final containerActivitiesRecordList = snapshot.data!;
           final activities = containerActivitiesRecordList
               .where((e) => e.groupIds.contains(_model.currentGroup))
+              .where((e) =>
+                  !_swipeDismissedActivityPaths.contains(e.reference.path))
               .toList();
 
           return Container(
@@ -156,7 +232,8 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                         separatorBuilder: (_, __) => SizedBox(height: 8.0),
                         itemBuilder: (context, activitiesIndex) {
                           final activitiesItem = activities[activitiesIndex];
-                          return Padding(
+                          final rowKey = activitiesItem.reference.path;
+                          final card = Padding(
                             padding: const EdgeInsetsDirectional.fromSTEB(
                                 20.0, 0.0, 20.0, 0.0),
                             child: Container(
@@ -175,8 +252,7 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     M01ActivityCardWidget(
-                                      key: Key(
-                                          'Keyqfs_${activitiesIndex}_of_${activities.length}'),
+                                      key: ValueKey<String>(rowKey),
                                       complete: false,
                                       index: 1,
                                       activityItem: activitiesItem,
@@ -187,6 +263,47 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                               ),
                             ).animateOnPageLoad(
                                 animationsMap['containerOnPageLoadAnimation']!),
+                          );
+
+                          if (!_canSwipeSkipMeet(activitiesItem)) {
+                            return card;
+                          }
+
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(12.0),
+                            clipBehavior: Clip.antiAlias,
+                            child: Dismissible(
+                              key: ValueKey<String>('dismiss_$rowKey'),
+                              direction: DismissDirection.endToStart,
+                              confirmDismiss: (direction) async {
+                                HapticFeedback.mediumImpact();
+                                return true;
+                              },
+                              // Required by [Dismissible] whenever [secondaryBackground] is non-null.
+                              background: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12.0),
+                                ),
+                              ),
+                              secondaryBackground: Container(
+                                alignment: Alignment.centerRight,
+                                padding:
+                                    const EdgeInsetsDirectional.only(end: 20.0),
+                                decoration: BoxDecoration(
+                                  color: _swipeBackgroundGrey,
+                                  borderRadius: BorderRadius.circular(12.0),
+                                ),
+                                child: const Icon(
+                                  Icons.archive_outlined,
+                                  color: _swipeIconSlate,
+                                  size: 28.0,
+                                ),
+                              ),
+                              onDismissed: (_) =>
+                                  _onMeetActivityDismissed(activitiesItem),
+                              child: card,
+                            ),
                           );
                         },
                       ),

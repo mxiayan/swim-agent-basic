@@ -1156,9 +1156,10 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                           ],
                           Expanded(
                             child: ListView.builder(
+                              clipBehavior: Clip.none,
                               padding: const EdgeInsets.fromLTRB(
                                 20.0,
-                                20.0,
+                                12.0,
                                 20.0,
                                 24.0,
                               ),

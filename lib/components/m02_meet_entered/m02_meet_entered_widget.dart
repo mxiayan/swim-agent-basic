@@ -37,6 +37,7 @@ class M02MeetEnteredWidget extends StatefulWidget {
 class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     with TickerProviderStateMixin {
   late M02MeetEnteredModel _model;
+  bool _swipeSkipPanelOpen = false;
 
   /// Plays when the user turns “I’ve entered this meet” on (after confirm).
   late final AnimationController _enteredCelebrateController;
@@ -48,16 +49,21 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _electricBlue = Color(0xFF007AFF);
   static const Color _cardBorder = Color(0xFFE2E8F0);
   static const Color _verifiedGreen = Color(0xFF15803D);
+
   /// “Following” / interested (header heart), distinct from entered green.
   static const Color _followingHeart = Color(0xFFE11D48);
+
   /// Interested + reminders on (sign-up / alerts).
   static const Color _watchingAmber = Color(0xFFF59E0B);
+
   /// “Need decision” / no saved choice yet — light yellow stripe so it’s easy to spot.
   static const Color _untouchedStripe = Color(0xFFFDE047);
+
   /// Skipped — muted slate (no longer “action needed” like yellow/orange).
   static const Color _skippedFill = Color(0xFFE2E8F0);
   static const Color _skippedIcon = Color(0xFF64748B);
   static const Color _skippedStripe = Color(0xFF94A3B8);
+
   /// Pending entries / planning — orange family (complete sign-up or entries).
   static const Color _pendingEntriesFill = Color(0xFFFFEDD5);
   static const Color _pendingEntriesIcon = Color(0xFFEA580C);
@@ -65,6 +71,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _parentNoteBg = Color(0xFFF8FAFC);
   static const Color _parentNoteDashBorder = Color(0xFFCBD5E1);
   static const Color _softRedGlow = Color(0xFFFECACA);
+
   /// Aligns calendar / clock / pin / sheet icons across logistics rows.
   static const double _logisticsIconColWidth = 22.0;
   static const double _logisticsIconGap = 6.0;
@@ -468,8 +475,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             builder: (context, _) {
               final t = 0.5 +
                   0.5 *
-                      math.sin(
-                          _deadlinePulseController.value * 2.0 * math.pi);
+                      math.sin(_deadlinePulseController.value * 2.0 * math.pi);
               return DecoratedBox(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8.0),
@@ -671,6 +677,193 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     }
   }
 
+  bool _eligibleForSwipeSkip({
+    required bool hasPreference,
+    required MeetPreferenceStatus status,
+    required bool hasAlert,
+    required bool skipSelected,
+  }) {
+    final needDecision = _meetCardIsUndecided(
+      hasPreference: hasPreference,
+      status: status,
+      skipSelected: skipSelected,
+    );
+    final pendingEntries =
+        _meetCardIsPendingEntriesLane(status: status, hasAlert: hasAlert);
+    final remindMe = status == MeetPreferenceStatus.interested && hasAlert;
+    return needDecision || pendingEntries || remindMe;
+  }
+
+  Future<bool> _showSwipeSkipActionPanel() async {
+    if (_swipeSkipPanelOpen) {
+      return false;
+    }
+    _swipeSkipPanelOpen = true;
+    final shouldSkip = await showModalBottomSheet<bool>(
+          context: context,
+          useSafeArea: true,
+          backgroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+          ),
+          builder: (sheetContext) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Skip this meet?',
+                    style: GoogleFonts.sora(
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.w700,
+                      color: _slateTitle,
+                    ),
+                  ),
+                  const SizedBox(height: 8.0),
+                  Text(
+                    'You can restore skipped meets from Filters later.',
+                    style: GoogleFonts.sora(
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w500,
+                      color: _slateSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 14.0),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _slateSecondary,
+                      side: const BorderSide(color: _meetSecondaryOutline),
+                      minimumSize: const Size(double.infinity, 42.0),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                      ),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(height: 8.0),
+                  FilledButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _skippedIcon,
+                      minimumSize: const Size(double.infinity, 42.0),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                      ),
+                    ),
+                    child: const Text('Skip Meet'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ) ??
+        false;
+    _swipeSkipPanelOpen = false;
+    return shouldSkip;
+  }
+
+  Future<void> _applySwipeSkipWithUndo(
+      MeetPreferencesRecord? previousPref) async {
+    final ok = await _mergePref(
+      status: MeetPreferenceStatus.skipped,
+      hasAlert: false,
+      skipSelected: true,
+      isHidden: true,
+    );
+    if (!ok || !mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Meet skipped. You can view or restore skipped meets in Filters.',
+        ),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            final meetId = widget.meetDoc?.reference.id;
+            if (meetId == null || meetId.isEmpty) {
+              return;
+            }
+            if (previousPref == null) {
+              await deleteMeetPreference(currentUserUid, meetId);
+              return;
+            }
+            await mergeMeetPreference(
+              currentUserUid,
+              meetId,
+              status: previousPref.status,
+              hasAlert: previousPref.hasAlert,
+              isHidden: previousPref.isHidden,
+              skipSelected: previousPref.skipSelected,
+              notes: previousPref.notes,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _wrapSwipeToSkipIfEligible({
+    required Widget child,
+    required MeetPreferencesRecord? pref,
+    required bool hasPreference,
+    required MeetPreferenceStatus status,
+    required bool hasAlert,
+    required bool skipSelected,
+  }) {
+    if (!_eligibleForSwipeSkip(
+      hasPreference: hasPreference,
+      status: status,
+      hasAlert: hasAlert,
+      skipSelected: skipSelected,
+    )) {
+      return child;
+    }
+    final meetId = widget.meetDoc?.reference.id ?? '';
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(_meetCardCornerRadius),
+      child: Dismissible(
+        key: ValueKey<String>(
+          'm02_swipe_${meetId}_${status.name}_${hasAlert ? 1 : 0}_${skipSelected ? 1 : 0}',
+        ),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(_meetCardCornerRadius),
+          ),
+        ),
+        secondaryBackground: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsetsDirectional.only(end: 20.0),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(_meetCardCornerRadius),
+          ),
+          child: const Icon(
+            Icons.archive_outlined,
+            color: _slateSecondary,
+            size: 24.0,
+          ),
+        ),
+        confirmDismiss: (_) async {
+          HapticFeedback.mediumImpact();
+          final shouldSkip = await _showSwipeSkipActionPanel();
+          if (shouldSkip) {
+            await _applySwipeSkipWithUndo(pref);
+          }
+          return false;
+        },
+        child: child,
+      ),
+    );
+  }
+
   @override
   void setState(VoidCallback callback) {
     super.setState(callback);
@@ -729,6 +922,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     }
 
     final pref = widget.preference;
+
     /// No Firestore doc yet → start collapsed so the list stays scannable.
     final hidden = pref?.isHidden ?? true;
 
@@ -753,8 +947,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         hasAlert: hHasAlert,
         skipSelected: hSkipSelected,
       );
-      return Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 12.0),
+      // Top inset so status pill (Positioned with negative top) paints inside layout bounds
+      // and is not clipped by ListView / outer ClipRRect on Dismissible.
+      final hiddenCard = Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(20.0, 10.0, 20.0, 12.0),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -824,6 +1020,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           ],
         ),
       );
+      return _wrapSwipeToSkipIfEligible(
+        child: hiddenCard,
+        pref: pref,
+        hasPreference: hHasPreference,
+        status: hStatus,
+        hasAlert: hHasAlert,
+        skipSelected: hSkipSelected,
+      );
     }
 
     const innerHPad = 20.0;
@@ -839,13 +1043,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       status: status,
       hasAlert: hasAlert,
     );
-    final isExplicitNotGoing = hasPreference &&
-        skipSelected &&
-        status == MeetPreferenceStatus.skipped;
-    final remindMeLane =
-        status == MeetPreferenceStatus.interested && hasAlert;
-    final suppressDisabledSignupButton =
-        pendingEntriesLane || remindMeLane;
+    final isExplicitNotGoing =
+        hasPreference && skipSelected && status == MeetPreferenceStatus.skipped;
+    final remindMeLane = status == MeetPreferenceStatus.interested && hasAlert;
+    final suppressDisabledSignupButton = pendingEntriesLane || remindMeLane;
     final meetUndecided = _meetCardIsUndecided(
       hasPreference: hasPreference,
       status: status,
@@ -864,6 +1065,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           skipSelected: skipSelected,
         ) &&
         !_meetCardIsPendingEntriesLane(status: status, hasAlert: hasAlert);
+
     /// Space for [Stack]-positioned header actions (40px targets; two when slotted actions show).
     final titleEndInsetForHeaderActions =
         showNotInterestedHeaderIcon ? 84.0 : 44.0;
@@ -888,8 +1090,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       _deadlinePulseController.stop();
       _deadlinePulseController.value = 0.0;
     }
-    return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 30.0),
+    // Top inset for corner disk + tag row (negative [PositionedDirectional.top]).
+    final fullCard = Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(20.0, 16.0, 20.0, 30.0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.transparent,
@@ -912,90 +1115,88 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                 child: Container(
                   color: Colors.white,
                   child: Padding(
-                      padding: const EdgeInsetsDirectional.fromSTEB(
-                          innerHPad, 12.0, innerHPad, 16.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: EdgeInsetsDirectional.only(
-                              end: titleEndInsetForHeaderActions,
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                        innerHPad, 12.0, innerHPad, 16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: EdgeInsetsDirectional.only(
+                            end: titleEndInsetForHeaderActions,
+                          ),
+                          child: Text(
+                            valueOrDefault<String>(doc.name, '[Meet Name]'),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.sora(
+                              fontSize: 16.0,
+                              fontWeight: FontWeight.w700,
+                              height: 1.25,
+                              letterSpacing: 0.0,
+                              color: _slateTitle,
                             ),
-                            child: Text(
-                              valueOrDefault<String>(doc.name, '[Meet Name]'),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.sora(
-                                fontSize: 16.0,
-                                fontWeight: FontWeight.w700,
-                                height: 1.25,
-                                letterSpacing: 0.0,
-                                color: _slateTitle,
-                              ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6.0, bottom: 4.0),
+                          child: _buildLogisticsSection(context, doc, entered),
+                        ),
+                        Divider(
+                          thickness: 1.0,
+                          color: FlutterFlowTheme.of(context).lineColor,
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildParentNoteBox(context, pref),
+                            const SizedBox(height: 8.0),
+                            _buildMeetDecisionRows(
+                              context,
+                              doc: doc,
+                              status: status,
+                              hasAlert: hasAlert,
+                              hasPreference: hasPreference,
+                              skipSelected: skipSelected,
                             ),
-                          ),
-                          Padding(
-                            padding:
-                                const EdgeInsets.only(top: 6.0, bottom: 4.0),
-                            child: _buildLogisticsSection(context, doc, entered),
-                          ),
-                          Divider(
-                            thickness: 1.0,
-                            color: FlutterFlowTheme.of(context).lineColor,
-                          ),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildParentNoteBox(context, pref),
-                              const SizedBox(height: 8.0),
-                              _buildMeetDecisionRows(
+                            const SizedBox(height: 16.0),
+                            if (pendingViewOnlyPair)
+                              _buildPendingEntriesViewOnlyActionRow(
                                 context,
-                                doc: doc,
-                                status: status,
-                                hasAlert: hasAlert,
-                                hasPreference: hasPreference,
-                                skipSelected: skipSelected,
-                              ),
-                              const SizedBox(height: 16.0),
-                              if (pendingViewOnlyPair)
-                                _buildPendingEntriesViewOnlyActionRow(
+                                doc,
+                              )
+                            else ...[
+                              SizedBox(
+                                width: double.infinity,
+                                child: _buildEntryUrlButton(
                                   context,
                                   doc,
-                                )
-                              else ...[
+                                  status,
+                                  entered,
+                                  wantsToEnter,
+                                  meetUndecided: meetUndecided,
+                                  isPendingEntriesLane: pendingEntriesLane,
+                                  isExplicitNotGoing: isExplicitNotGoing,
+                                  suppressDisabledSignupButton:
+                                      suppressDisabledSignupButton,
+                                ),
+                              ),
+                              if (pendingEntriesLane) ...[
+                                const SizedBox(height: 10.0),
                                 SizedBox(
                                   width: double.infinity,
-                                  child: _buildEntryUrlButton(
-                                    context,
-                                    doc,
-                                    status,
-                                    entered,
-                                    wantsToEnter,
-                                    meetUndecided: meetUndecided,
-                                    isPendingEntriesLane: pendingEntriesLane,
-                                    isExplicitNotGoing: isExplicitNotGoing,
-                                    suppressDisabledSignupButton:
-                                        suppressDisabledSignupButton,
-                                  ),
+                                  child: _buildNotGoingAnymoreButton(context),
                                 ),
-                                if (pendingEntriesLane) ...[
-                                  const SizedBox(height: 10.0),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child:
-                                        _buildNotGoingAnymoreButton(context),
-                                  ),
-                                ],
                               ],
                             ],
-                          ),
-                        ].divide(const SizedBox(height: 12.0)),
-                      ),
+                          ],
+                        ),
+                      ].divide(const SizedBox(height: 12.0)),
                     ),
                   ),
                 ),
+              ),
             ),
             _buildMeetCardFramePaintOverlay(statusAccent),
             ..._buildMeetCornerStateOverlay(
@@ -1018,6 +1219,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         ),
       ),
     );
+    return _wrapSwipeToSkipIfEligible(
+      child: fullCard,
+      pref: pref,
+      hasPreference: hasPreference,
+      status: status,
+      hasAlert: hasAlert,
+      skipSelected: skipSelected,
+    );
   }
 
   static const BorderRadius _actionRadius =
@@ -1027,8 +1236,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const double _meetActionButtonHeight = 40.0;
   static const EdgeInsets _meetActionButtonPadding =
       EdgeInsets.symmetric(horizontal: 16.0);
+
   /// Side-by-side Submit / Not Going: a bit shorter than full-width 40px CTAs.
   static const double _meetPendingPairButtonHeight = 36.0;
+
   /// Tighter horizontal inset so both labels fit without clipping.
   static const EdgeInsets _meetPendingPairPadding =
       EdgeInsets.symmetric(horizontal: 10.0, vertical: 0.0);
@@ -1160,7 +1371,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     if (status == MeetPreferenceStatus.interested) {
       return _followingHeart;
     }
-    if (skipSelected && status == MeetPreferenceStatus.skipped && hasPreference) {
+    if (skipSelected &&
+        status == MeetPreferenceStatus.skipped &&
+        hasPreference) {
       return _skippedStripe;
     }
     return _untouchedStripe;
@@ -1316,7 +1529,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     if (status == MeetPreferenceStatus.interested) {
       return _buildCornerInterestedBadge(context, diameter: diameter);
     }
-    if (skipSelected && status == MeetPreferenceStatus.skipped && hasPreference) {
+    if (skipSelected &&
+        status == MeetPreferenceStatus.skipped &&
+        hasPreference) {
       return _buildCornerSkippedBadge(context, diameter: diameter);
     }
     return null;
@@ -1342,7 +1557,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         (status == MeetPreferenceStatus.interested && !hasAlert)) {
       return 'Pending entries';
     }
-    if (skipSelected && status == MeetPreferenceStatus.skipped && hasPreference) {
+    if (skipSelected &&
+        status == MeetPreferenceStatus.skipped &&
+        hasPreference) {
       return 'Not Going';
     }
     return 'Need Decision';
@@ -1561,7 +1778,6 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
-
   Widget _buildCornerPlanningBadge(
     BuildContext context, {
     double diameter = _cornerStateBadgeSize,
@@ -1605,9 +1821,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   String _verifiedTooltipMessage(BuildContext context) {
     // read: avoid listenable subscriptions from tooltip/badge subtree (semantics).
     final raw = context.read<FFAppState>().currentSwimmerName.trim();
-    final firstName = raw.isEmpty
-        ? 'Swimmer'
-        : raw.split(RegExp(r'\s+')).first.trim();
+    final firstName =
+        raw.isEmpty ? 'Swimmer' : raw.split(RegExp(r'\s+')).first.trim();
     return 'Verified: $firstName is entered';
   }
 
@@ -1928,7 +2143,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       },
       style: FilledButton.styleFrom(
         elevation: on ? 2.0 : 0.0,
-        shadowColor: on ? _electricBlue.withValues(alpha: 0.25) : Colors.transparent,
+        shadowColor:
+            on ? _electricBlue.withValues(alpha: 0.25) : Colors.transparent,
         backgroundColor: muted
             ? _cardBorder
             : (on ? _electricBlue : _electricBlue.withValues(alpha: 0.92)),
@@ -1979,8 +2195,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       status: status,
       hasAlert: hasAlert,
     );
-    final remindMeLane =
-        status == MeetPreferenceStatus.interested && hasAlert;
+    final remindMeLane = status == MeetPreferenceStatus.interested && hasAlert;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1988,10 +2203,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       children: [
         if (undecided)
           _buildNeedDecisionActionsRow(context)
-        else if (!pendingEntriesLane &&
-            !skipped &&
-            !entered &&
-            !remindMeLane)
+        else if (!pendingEntriesLane && !skipped && !entered && !remindMeLane)
           _buildBinaryChoiceBand(
             context,
             label: 'Enter this meet?',
@@ -2292,10 +2504,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           elevation: hasUrl ? 2.0 : 0.0,
           shadowColor: _electricBlue.withValues(alpha: 0.28),
           padding: _meetActionButtonPadding,
-          minimumSize:
-              const Size(double.infinity, _meetActionButtonHeight),
-          maximumSize:
-              const Size(double.infinity, _meetActionButtonHeight),
+          minimumSize: const Size(double.infinity, _meetActionButtonHeight),
+          maximumSize: const Size(double.infinity, _meetActionButtonHeight),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: const RoundedRectangleBorder(borderRadius: _actionRadius),
           visualDensity: VisualDensity.compact,
@@ -2335,10 +2545,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           elevation: hasUrl ? 2.0 : 0.0,
           shadowColor: _electricBlue.withValues(alpha: 0.28),
           padding: _meetActionButtonPadding,
-          minimumSize:
-              const Size(double.infinity, _meetActionButtonHeight),
-          maximumSize:
-              const Size(double.infinity, _meetActionButtonHeight),
+          minimumSize: const Size(double.infinity, _meetActionButtonHeight),
+          maximumSize: const Size(double.infinity, _meetActionButtonHeight),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: const RoundedRectangleBorder(borderRadius: _actionRadius),
           visualDensity: VisualDensity.compact,
@@ -2374,10 +2582,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           disabledBackgroundColor: theme.accent3,
           disabledForegroundColor: theme.secondaryText,
           padding: _meetActionButtonPadding,
-          minimumSize:
-              const Size(double.infinity, _meetActionButtonHeight),
-          maximumSize:
-              const Size(double.infinity, _meetActionButtonHeight),
+          minimumSize: const Size(double.infinity, _meetActionButtonHeight),
+          maximumSize: const Size(double.infinity, _meetActionButtonHeight),
           elevation: 0,
           shape: const RoundedRectangleBorder(borderRadius: _actionRadius),
           visualDensity: VisualDensity.compact,
@@ -2413,10 +2619,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         disabledBackgroundColor: theme.accent3,
         disabledForegroundColor: theme.secondaryText,
         padding: _meetActionButtonPadding,
-        minimumSize:
-            const Size(double.infinity, _meetActionButtonHeight),
-        maximumSize:
-            const Size(double.infinity, _meetActionButtonHeight),
+        minimumSize: const Size(double.infinity, _meetActionButtonHeight),
+        maximumSize: const Size(double.infinity, _meetActionButtonHeight),
         elevation: 2,
         shadowColor: _electricBlue.withValues(alpha: 0.28),
         shape: const RoundedRectangleBorder(borderRadius: _actionRadius),
