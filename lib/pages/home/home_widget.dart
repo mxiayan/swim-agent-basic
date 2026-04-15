@@ -5,7 +5,6 @@ import '/components/m02_meet/m02_meet_widget.dart';
 import '/components/m03_job/m03_job_widget.dart';
 import '/components/m04_swimmer/m04_swimmer_widget.dart';
 import '/components/m05_activity_dashboard/m05_activity_dashboard_widget.dart';
-import '/components/nav_item/nav_item_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
@@ -28,13 +27,18 @@ class _HomeWidgetState extends State<HomeWidget> {
   late HomeModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  static const double _bottomNavHeight = 64.0;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => HomeModel());
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (FFAppState().activeTab != 2) {
+        FFAppState().update(() => FFAppState().activeTab = 2);
+      }
+      safeSetState(() {});
+    });
   }
 
   @override
@@ -47,6 +51,9 @@ class _HomeWidgetState extends State<HomeWidget> {
   @override
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
+
+    final primaryBlue = FlutterFlowTheme.of(context).primary;
+    final muted = FlutterFlowTheme.of(context).secondaryText;
 
     return StreamBuilder<UsersRecord>(
       stream: UsersRecord.getDocument(currentUserReference!),
@@ -77,14 +84,20 @@ class _HomeWidgetState extends State<HomeWidget> {
           child: Scaffold(
             key: scaffoldKey,
             backgroundColor: Colors.white,
+            bottomNavigationBar: _buildBottomNavigationBar(
+              context: context,
+              primaryBlue: primaryBlue,
+              muted: muted,
+            ),
             body: SafeArea(
               top: true,
+              bottom: false,
               child: Column(
                 mainAxisSize: MainAxisSize.max,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                    padding: const EdgeInsets.fromLTRB(20.0, 14.0, 20.0, 10.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.max,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -109,9 +122,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                                     ),
                                     fontSize: 26.0,
                                     letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .displaySmall
-                                        .fontWeight,
+                                    fontWeight: FontWeight.w700,
                                     fontStyle: FlutterFlowTheme.of(context)
                                         .displaySmall
                                         .fontStyle,
@@ -130,7 +141,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                                     ),
                                     color: FlutterFlowTheme.of(context)
                                         .secondaryText,
-                                    fontSize: 16.0,
+                                    fontSize: 15.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.w400,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -163,126 +174,14 @@ class _HomeWidgetState extends State<HomeWidget> {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          InkWell(
-                            splashColor: Colors.transparent,
-                            focusColor: Colors.transparent,
-                            hoverColor: Colors.transparent,
-                            highlightColor: Colors.transparent,
-                            onTap: () async {
-                              FFAppState().activeTab = 0;
-                              FFAppState().update(() {});
-                            },
-                            child: wrapWithModel(
-                              model: _model.activitiesModel,
-                              updateCallback: () => safeSetState(() {}),
-                              child: NavItemWidget(
-                                text: 'SCHEDULE',
-                                selected:
-                                    FFAppState().activeTab.toString() == '0',
-                                width: 70,
-                              ),
-                            ),
-                          ),
-                          InkWell(
-                            splashColor: Colors.transparent,
-                            focusColor: Colors.transparent,
-                            hoverColor: Colors.transparent,
-                            highlightColor: Colors.transparent,
-                            onTap: () async {
-                              FFAppState().activeTab = 2;
-                              FFAppState().update(() {});
-                            },
-                            child: wrapWithModel(
-                              model: _model.meetsModel,
-                              updateCallback: () => safeSetState(() {}),
-                              child: NavItemWidget(
-                                text: 'MEETS',
-                                selected:
-                                    FFAppState().activeTab.toString() == '2',
-                                width: 45,
-                              ),
-                            ),
-                          ),
-                          InkWell(
-                            splashColor: Colors.transparent,
-                            focusColor: Colors.transparent,
-                            hoverColor: Colors.transparent,
-                            highlightColor: Colors.transparent,
-                            onTap: () async {
-                              FFAppState().activeTab = 3;
-                              FFAppState().update(() {});
-                            },
-                            child: wrapWithModel(
-                              model: _model.jobsModel,
-                              updateCallback: () => safeSetState(() {}),
-                              child: NavItemWidget(
-                                text: 'JOBS',
-                                selected:
-                                    FFAppState().activeTab.toString() == '3',
-                                width: 38,
-                              ),
-                            ),
-                          ),
-                          InkWell(
-                            splashColor: Colors.transparent,
-                            focusColor: Colors.transparent,
-                            hoverColor: Colors.transparent,
-                            highlightColor: Colors.transparent,
-                            onTap: () async {
-                              FFAppState().activeTab = 1;
-                              FFAppState().update(() {});
-                            },
-                            child: wrapWithModel(
-                              model: _model.swimmerModel,
-                              updateCallback: () => safeSetState(() {}),
-                              child: NavItemWidget(
-                                text: 'SWIMMER',
-                                selected:
-                                    FFAppState().activeTab.toString() == '1',
-                                width: 65,
-                              ),
-                            ),
-                          ),
-                          InkWell(
-                            splashColor: Colors.transparent,
-                            focusColor: Colors.transparent,
-                            hoverColor: Colors.transparent,
-                            highlightColor: Colors.transparent,
-                            onTap: () async {
-                              FFAppState().activeTab = 4;
-                              FFAppState().update(() {});
-                            },
-                            child: wrapWithModel(
-                              model: _model.adminModel,
-                              updateCallback: () => safeSetState(() {}),
-                              child: NavItemWidget(
-                                text: 'ADMIN',
-                                selected:
-                                    FFAppState().activeTab.toString() == '4',
-                                width: 48,
-                              ),
-                            ),
-                          ),
-                        ].divide(SizedBox(width: 12.0)),
-                      ),
-                    ),
-                  ),
                   Expanded(
                     child: Stack(
                       alignment: AlignmentDirectional(0.0, -1.0),
                       children: [
                         if (FFAppState().activeTab == 0)
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                                0.0, 5.0, 0.0, 0.0),
+                            padding: const EdgeInsetsDirectional.fromSTEB(
+                                0.0, 4.0, 0.0, 0.0),
                             child: wrapWithModel(
                               model: _model.m01ActivityModel,
                               updateCallback: () => safeSetState(() {}),
@@ -291,8 +190,8 @@ class _HomeWidgetState extends State<HomeWidget> {
                           ),
                         if (FFAppState().activeTab == 2)
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                                0.0, 5.0, 0.0, 0.0),
+                            padding: const EdgeInsetsDirectional.fromSTEB(
+                                0.0, 4.0, 0.0, 0.0),
                             child: wrapWithModel(
                               model: _model.m02MeetModel,
                               updateCallback: () => safeSetState(() {}),
@@ -301,8 +200,8 @@ class _HomeWidgetState extends State<HomeWidget> {
                           ),
                         if (FFAppState().activeTab == 3)
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                                0.0, 5.0, 0.0, 0.0),
+                            padding: const EdgeInsetsDirectional.fromSTEB(
+                                0.0, 4.0, 0.0, 0.0),
                             child: wrapWithModel(
                               model: _model.m03JobModel,
                               updateCallback: () => safeSetState(() {}),
@@ -311,8 +210,8 @@ class _HomeWidgetState extends State<HomeWidget> {
                           ),
                         if (FFAppState().activeTab == 1)
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                                0.0, 5.0, 0.0, 0.0),
+                            padding: const EdgeInsetsDirectional.fromSTEB(
+                                0.0, 4.0, 0.0, 0.0),
                             child: wrapWithModel(
                               model: _model.m04SwimmerModel,
                               updateCallback: () => safeSetState(() {}),
@@ -334,6 +233,123 @@ class _HomeWidgetState extends State<HomeWidget> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBottomNavigationBar({
+    required BuildContext context,
+    required Color primaryBlue,
+    required Color muted,
+  }) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12.0, 0.0, 12.0, 8.0),
+        height: _bottomNavHeight,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 18.0,
+              offset: const Offset(0.0, 4.0),
+            ),
+          ],
+          border: Border.all(
+            color: const Color(0xFFE5E7EB),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            _buildBottomNavItem(
+              label: 'Schedule',
+              icon: Icons.calendar_today_rounded,
+              tabIndex: 0,
+              primaryBlue: primaryBlue,
+              muted: muted,
+            ),
+            _buildBottomNavItem(
+              label: 'Meets',
+              icon: Icons.pool_rounded,
+              tabIndex: 2,
+              primaryBlue: primaryBlue,
+              muted: muted,
+            ),
+            _buildBottomNavItem(
+              label: 'Jobs',
+              icon: Icons.work_outline_rounded,
+              tabIndex: 3,
+              primaryBlue: primaryBlue,
+              muted: muted,
+            ),
+            _buildBottomNavItem(
+              label: 'Swimmer',
+              icon: Icons.person_outline_rounded,
+              tabIndex: 1,
+              primaryBlue: primaryBlue,
+              muted: muted,
+            ),
+            _buildBottomNavItem(
+              label: 'Admin',
+              icon: Icons.shield_outlined,
+              tabIndex: 4,
+              primaryBlue: primaryBlue,
+              muted: muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavItem({
+    required String label,
+    required IconData icon,
+    required int tabIndex,
+    required Color primaryBlue,
+    required Color muted,
+  }) {
+    final selected = FFAppState().activeTab == tabIndex;
+    final iconColor = selected ? primaryBlue : muted.withValues(alpha: 0.85);
+    final labelColor = selected ? primaryBlue : muted.withValues(alpha: 0.9);
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16.0),
+          onTap: () {
+            if (FFAppState().activeTab == tabIndex) {
+              return;
+            }
+            FFAppState().update(() => FFAppState().activeTab = tabIndex);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Icon(icon, size: 20.0, color: iconColor),
+                const SizedBox(height: 3.0),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.sora(
+                    fontSize: 11.5,
+                    letterSpacing: 0.0,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: labelColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
