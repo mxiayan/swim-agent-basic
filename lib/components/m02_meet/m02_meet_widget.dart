@@ -14,6 +14,7 @@ import 'm02_meet_model.dart';
 export 'm02_meet_model.dart';
 
 enum _MeetQuickFilter { none, deadlineThisWeek }
+enum _MeetPrimaryView { myMeets, allMeets }
 
 class M02MeetWidget extends StatefulWidget {
   const M02MeetWidget({super.key});
@@ -27,6 +28,9 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
 
   bool _meetBannerReady = false;
   _MeetQuickFilter _meetQuickFilter = _MeetQuickFilter.none;
+  _MeetPrimaryView _primaryView = _MeetPrimaryView.myMeets;
+  final TextEditingController _allMeetsSearchController =
+      TextEditingController();
 
   static const List<String> _otherClassTokens = <String>[
     'observed',
@@ -75,51 +79,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     return ageMatch || seniorMatch || otherMatch;
   }
 
-  static DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-
-  /// 0 Past, 1 Live, 2 Upcoming.
-  bool _meetMatchesTimeSegment(MonitoredMeetsRecord m, int seg) {
-    final today = _dayOnly(DateTime.now());
-    final s = m.startTime;
-    final e = m.endTime ?? m.startTime;
-    if (s == null && e == null) {
-      return seg == 1;
-    }
-    final sd = s != null ? _dayOnly(s) : _dayOnly(e!);
-    final ed = e != null ? _dayOnly(e) : sd;
-    if (seg == 2) {
-      return sd.isAfter(today);
-    }
-    if (seg == 0) {
-      return ed.isBefore(today);
-    }
-    return !sd.isAfter(today) && !ed.isBefore(today);
-  }
-
   bool _anyMyListFilterOn(FFAppState app) =>
       app.meetFilterPendingEntries ||
       app.meetFilterEntered ||
       app.meetFilterNotGoing ||
       app.meetFilterRemindMe;
-
-  bool _anyQuickFilterOn() => _meetQuickFilter != _MeetQuickFilter.none;
-
-  bool _anyMyListOrQuickFilterOn(FFAppState app) =>
-      _anyMyListFilterOn(app) ||
-      _anyQuickFilterOn() ||
-      app.meetListChipFilter != 0;
-
-  /// Hide Not going meets unless user opted in or the list filter is "Not going only".
-  bool _passesNotGoingListVisibility(
-    MonitoredMeetsRecord m,
-    Map<String, MeetPreferencesRecord> prefs,
-    FFAppState app,
-  ) {
-    if (app.meetShowNotGoingInList || app.meetFilterNotGoing) {
-      return true;
-    }
-    return !MeetListQuickFilter.isNotGoingCategory(prefs[m.reference.id]);
-  }
 
   /// Tune icon badge: any non-default filter (including showing Not going meets).
   bool _meetTuneFiltersNonDefault(FFAppState app) {
@@ -137,249 +101,57 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     if (app.meetShowNotGoingInList) {
       return true;
     }
-    if (app.meetListChipFilter != 0) {
-      return true;
-    }
     return false;
   }
 
-  /// After class / time / tune filters: apply default Not-going hiding and list chips.
-  List<MonitoredMeetsRecord> _applyNotGoingVisibilityAndChips(
-    List<MonitoredMeetsRecord> base,
-    Map<String, MeetPreferencesRecord> prefs,
-    FFAppState app,
+  bool _isMyMeet(
+    MonitoredMeetsRecord m,
+    MeetPreferencesRecord? pref,
   ) {
-    switch (app.meetListChipFilter) {
-      case 3:
-        return base
-            .where(
-              (m) => MeetListQuickFilter.isNotGoingCategory(
-                prefs[m.reference.id],
-              ),
-            )
-            .toList();
-      case 1:
-        return base
-            .where((m) => _passesNotGoingListVisibility(m, prefs, app))
-            .where(
-              (m) => MeetListQuickFilter.meetNeedsAction(
-                m,
-                prefs[m.reference.id],
-              ),
-            )
-            .toList();
-      case 2:
-        return base
-            .where((m) => _passesNotGoingListVisibility(m, prefs, app))
-            .where(
-              (m) =>
-                  prefs[m.reference.id]?.status ==
-                  MeetPreferenceStatus.entered,
-            )
-            .toList();
-      default:
-        return base
-            .where((m) => _passesNotGoingListVisibility(m, prefs, app))
-            .toList();
+    if (pref == null) {
+      return false;
     }
-  }
-
-  Widget _buildMeetListChipStrip(BuildContext context, FFAppState app) {
-    Widget chip(String label, int index) {
-      final selected = app.meetListChipFilter == index;
-      return Padding(
-        padding: const EdgeInsets.only(right: 8.0),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              app.update(() => app.meetListChipFilter = index);
-              app.persistMeetUiState();
-            },
-            borderRadius: BorderRadius.circular(999.0),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
-              decoration: BoxDecoration(
-                color: selected ? _electricBlue : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(999.0),
-                border: Border.all(
-                  color: selected ? _electricBlue : const Color(0xFFE2E8F0),
-                  width: 1.0,
-                ),
-              ),
-              child: Text(
-                label,
-                style: GoogleFonts.sora(
-                  fontSize: 13.0,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : _bannerMuted,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
+    if (pref.status == MeetPreferenceStatus.entered) {
+      return true;
     }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.hardEdge,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 16.0),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            chip('All', 0),
-            chip('Need Action', 1),
-            chip('Entered', 2),
-            chip('Not Going', 3),
-          ],
-        ),
-      ),
-    );
+    if (MeetListQuickFilter.isNotGoingCategory(pref)) {
+      return true;
+    }
+    return MeetListQuickFilter.meetNeedsAction(m, pref) ||
+        pref.status == MeetPreferenceStatus.interested ||
+        pref.status == MeetPreferenceStatus.planning;
   }
 
-  Widget _buildMeetSegmentChipsAndDivider(BuildContext context, FFAppState app) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
-          child: _buildMeetChipsAndTimeFilterRow(context, app),
-        ),
-        const SizedBox(height: 8.0),
-        Divider(
-          height: 1.0,
-          thickness: 1.0,
-          color: FlutterFlowTheme.of(context).lineColor,
-        ),
-        const SizedBox(height: 4.0),
-      ],
-    );
-  }
-
-  /// Scrollable All / Need Action / … chips plus **Filters** → Past / Live / Upcoming.
-  Widget _buildMeetChipsAndTimeFilterRow(
-    BuildContext context,
-    FFAppState app,
+  int _myMeetUrgencyRank(
+    MonitoredMeetsRecord m,
+    MeetPreferencesRecord? pref,
   ) {
-    PopupMenuEntry<int> timeItem(int segment, String label) {
-      final selected = app.meetTimeSegment == segment;
-      return PopupMenuItem<int>(
-        value: segment,
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: GoogleFonts.sora(
-                  fontSize: 15.0,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? _bannerTitle : _bannerMuted,
-                ),
-              ),
-            ),
-            if (selected)
-              Icon(Icons.check_rounded, color: _electricBlue, size: 22.0),
-          ],
-        ),
-      );
+    if (MeetListQuickFilter.meetNeedsAction(m, pref)) {
+      return 0;
     }
+    if (pref?.status == MeetPreferenceStatus.entered) {
+      return 1;
+    }
+    if (MeetListQuickFilter.isNotGoingCategory(pref)) {
+      return 2;
+    }
+    return 3;
+  }
 
-    final lineColor = FlutterFlowTheme.of(context).lineColor;
+  DateTime _sortDate(MonitoredMeetsRecord m) =>
+      m.startTime ?? m.endTime ?? DateTime.fromMillisecondsSinceEpoch(0);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: ClipRect(
-            child: _buildMeetListChipStrip(context, app),
-          ),
-        ),
-        const SizedBox(width: 8.0),
-        Container(
-          width: 1.0,
-          height: 28.0,
-          color: lineColor,
-        ),
-        Material(
-          color: _pageBackground,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 10.0),
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                brightness: Brightness.light,
-                canvasColor: Colors.white,
-                cardColor: Colors.white,
-                dividerColor: lineColor,
-                popupMenuTheme: Theme.of(context).popupMenuTheme.copyWith(
-                  color: Colors.white,
-                  surfaceTintColor: Colors.transparent,
-                  elevation: 8.0,
-                  shadowColor: Colors.black.withValues(alpha: 0.12),
-                  textStyle: GoogleFonts.sora(
-                    fontSize: 15.0,
-                    fontWeight: FontWeight.w500,
-                    color: _bannerTitle,
-                  ),
-                ),
-                colorScheme: Theme.of(context).colorScheme.copyWith(
-                  brightness: Brightness.light,
-                  surface: Colors.white,
-                  onSurface: _bannerTitle,
-                  onSurfaceVariant: _bannerMuted,
-                ),
-              ),
-              child: PopupMenuButton<int>(
-                position: PopupMenuPosition.over,
-                tooltip: 'Past, Live, or Upcoming',
-                padding: EdgeInsets.zero,
-                color: Colors.white,
-                surfaceTintColor: Colors.transparent,
-                shadowColor: Colors.black.withValues(alpha: 0.12),
-                elevation: 8.0,
-                offset: const Offset(0.0, -4.0),
-                onSelected: (segment) {
-                  app.update(() => app.meetTimeSegment = segment);
-                  app.persistMeetUiState();
-                },
-                itemBuilder: (context) => <PopupMenuEntry<int>>[
-                  timeItem(2, 'Upcoming'),
-                  PopupMenuDivider(color: lineColor),
-                  timeItem(1, 'Live'),
-                  PopupMenuDivider(color: lineColor),
-                  timeItem(0, 'Past'),
-                ],
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4.0, 8.0, 0.0, 8.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Filters',
-                        style: GoogleFonts.sora(
-                          fontSize: 14.0,
-                          fontWeight: FontWeight.w700,
-                          color: _electricBlue,
-                        ),
-                      ),
-                      const SizedBox(width: 4.0),
-                      Icon(
-                        Icons.tune_rounded,
-                        size: 20.0,
-                        color: _electricBlue,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+  String _searchText() => _allMeetsSearchController.text.trim().toLowerCase();
+
+  bool _matchesSearch(MonitoredMeetsRecord m) {
+    final q = _searchText();
+    if (q.isEmpty) {
+      return true;
+    }
+    final name = m.name.toLowerCase();
+    final location = m.location.toLowerCase();
+    final zone = m.meetZone.toLowerCase();
+    return name.contains(q) || location.contains(q) || zone.contains(q);
   }
 
   /// Optional my-list filters from the tune menu (pending / entered / not going / remind).
@@ -449,11 +221,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   }
 
   static const Color _electricBlue = Color(0xFF007AFF);
-  static const Color _pageBackground = Color(0xFFF1F5F9);
+  static const Color _pageBackground = Color(0xFFF8FAFC);
   static const Color _bannerTitle = Color(0xFF0F172A);
   static const Color _bannerMuted = Color(0xFF64748B);
-  static const Color _quickFilterDeadlineBg = Color(0xFFDC2626);
-  static const Color _quickFilterDeadlineBorder = Color(0xFFB91C1C);
+  static const Color _quickFilterDeadlineBg = Color(0xFFE11D48);
+  static const Color _quickFilterDeadlineBorder = Color(0xFFBE123C);
 
   Widget _buildMeetQuickFilterPill({
     required String label,
@@ -472,20 +244,20 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         borderRadius: BorderRadius.circular(999.0),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(999.0),
             border: Border.all(
               color: selected ? _electricBlue : borderColor,
-              width: selected ? 2.5 : 1.5,
+              width: selected ? 2.0 : 1.0,
             ),
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: _electricBlue.withValues(alpha: 0.22),
-                      blurRadius: 10.0,
-                      offset: const Offset(0.0, 3.0),
+                      color: _electricBlue.withValues(alpha: 0.14),
+                      blurRadius: 8.0,
+                      offset: const Offset(0.0, 2.0),
                     ),
                   ]
                 : null,
@@ -495,14 +267,14 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
               Icon(
                 icon,
                 color: iconColor ?? foregroundColor,
-                size: 22.0,
+                size: 19.0,
               ),
-              const SizedBox(width: 10.0),
+              const SizedBox(width: 8.0),
               Expanded(
                 child: Text(
                   label,
                   style: GoogleFonts.sora(
-                    fontSize: 15.0,
+                    fontSize: 13.0,
                     fontWeight: FontWeight.w600,
                     color: foregroundColor,
                     height: 1.2,
@@ -511,6 +283,193 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrimarySegmentedControl() {
+    Widget segment({
+      required String label,
+      required _MeetPrimaryView view,
+    }) {
+      final selected = _primaryView == view;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _primaryView = view),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(9.0),
+              border: Border.all(
+                color: selected ? const Color(0xFFE1E8F5) : Colors.transparent,
+                width: 1.0,
+              ),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 6.0,
+                        offset: const Offset(0.0, 1.0),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.sora(
+                fontSize: 13.0,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                color: selected ? _bannerTitle : _bannerMuted,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(11.0),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Row(
+        children: [
+          segment(label: 'My Meets', view: _MeetPrimaryView.myMeets),
+          const SizedBox(width: 4.0),
+          segment(label: 'All Meets', view: _MeetPrimaryView.allMeets),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZoneAndFiltersRow(BuildContext context, FFAppState app) {
+    final filtersOn = _meetTuneFiltersNonDefault(app);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: !_meetBannerReady
+              ? const SizedBox(
+                  height: 20.0,
+                  width: 20.0,
+                  child: CircularProgressIndicator(strokeWidth: 2.0),
+                )
+              : Text.rich(
+                  TextSpan(
+                    style: GoogleFonts.sora(
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w600,
+                      color: _bannerTitle,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'Zone: ',
+                        style: GoogleFonts.sora(
+                          fontSize: 13.0,
+                          fontWeight: FontWeight.w500,
+                          color: _bannerMuted,
+                        ),
+                      ),
+                      TextSpan(text: _meetsScopeHeadline(app)),
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+        ),
+        const SizedBox(width: 8.0),
+        OutlinedButton.icon(
+          onPressed: () => _openMeetRefineSheet(context),
+          icon: Icon(
+            Icons.tune_rounded,
+            size: 16.0,
+            color: _electricBlue,
+          ),
+          label: Text(
+            'Filters',
+            style: GoogleFonts.sora(
+              fontSize: 12.0,
+              fontWeight: FontWeight.w600,
+              color: _electricBlue,
+            ),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(
+              color: filtersOn ? _electricBlue : const Color(0xFFDCE3EE),
+              width: 1.0,
+            ),
+            backgroundColor:
+                filtersOn ? _electricBlue.withValues(alpha: 0.06) : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(9.0),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 7.0),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAllMeetsSearchRow() {
+    return Container(
+      height: 38.0,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10.0),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+      ),
+      child: TextField(
+        controller: _allMeetsSearchController,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          hintText: 'Search meets by name, location, zone',
+          hintStyle: GoogleFonts.sora(
+            fontSize: 12.5,
+            color: _bannerMuted,
+          ),
+          prefixIcon: Icon(Icons.search_rounded, color: _bannerMuted, size: 18.0),
+          suffixIcon: _allMeetsSearchController.text.isEmpty
+              ? null
+              : IconButton(
+                  icon: Icon(Icons.close_rounded, color: _bannerMuted, size: 18.0),
+                  onPressed: () {
+                    _allMeetsSearchController.clear();
+                    setState(() {});
+                  },
+                ),
+        ),
+        style: GoogleFonts.sora(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w500,
+          color: _bannerTitle,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 8.0),
+      child: Text(
+        text,
+        style: GoogleFonts.sora(
+          fontSize: 11.0,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
+          color: _bannerMuted,
         ),
       ),
     );
@@ -574,103 +533,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     );
   }
 
-  /// Compact zone line; chevron opens the same Refine sheet as before (tune filters).
-  Widget _buildMeetsZoneBar(BuildContext context, FFAppState app) {
-    final filtersOn = _meetTuneFiltersNonDefault(app);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: !_meetBannerReady
-                ? SizedBox(
-                    height: 22.0,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: SizedBox(
-                        width: 20.0,
-                        height: 20.0,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.0,
-                          color: _electricBlue,
-                        ),
-                      ),
-                    ),
-                  )
-                : Text.rich(
-                    TextSpan(
-                      style: GoogleFonts.sora(
-                        fontSize: 15.0,
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
-                        color: _bannerTitle,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: 'Zone: ',
-                          style: GoogleFonts.sora(
-                            fontSize: 15.0,
-                            fontWeight: FontWeight.w500,
-                            color: _bannerMuted,
-                          ),
-                        ),
-                        TextSpan(text: _meetsScopeHeadline(app)),
-                      ],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-          ),
-          const SizedBox(width: 8.0),
-          Tooltip(
-            message: filtersOn ? 'Refine — filters active' : 'Refine meets list',
-            child: Material(
-            color: const Color(0xFFE2E8F0),
-            borderRadius: BorderRadius.circular(8.0),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8.0),
-              onTap: () => _openMeetRefineSheet(context),
-              child: SizedBox(
-                width: 40.0,
-                height: 40.0,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      Icons.expand_more_rounded,
-                      color: _electricBlue,
-                      size: 28.0,
-                    ),
-                    if (filtersOn)
-                      PositionedDirectional(
-                        top: 5.0,
-                        end: 5.0,
-                        child: Container(
-                          width: 8.0,
-                          height: 8.0,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEA580C),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 1.0,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   void setState(VoidCallback callback) {
     super.setState(callback);
@@ -695,6 +557,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
 
   @override
   void dispose() {
+    _allMeetsSearchController.dispose();
     _model.maybeDispose();
 
     super.dispose();
@@ -710,8 +573,12 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         mainAxisSize: MainAxisSize.max,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 0.0),
-            child: _buildMeetsZoneBar(context, app),
+            padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
+            child: _buildPrimarySegmentedControl(),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20.0, 9.0, 20.0, 2.0),
+            child: _buildZoneAndFiltersRow(context, app),
           ),
           Expanded(
             child: StreamBuilder<Map<String, MeetPreferencesRecord>>(
@@ -724,43 +591,123 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                     zoneId: app.currentSwimmerZoneForMeets,
                     priorityHostGroup: app.currentSwimmerGroup,
                     showAll: app.meetsShowAllZones,
-                    widePastWindow: app.meetTimeSegment == 0 ||
-                        _anyMyListOrQuickFilterOn(app),
+                    widePastWindow: true,
                   ),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
+                      return const Center(
+                        child: SizedBox(
+                          width: 50.0,
+                          height: 50.0,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              _electricBlue,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final filtered = snapshot.data!
+                        .where(_matchesClassFilters)
+                        .where((m) => _matchesSearch(m))
+                        .where((m) => _matchesMyMeetListFilters(m, prefs, app))
+                        .toList()
+                      ..sort((a, b) => _sortDate(a).compareTo(_sortDate(b)));
+
+                    if (_primaryView == _MeetPrimaryView.allMeets) {
+                      if (filtered.isEmpty) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 2.0),
+                              child: _buildAllMeetsSearchRow(),
+                            ),
+                            const SizedBox(height: 10.0),
+                            Expanded(
+                              child: Center(
+                                child: Text(
+                                  'No meets found.',
+                                  style: FlutterFlowTheme.of(context).bodyMedium,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildMeetSegmentChipsAndDivider(context, app),
+                          Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 2.0),
+                            child: _buildAllMeetsSearchRow(),
+                          ),
+                          const SizedBox(height: 6.0),
                           Expanded(
-                            child: Center(
-                              child: SizedBox(
-                                width: 50.0,
-                                height: 50.0,
-                                child: CircularProgressIndicator(
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                    _electricBlue,
-                                  ),
-                                ),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(
+                                20.0,
+                                6.0,
+                                20.0,
+                                24.0,
                               ),
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final meet = filtered[index];
+                                return M02MeetEnteredWidget(
+                                  key: Key('all_meet_${meet.reference.id}_$index'),
+                                  meetDoc: meet,
+                                  preference: prefs[meet.reference.id],
+                                );
+                              },
                             ),
                           ),
                         ],
                       );
                     }
-                    final afterTune = snapshot.data!
-                        .where(_matchesClassFilters)
-                        .where(
-                          (m) =>
-                              _meetMatchesTimeSegment(m, app.meetTimeSegment),
-                        )
-                        .where((m) => _matchesMyMeetListFilters(m, prefs, app))
+
+                    final myMeets = filtered
+                        .where((m) => _isMyMeet(m, prefs[m.reference.id]))
+                        .toList()
+                      ..sort((a, b) {
+                        final rankA = _myMeetUrgencyRank(a, prefs[a.reference.id]);
+                        final rankB = _myMeetUrgencyRank(b, prefs[b.reference.id]);
+                        if (rankA != rankB) {
+                          return rankA.compareTo(rankB);
+                        }
+                        return _sortDate(a).compareTo(_sortDate(b));
+                      });
+
+                    final needsAction = myMeets
+                        .where((m) =>
+                            MeetListQuickFilter.meetNeedsAction(
+                              m,
+                              prefs[m.reference.id],
+                            ))
+                        .toList();
+                    final entered = myMeets
+                        .where((m) =>
+                            prefs[m.reference.id]?.status ==
+                            MeetPreferenceStatus.entered)
+                        .toList();
+                    final skipped = myMeets
+                        .where((m) =>
+                            MeetListQuickFilter.isNotGoingCategory(
+                              prefs[m.reference.id],
+                            ))
+                        .toList();
+                    final other = myMeets
+                        .where((m) =>
+                            !needsAction.contains(m) &&
+                            !entered.contains(m) &&
+                            !skipped.contains(m))
                         .toList();
 
                     var deadlineWeekCount = 0;
-                    for (final m in afterTune) {
+                    for (final m in needsAction) {
                       if (MeetListQuickFilter.entryDeadlineThisCalendarWeek(
                         m,
                         prefs[m.reference.id],
@@ -769,172 +716,112 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                       }
                     }
 
-                    final quickFilterStale = _meetQuickFilter ==
-                            _MeetQuickFilter.deadlineThisWeek &&
-                        deadlineWeekCount == 0;
-                    if (quickFilterStale) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          setState(
-                              () => _meetQuickFilter = _MeetQuickFilter.none);
-                        }
-                      });
+                    Iterable<MonitoredMeetsRecord> actionScoped = needsAction;
+                    if (_meetQuickFilter == _MeetQuickFilter.deadlineThisWeek) {
+                      actionScoped = needsAction.where((m) =>
+                          MeetListQuickFilter.entryDeadlineThisCalendarWeek(
+                            m,
+                            prefs[m.reference.id],
+                          ));
                     }
+                    final needsActionScoped = actionScoped.toList();
 
-                    Iterable<MonitoredMeetsRecord> afterQuick = afterTune;
-                    if (_meetQuickFilter ==
-                        _MeetQuickFilter.deadlineThisWeek) {
-                      afterQuick = afterTune.where(
-                        (m) =>
-                            MeetListQuickFilter.entryDeadlineThisCalendarWeek(
-                          m,
-                          prefs[m.reference.id],
+                    if (myMeets.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Text(
+                            'No meets in My Meets yet.\nUse All Meets to browse and follow meets.',
+                            textAlign: TextAlign.center,
+                            style: FlutterFlowTheme.of(context).bodyMedium,
+                          ),
                         ),
                       );
                     }
-                    final list = _applyNotGoingVisibilityAndChips(
-                      afterQuick.toList(),
-                      prefs,
-                      app,
-                    );
 
-                    if (afterTune.isEmpty) {
-                      return KeyedSubtree(
-                        key: const ValueKey<String>('meets_empty'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildMeetSegmentChipsAndDivider(context, app),
-                            Expanded(
-                              child: Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24.0),
-                                  child: Text(
-                                    'No meets match your filters.',
-                                    textAlign: TextAlign.center,
-                                    style:
-                                        FlutterFlowTheme.of(context).bodyMedium,
-                                  ),
-                                ),
-                              ),
+                    return ListView(
+                      padding: const EdgeInsets.fromLTRB(0.0, 6.0, 0.0, 24.0),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20.0, 4.0, 20.0, 0.0),
+                          child: Text(
+                            '${needsAction.length} need action'
+                            '${deadlineWeekCount > 0 ? '  •  $deadlineWeekCount deadline this week' : ''}',
+                            style: GoogleFonts.sora(
+                              fontSize: 12.0,
+                              fontWeight: FontWeight.w500,
+                              color: _bannerMuted,
                             ),
-                          ],
+                          ),
                         ),
-                      );
-                    }
-                    if (list.isEmpty) {
-                      return KeyedSubtree(
-                        key: const ValueKey<String>('meets_quick_empty'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildMeetSegmentChipsAndDivider(context, app),
-                            if (deadlineWeekCount > 0) ...[
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  40.0,
-                                  0.0,
-                                  40.0,
-                                  0.0,
-                                ),
-                                child: _buildMeetQuickFilterPill(
-                                  label:
-                                      '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
-                                  icon: Icons.event_busy_rounded,
-                                  selected: _meetQuickFilter ==
-                                      _MeetQuickFilter.deadlineThisWeek,
-                                  backgroundColor: _quickFilterDeadlineBg,
-                                  borderColor: _quickFilterDeadlineBorder,
-                                  foregroundColor: Colors.white,
-                                  onTap: () => setState(() {
-                                    _meetQuickFilter = _meetQuickFilter ==
-                                            _MeetQuickFilter.deadlineThisWeek
+                        if (deadlineWeekCount > 0) ...[
+                          const SizedBox(height: 8.0),
+                          Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 0.0),
+                            child: _buildMeetQuickFilterPill(
+                              label:
+                                  '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
+                              icon: Icons.event_busy_rounded,
+                              selected:
+                                  _meetQuickFilter == _MeetQuickFilter.deadlineThisWeek,
+                              backgroundColor: _quickFilterDeadlineBg,
+                              borderColor: _quickFilterDeadlineBorder,
+                              foregroundColor: Colors.white,
+                              onTap: () => setState(() {
+                                _meetQuickFilter =
+                                    _meetQuickFilter == _MeetQuickFilter.deadlineThisWeek
                                         ? _MeetQuickFilter.none
                                         : _MeetQuickFilter.deadlineThisWeek;
-                                  }),
-                                ),
-                              ),
-                              const SizedBox(height: 8.0),
-                            ],
-                            Expanded(
-                              child: Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24.0),
-                                  child: Text(
-                                    'No meets match your filters.',
-                                    textAlign: TextAlign.center,
-                                    style:
-                                        FlutterFlowTheme.of(context).bodyMedium,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    return KeyedSubtree(
-                      key: ValueKey<String>(
-                        'meets_${app.meetTimeSegment}_${list.length}_${prefs.length}_'
-                        '${_meetQuickFilter.name}_${app.meetListChipFilter}',
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildMeetSegmentChipsAndDivider(context, app),
-                          if (deadlineWeekCount > 0) ...[
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                40.0,
-                                0.0,
-                                40.0,
-                                0.0,
-                              ),
-                              child: _buildMeetQuickFilterPill(
-                                label:
-                                    '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
-                                icon: Icons.event_busy_rounded,
-                                selected: _meetQuickFilter ==
-                                    _MeetQuickFilter.deadlineThisWeek,
-                                backgroundColor: _quickFilterDeadlineBg,
-                                borderColor: _quickFilterDeadlineBorder,
-                                foregroundColor: Colors.white,
-                                onTap: () => setState(() {
-                                  _meetQuickFilter = _meetQuickFilter ==
-                                          _MeetQuickFilter.deadlineThisWeek
-                                      ? _MeetQuickFilter.none
-                                      : _MeetQuickFilter.deadlineThisWeek;
-                                }),
-                              ),
-                            ),
-                            const SizedBox(height: 8.0),
-                          ],
-                          Expanded(
-                            child: ListView.builder(
-                              // Default clip (hardEdge) — Clip.none lets cards paint above
-                              // the header/tabs in the parent [Column].
-                              padding: const EdgeInsets.fromLTRB(
-                                20.0,
-                                12.0,
-                                20.0,
-                                24.0,
-                              ),
-                              itemCount: list.length,
-                              itemBuilder: (context, columnIndex) {
-                                final meet = list[columnIndex];
-                                final pref = prefs[meet.reference.id];
-                                return M02MeetEnteredWidget(
-                                  key: Key(
-                                    'meet_${meet.reference.id}_$columnIndex',
-                                  ),
-                                  meetDoc: meet,
-                                  preference: pref,
-                                );
-                              },
+                              }),
                             ),
                           ),
                         ],
-                      ),
+                        if (needsActionScoped.isNotEmpty) ...[
+                          _buildSectionHeader('NEEDS ACTION'),
+                          ...needsActionScoped.asMap().entries.map((entry) {
+                            final meet = entry.value;
+                            return M02MeetEnteredWidget(
+                              key: Key('my_need_${meet.reference.id}_${entry.key}'),
+                              meetDoc: meet,
+                              preference: prefs[meet.reference.id],
+                            );
+                          }),
+                        ],
+                        if (entered.isNotEmpty) ...[
+                          _buildSectionHeader('ALREADY ENTERED'),
+                          ...entered.asMap().entries.map((entry) {
+                            final meet = entry.value;
+                            return M02MeetEnteredWidget(
+                              key: Key('my_entered_${meet.reference.id}_${entry.key}'),
+                              meetDoc: meet,
+                              preference: prefs[meet.reference.id],
+                            );
+                          }),
+                        ],
+                        if (skipped.isNotEmpty) ...[
+                          _buildSectionHeader('SKIPPED / NOT ATTENDING'),
+                          ...skipped.asMap().entries.map((entry) {
+                            final meet = entry.value;
+                            return M02MeetEnteredWidget(
+                              key: Key('my_skip_${meet.reference.id}_${entry.key}'),
+                              meetDoc: meet,
+                              preference: prefs[meet.reference.id],
+                            );
+                          }),
+                        ],
+                        if (other.isNotEmpty) ...[
+                          _buildSectionHeader('OTHER MY MEETS'),
+                          ...other.asMap().entries.map((entry) {
+                            final meet = entry.value;
+                            return M02MeetEnteredWidget(
+                              key: Key('my_other_${meet.reference.id}_${entry.key}'),
+                              meetDoc: meet,
+                              preference: prefs[meet.reference.id],
+                            );
+                          }),
+                        ],
+                      ],
                     );
                   },
                 );
@@ -961,18 +848,18 @@ class _MeetRefineSheetContent extends StatelessWidget {
 
   final _MeetClassToggle onMeetClassToggle;
 
-  static const Color _refineBlue = Color(0xFF4A86E8);
+  static const Color _refineBlue = Color(0xFF3B82F6);
   static const Color _refineTitle = Color(0xFF0F172A);
   static const Color _refineMuted = Color(0xFF64748B);
   static const Color _chipBorder = Color(0xFFE2E8F0);
 
   Widget _sectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0, top: 4.0),
+      padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
       child: Text(
         text,
         style: GoogleFonts.sora(
-          fontSize: 13.0,
+          fontSize: 12.0,
           fontWeight: FontWeight.w600,
           color: _refineMuted,
           letterSpacing: 0.2,
@@ -989,7 +876,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        padding: const EdgeInsets.symmetric(vertical: 10.0),
         child: Row(
           children: [
             Icon(
@@ -1002,7 +889,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
               child: Text(
                 label,
                 style: GoogleFonts.sora(
-                  fontSize: 15.0,
+                  fontSize: 14.0,
                   fontWeight: FontWeight.w500,
                   color: _refineTitle,
                 ),
@@ -1030,7 +917,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
           borderRadius: BorderRadius.circular(999.0),
           child: Container(
             padding:
-                const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 7.0),
             decoration: BoxDecoration(
               color: selected ? _refineBlue : Colors.white,
               borderRadius: BorderRadius.circular(999.0),
@@ -1042,7 +929,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
             child: Text(
               label,
               style: GoogleFonts.sora(
-                fontSize: 13.0,
+                fontSize: 12.0,
                 fontWeight: FontWeight.w600,
                 color: selected ? Colors.white : _refineTitle,
               ),
@@ -1070,7 +957,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20.0,
-        8.0,
+        10.0,
         20.0,
         MediaQuery.paddingOf(context).bottom + 16.0,
       ),
@@ -1078,6 +965,17 @@ class _MeetRefineSheetContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Align(
+              child: Container(
+                width: 42.0,
+                height: 4.0,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD6DEE8),
+                  borderRadius: BorderRadius.circular(999.0),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10.0),
             SizedBox(
               height: 44.0,
               child: Stack(
@@ -1098,7 +996,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                   Text(
                     'Refine',
                     style: GoogleFonts.sora(
-                      fontSize: 18.0,
+                      fontSize: 17.0,
                       fontWeight: FontWeight.w700,
                       color: _refineTitle,
                     ),
@@ -1124,7 +1022,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                       child: Text(
                         'Reset',
                         style: GoogleFonts.sora(
-                          fontSize: 15.0,
+                          fontSize: 14.0,
                           fontWeight: FontWeight.w600,
                           color: _refineBlue,
                         ),
@@ -1182,7 +1080,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                 ),
               ),
             ]),
-            const SizedBox(height: 8.0),
+            const SizedBox(height: 6.0),
             Divider(height: 24.0, thickness: 1.0, color: line),
             Theme(
               data: Theme.of(context).copyWith(
@@ -1195,7 +1093,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                 title: Text(
                   'Status',
                   style: GoogleFonts.sora(
-                    fontSize: 13.0,
+                    fontSize: 12.0,
                     fontWeight: FontWeight.w600,
                     color: _refineMuted,
                   ),
@@ -1260,7 +1158,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
               title: Text(
                 'Hide Not Going Meets',
                 style: GoogleFonts.sora(
-                  fontSize: 15.0,
+                  fontSize: 14.0,
                   fontWeight: FontWeight.w500,
                   color: _refineTitle,
                 ),
@@ -1276,14 +1174,14 @@ class _MeetRefineSheetContent extends StatelessWidget {
               activeColor: _refineBlue,
               controlAffinity: ListTileControlAffinity.leading,
             ),
-            const SizedBox(height: 24.0),
+            const SizedBox(height: 18.0),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: _refineBlue,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  padding: const EdgeInsets.symmetric(vertical: 14.0),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.0),
                   ),
@@ -1293,7 +1191,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                 child: Text(
                   'View Results',
                   style: GoogleFonts.sora(
-                    fontSize: 16.0,
+                    fontSize: 15.0,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

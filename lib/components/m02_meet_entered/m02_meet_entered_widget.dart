@@ -47,7 +47,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _slateTitle = Color(0xFF1E293B);
   static const Color _slateSecondary = Color(0xFF64748B);
   static const Color _electricBlue = Color(0xFF007AFF);
-  static const Color _cardBorder = Color(0xFFE2E8F0);
+  static const Color _cardBorder = Color(0xFFE7EDF5);
   static const Color _verifiedGreen = Color(0xFF15803D);
 
   /// “Following” / interested (header heart), distinct from entered green.
@@ -57,17 +57,17 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _watchingAmber = Color(0xFFF59E0B);
 
   /// “Need decision” / no saved choice yet — light yellow stripe so it’s easy to spot.
-  static const Color _untouchedStripe = Color(0xFFFDE047);
+  static const Color _untouchedStripe = Color(0xFFFACC15);
 
   /// Skipped — muted slate (no longer “action needed” like yellow/orange).
   static const Color _skippedFill = Color(0xFFE2E8F0);
   static const Color _skippedIcon = Color(0xFF64748B);
-  static const Color _skippedStripe = Color(0xFF94A3B8);
+  static const Color _skippedStripe = Color(0xFF9AAEC2);
 
   /// Pending entries / planning — orange family (complete sign-up or entries).
   static const Color _pendingEntriesFill = Color(0xFFFFEDD5);
   static const Color _pendingEntriesIcon = Color(0xFFEA580C);
-  static const Color _pendingEntriesStripe = Color(0xFFFB923C);
+  static const Color _pendingEntriesStripe = Color(0xFFF59E0B);
   static const Color _parentNoteBg = Color(0xFFF8FAFC);
   static const Color _parentNoteDashBorder = Color(0xFFCBD5E1);
   static const Color _softRedGlow = Color(0xFFFECACA);
@@ -1112,16 +1112,16 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     }
     // Top inset for corner disk + tag row (negative [PositionedDirectional.top]).
     final fullCard = Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(20.0, 16.0, 20.0, 30.0),
+      padding: const EdgeInsetsDirectional.fromSTEB(20.0, 14.0, 20.0, 22.0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(_meetCardCornerRadius),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 12.0,
-              offset: const Offset(0.0, 4.0),
+              color: Colors.black.withValues(alpha: 0.035),
+              blurRadius: 10.0,
+              offset: const Offset(0.0, 3.0),
             ),
           ],
         ),
@@ -1136,7 +1136,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                   color: Colors.white,
                   child: Padding(
                     padding: const EdgeInsetsDirectional.fromSTEB(
-                        innerHPad, 12.0, innerHPad, 16.0),
+                        innerHPad, 11.0, innerHPad, 14.0),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1150,7 +1150,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.sora(
-                              fontSize: 16.0,
+                              fontSize: 15.0,
                               fontWeight: FontWeight.w700,
                               height: 1.25,
                               letterSpacing: 0.0,
@@ -1159,7 +1159,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.only(top: 6.0, bottom: 4.0),
+                          padding: const EdgeInsets.only(top: 5.0, bottom: 3.0),
                           child: _buildLogisticsSection(context, doc, entered),
                         ),
                         Divider(
@@ -1399,7 +1399,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     return _untouchedStripe;
   }
 
-  static const double _meetCardCornerRadius = 12.0;
+  static const double _meetCardCornerRadius = 14.0;
 
   /// Paints a uniform frame under badges/tags so the pill hides the stroke (no line through label).
   Widget _buildMeetCardFramePaintOverlay(Color accent) {
@@ -1520,7 +1520,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   }
 
   /// Floating disks on the card vertex; does not consume in-card layout height.
-  static const double _cornerStateBadgeSize = 28.0;
+  static const double _cornerStateBadgeSize = 24.0;
 
   double _cornerGlyphSize(double diameter, double atFullSize) {
     return atFullSize * diameter / _cornerStateBadgeSize;
@@ -1605,9 +1605,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required Color accent,
     required bool compact,
   }) {
-    final padH = compact ? 6.0 : 8.0;
-    final padV = compact ? 3.0 : 4.0;
-    final fontSize = compact ? 9.0 : 10.5;
+    final padH = compact ? 6.0 : 7.0;
+    final padV = compact ? 2.5 : 3.5;
+    final fontSize = compact ? 8.5 : 9.5;
     final fill = _opaqueMeetTagFill(accent, compact: compact);
     final stroke = _opaqueMeetTagBorder(accent);
     return DecoratedBox(
@@ -1620,9 +1620,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
-            blurRadius: 5.0,
-            offset: const Offset(0.0, 1.5),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 3.0,
+            offset: const Offset(0.0, 1.0),
           ),
         ],
       ),
@@ -1634,8 +1634,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           overflow: TextOverflow.ellipsis,
           style: GoogleFonts.sora(
             fontSize: fontSize,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
             height: 1.0,
             color: _slateTitle,
           ),
@@ -2674,8 +2674,8 @@ class _MeetCardFramePainter extends CustomPainter {
 
   final Color accent;
 
-  static const double _radius = 12.0;
-  static const double _stroke = 1.75;
+  static const double _radius = 14.0;
+  static const double _stroke = 1.0;
   static const Color _frameBlendBase = Color(0xFFE2E8F0);
 
   @override
@@ -2684,7 +2684,7 @@ class _MeetCardFramePainter extends CustomPainter {
     final outer = RRect.fromRectAndRadius(rect, const Radius.circular(_radius));
     canvas.clipRRect(outer);
 
-    final strokeColor = Color.lerp(accent, _frameBlendBase, 0.38)!;
+    final strokeColor = Color.lerp(accent, _frameBlendBase, 0.72)!;
     final inset = _stroke / 2;
     final inner = RRect.fromRectAndRadius(
       rect.deflate(inset),
