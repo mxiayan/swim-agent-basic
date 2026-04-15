@@ -64,7 +64,7 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
         currentUserUid,
         meetId,
         isHidden: true,
-        status: MeetPreferenceStatus.skipped,
+        status: MeetPreferenceStatus.notGoing,
         skipSelected: true,
       );
     } catch (_) {}

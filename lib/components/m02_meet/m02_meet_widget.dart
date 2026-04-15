@@ -114,12 +114,14 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     if (pref.status == MeetPreferenceStatus.entered) {
       return true;
     }
+    if (pref.status == MeetPreferenceStatus.newStatus) {
+      return true;
+    }
     if (MeetListQuickFilter.isNotGoingCategory(pref)) {
       return true;
     }
     return MeetListQuickFilter.meetNeedsAction(m, pref) ||
-        pref.status == MeetPreferenceStatus.interested ||
-        pref.status == MeetPreferenceStatus.planning;
+        pref.status == MeetPreferenceStatus.needEntry;
   }
 
   int _myMeetUrgencyRank(
@@ -129,13 +131,16 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     if (MeetListQuickFilter.meetNeedsAction(m, pref)) {
       return 0;
     }
-    if (pref?.status == MeetPreferenceStatus.entered) {
+    if (pref?.status == MeetPreferenceStatus.newStatus) {
       return 1;
     }
-    if (MeetListQuickFilter.isNotGoingCategory(pref)) {
+    if (pref?.status == MeetPreferenceStatus.entered) {
       return 2;
     }
-    return 3;
+    if (MeetListQuickFilter.isNotGoingCategory(pref)) {
+      return 3;
+    }
+    return 4;
   }
 
   DateTime _sortDate(MonitoredMeetsRecord m) =>
@@ -166,18 +171,15 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     }
     final pref = prefs[m.reference.id];
     final hasPreference = pref != null;
-    final status = pref?.status ?? MeetPreferenceStatus.skipped;
-    final skipSelected = pref?.skipSelected ?? false;
+    final status = pref?.status ?? MeetPreferenceStatus.newStatus;
     final hasAlert = pref?.hasAlert ?? false;
 
-    final pendingEntries = hasPreference &&
-        (status == MeetPreferenceStatus.planning ||
-            (status == MeetPreferenceStatus.interested && !hasAlert));
+    final pendingEntries =
+        hasPreference && status == MeetPreferenceStatus.needEntry;
     final entered = hasPreference && status == MeetPreferenceStatus.entered;
-    final notGoing =
-        hasPreference && skipSelected && status == MeetPreferenceStatus.skipped;
+    final notGoing = hasPreference && status == MeetPreferenceStatus.notGoing;
     final remindMe =
-        hasPreference && status == MeetPreferenceStatus.interested && hasAlert;
+        hasPreference && status == MeetPreferenceStatus.needEntry && hasAlert;
 
     if (app.meetFilterPendingEntries && pendingEntries) {
       return true;
@@ -699,11 +701,17 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                               prefs[m.reference.id],
                             ))
                         .toList();
+                    final newToReview = myMeets
+                        .where((m) =>
+                            prefs[m.reference.id]?.status ==
+                            MeetPreferenceStatus.newStatus)
+                        .toList();
                     final other = myMeets
                         .where((m) =>
                             !needsAction.contains(m) &&
                             !entered.contains(m) &&
-                            !skipped.contains(m))
+                            !skipped.contains(m) &&
+                            !newToReview.contains(m))
                         .toList();
 
                     var deadlineWeekCount = 0;
@@ -776,6 +784,17 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                               }),
                             ),
                           ),
+                        ],
+                        if (newToReview.isNotEmpty) ...[
+                          _buildSectionHeader('NEW TO REVIEW'),
+                          ...newToReview.asMap().entries.map((entry) {
+                            final meet = entry.value;
+                            return M02MeetEnteredWidget(
+                              key: Key('my_new_${meet.reference.id}_${entry.key}'),
+                              meetDoc: meet,
+                              preference: prefs[meet.reference.id],
+                            );
+                          }),
                         ],
                         if (needsActionScoped.isNotEmpty) ...[
                           _buildSectionHeader('NEEDS ACTION'),

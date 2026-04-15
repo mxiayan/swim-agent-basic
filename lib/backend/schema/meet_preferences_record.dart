@@ -4,27 +4,100 @@ import '/backend/schema/util/firestore_util.dart';
 
 /// Stored under `users/{uid}/meet_preferences/{meetId}`.
 enum MeetPreferenceStatus {
-  interested,
-  planning,
+  newStatus,
+  needEntry,
   entered,
-  skipped,
+  notGoing,
 }
 
-MeetPreferenceStatus meetPreferenceStatusFromString(String? raw) {
-  switch ((raw ?? '').trim().toLowerCase()) {
-    case 'interested':
-      return MeetPreferenceStatus.interested;
-    case 'planning':
-      return MeetPreferenceStatus.planning;
+/// Centralized normalization for all Firestore status reads.
+String normalizeMeetStatus(String? rawValue) {
+  final raw = (rawValue ?? '').trim().toLowerCase();
+  switch (raw) {
     case 'entered':
-      return MeetPreferenceStatus.entered;
+    case 'submitted':
+    case 'confirmed':
+    case 'going':
+      return 'entered';
+    case 'need_entry':
+    case 'pending':
+    case 'pending_entry':
+    case 'need action':
+    case 'to_enter':
+    case 'planning':
+    case 'interested':
+      return 'need_entry';
+    case 'not_going':
+    case 'not_attending':
     case 'skipped':
+    case 'declined':
+      return 'not_going';
+    case 'new':
+    case 'unknown':
+    case '':
     default:
-      return MeetPreferenceStatus.skipped;
+      return 'new';
   }
 }
 
-String meetPreferenceStatusToFirestore(MeetPreferenceStatus s) => s.name;
+MeetPreferenceStatus meetPreferenceStatusFromString(String? rawValue) {
+  switch (normalizeMeetStatus(rawValue)) {
+    case 'need_entry':
+      return MeetPreferenceStatus.needEntry;
+    case 'entered':
+      return MeetPreferenceStatus.entered;
+    case 'not_going':
+      return MeetPreferenceStatus.notGoing;
+    case 'new':
+    default:
+      return MeetPreferenceStatus.newStatus;
+  }
+}
+
+String meetPreferenceStatusToFirestore(MeetPreferenceStatus status) {
+  switch (status) {
+    case MeetPreferenceStatus.newStatus:
+      return 'new';
+    case MeetPreferenceStatus.needEntry:
+      return 'need_entry';
+    case MeetPreferenceStatus.entered:
+      return 'entered';
+    case MeetPreferenceStatus.notGoing:
+      return 'not_going';
+  }
+}
+
+String meetStatusLabel(MeetPreferenceStatus status) {
+  switch (status) {
+    case MeetPreferenceStatus.newStatus:
+      return 'New';
+    case MeetPreferenceStatus.needEntry:
+      return 'Need Entry';
+    case MeetPreferenceStatus.entered:
+      return 'Entered';
+    case MeetPreferenceStatus.notGoing:
+      return 'Not Going';
+  }
+}
+
+int meetStatusSortPriority(MeetPreferenceStatus status) {
+  switch (status) {
+    case MeetPreferenceStatus.needEntry:
+      return 0;
+    case MeetPreferenceStatus.newStatus:
+      return 1;
+    case MeetPreferenceStatus.entered:
+      return 2;
+    case MeetPreferenceStatus.notGoing:
+      return 3;
+  }
+}
+
+bool isMyMeetStatus(MeetPreferenceStatus status) {
+  return status == MeetPreferenceStatus.needEntry ||
+      status == MeetPreferenceStatus.entered ||
+      status == MeetPreferenceStatus.notGoing;
+}
 
 class MeetPreferencesRecord {
   MeetPreferencesRecord({
@@ -66,12 +139,17 @@ class MeetPreferencesRecord {
     bool? isHidden,
     bool? skipSelected,
     String? notes,
+    String? statusUpdatedBy,
   }) {
     final m = <String, dynamic>{
       'updated_time': FieldValue.serverTimestamp(),
     };
     if (status != null) {
       m['status'] = meetPreferenceStatusToFirestore(status);
+      m['statusUpdatedAt'] = FieldValue.serverTimestamp();
+      if ((statusUpdatedBy ?? '').trim().isNotEmpty) {
+        m['statusUpdatedBy'] = statusUpdatedBy!.trim();
+      }
     }
     if (hasAlert != null) {
       m['has_alert'] = hasAlert;

@@ -50,27 +50,27 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _cardBorder = Color(0xFFE7EDF5);
   static const Color _verifiedGreen = Color(0xFF15803D);
 
-  /// “Following” / interested (header heart), distinct from entered green.
-  static const Color _followingHeart = Color(0xFFE11D48);
-
   /// Interested + reminders on (sign-up / alerts).
   static const Color _watchingAmber = Color(0xFFF59E0B);
-
-  /// “Need decision” / no saved choice yet — light yellow stripe so it’s easy to spot.
-  static const Color _untouchedStripe = Color(0xFFFACC15);
 
   /// Skipped — muted slate (no longer “action needed” like yellow/orange).
   static const Color _skippedFill = Color(0xFFE2E8F0);
   static const Color _skippedIcon = Color(0xFF64748B);
-  static const Color _skippedStripe = Color(0xFF9AAEC2);
 
   /// Pending entries / planning — orange family (complete sign-up or entries).
   static const Color _pendingEntriesFill = Color(0xFFFFEDD5);
   static const Color _pendingEntriesIcon = Color(0xFFEA580C);
-  static const Color _pendingEntriesStripe = Color(0xFFF59E0B);
   static const Color _parentNoteBg = Color(0xFFF8FAFC);
   static const Color _parentNoteDashBorder = Color(0xFFCBD5E1);
   static const Color _softRedGlow = Color(0xFFFECACA);
+  static const Color _badgeNewBg = Color(0xFFEAF3FF);
+  static const Color _badgeNewText = Color(0xFF2F6FED);
+  static const Color _badgeNeedEntryBg = Color(0xFFFFF4E5);
+  static const Color _badgeNeedEntryText = Color(0xFFC97A12);
+  static const Color _badgeEnteredBg = Color(0xFFEAF8EE);
+  static const Color _badgeEnteredText = Color(0xFF2E8B57);
+  static const Color _badgeNotGoingBg = Color(0xFFF1F3F5);
+  static const Color _badgeNotGoingText = Color(0xFF6B7280);
 
   /// Aligns calendar / clock / pin / sheet icons across logistics rows.
   static const double _logisticsIconColWidth = 22.0;
@@ -710,7 +710,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
     final pendingEntries =
         _meetCardIsPendingEntriesLane(status: status, hasAlert: hasAlert);
-    final remindMe = status == MeetPreferenceStatus.interested && hasAlert;
+    final remindMe = status == MeetPreferenceStatus.needEntry && hasAlert;
     return needDecision || pendingEntries || remindMe;
   }
 
@@ -788,7 +788,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   Future<void> _applySwipeSkipWithUndo(
       MeetPreferencesRecord? previousPref) async {
     final ok = await _mergePref(
-      status: MeetPreferenceStatus.skipped,
+      status: MeetPreferenceStatus.notGoing,
       hasAlert: false,
       skipSelected: true,
       isHidden: true,
@@ -948,12 +948,19 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
 
     if (hidden) {
       final theme = FlutterFlowTheme.of(context);
-      final hStatus = pref?.status ?? MeetPreferenceStatus.skipped;
+      final hStatus = pref?.status ?? MeetPreferenceStatus.newStatus;
       final hHasAlert = pref?.hasAlert ?? false;
       final hEntered = hStatus == MeetPreferenceStatus.entered;
       final hHasPreference = pref != null;
       final hSkipSelected = pref?.skipSelected ?? false;
       final hAccent = _meetCardStatusAccentColor(
+        hasPreference: hHasPreference,
+        status: hStatus,
+        entered: hEntered,
+        hasAlert: hHasAlert,
+        skipSelected: hSkipSelected,
+      );
+      final hBadgeStatus = _canonicalBadgeStatus(
         hasPreference: hHasPreference,
         status: hStatus,
         entered: hEntered,
@@ -1033,7 +1040,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               child: _buildMeetStatusTagPill(
                 context,
                 label: hTagLabel,
-                accent: hAccent,
+                status: hBadgeStatus,
                 compact: true,
               ),
             ),
@@ -1052,20 +1059,19 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
 
     const innerHPad = 20.0;
     final hasPreference = pref != null;
-    final status = pref?.status ?? MeetPreferenceStatus.skipped;
+    final status = pref?.status ?? MeetPreferenceStatus.newStatus;
     final hasAlert = pref?.hasAlert ?? false;
     final entered = status == MeetPreferenceStatus.entered;
     final skipSelected = pref?.skipSelected ?? false;
-    final wantsToEnter = entered ||
-        status == MeetPreferenceStatus.planning ||
-        status == MeetPreferenceStatus.interested;
+    final wantsToEnter =
+        entered || status == MeetPreferenceStatus.needEntry;
     final pendingEntriesLane = _meetCardIsPendingEntriesLane(
       status: status,
       hasAlert: hasAlert,
     );
     final isExplicitNotGoing =
-        hasPreference && skipSelected && status == MeetPreferenceStatus.skipped;
-    final remindMeLane = status == MeetPreferenceStatus.interested && hasAlert;
+        hasPreference && status == MeetPreferenceStatus.notGoing;
+    final remindMeLane = status == MeetPreferenceStatus.needEntry && hasAlert;
     final suppressDisabledSignupButton = pendingEntriesLane || remindMeLane;
     final meetUndecided = _meetCardIsUndecided(
       hasPreference: hasPreference,
@@ -1078,7 +1084,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         !meetUndecided &&
         !isExplicitNotGoing;
     final showNotInterestedHeaderIcon = !entered &&
-        !(status == MeetPreferenceStatus.skipped && skipSelected) &&
+        status != MeetPreferenceStatus.notGoing &&
         !_meetCardIsUndecided(
           hasPreference: hasPreference,
           status: status,
@@ -1375,28 +1381,62 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required bool hasAlert,
     required bool skipSelected,
   }) {
+    final canonical = _canonicalBadgeStatus(
+      hasPreference: hasPreference,
+      status: status,
+      entered: entered,
+      hasAlert: hasAlert,
+      skipSelected: skipSelected,
+    );
+    return _badgeTextColor(canonical);
+  }
+
+  MeetPreferenceStatus _canonicalBadgeStatus({
+    required bool hasPreference,
+    required MeetPreferenceStatus status,
+    required bool entered,
+    required bool hasAlert,
+    required bool skipSelected,
+  }) {
     if (!hasPreference) {
-      return _untouchedStripe;
+      return MeetPreferenceStatus.newStatus;
     }
-    if (entered) {
-      return _verifiedGreen;
+    if (entered || status == MeetPreferenceStatus.entered) {
+      return MeetPreferenceStatus.entered;
     }
-    if (status == MeetPreferenceStatus.interested && hasAlert) {
-      return _watchingAmber;
+    if (status == MeetPreferenceStatus.notGoing || skipSelected) {
+      return MeetPreferenceStatus.notGoing;
     }
-    if (status == MeetPreferenceStatus.planning ||
-        (status == MeetPreferenceStatus.interested && !hasAlert)) {
-      return _pendingEntriesStripe;
+    if (status == MeetPreferenceStatus.needEntry) {
+      return MeetPreferenceStatus.needEntry;
     }
-    if (status == MeetPreferenceStatus.interested) {
-      return _followingHeart;
+    return MeetPreferenceStatus.newStatus;
+  }
+
+  Color _badgeBackgroundColor(MeetPreferenceStatus status) {
+    switch (status) {
+      case MeetPreferenceStatus.newStatus:
+        return _badgeNewBg;
+      case MeetPreferenceStatus.needEntry:
+        return _badgeNeedEntryBg;
+      case MeetPreferenceStatus.entered:
+        return _badgeEnteredBg;
+      case MeetPreferenceStatus.notGoing:
+        return _badgeNotGoingBg;
     }
-    if (skipSelected &&
-        status == MeetPreferenceStatus.skipped &&
-        hasPreference) {
-      return _skippedStripe;
+  }
+
+  Color _badgeTextColor(MeetPreferenceStatus status) {
+    switch (status) {
+      case MeetPreferenceStatus.newStatus:
+        return _badgeNewText;
+      case MeetPreferenceStatus.needEntry:
+        return _badgeNeedEntryText;
+      case MeetPreferenceStatus.entered:
+        return _badgeEnteredText;
+      case MeetPreferenceStatus.notGoing:
+        return _badgeNotGoingText;
     }
-    return _untouchedStripe;
   }
 
   static const double _meetCardCornerRadius = 14.0;
@@ -1450,16 +1490,15 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     if (!hasPreference) {
       return true;
     }
-    return status == MeetPreferenceStatus.skipped && !skipSelected;
+    return status == MeetPreferenceStatus.newStatus;
   }
 
-  /// Same cases as the “Pending entries” tag (planning / interested without alerts yet).
+  /// Same cases as the “Need Entry” tag.
   bool _meetCardIsPendingEntriesLane({
     required MeetPreferenceStatus status,
     required bool hasAlert,
   }) {
-    return status == MeetPreferenceStatus.planning ||
-        (status == MeetPreferenceStatus.interested && !hasAlert);
+    return status == MeetPreferenceStatus.needEntry;
   }
 
   /// Header actions in the [Stack] so they do not reserve a full-width row above the title.
@@ -1479,7 +1518,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!entered &&
-                !(status == MeetPreferenceStatus.skipped && skipSelected) &&
+                status != MeetPreferenceStatus.notGoing &&
                 !_meetCardIsUndecided(
                   hasPreference: hasPreference,
                   status: status,
@@ -1495,7 +1534,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                     'Not interested — stop reminders and following for this meet',
                 onTap: () async {
                   await _mergePref(
-                    status: MeetPreferenceStatus.skipped,
+                    status: MeetPreferenceStatus.notGoing,
                     hasAlert: false,
                     skipSelected: true,
                   );
@@ -1539,19 +1578,13 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     if (entered) {
       return _buildCornerEnteredBadge(context, diameter: diameter);
     }
-    if (status == MeetPreferenceStatus.interested && hasAlert) {
+    if (status == MeetPreferenceStatus.needEntry && hasAlert) {
       return _buildCornerInterestedRemindersBadge(context, diameter: diameter);
     }
-    if (status == MeetPreferenceStatus.planning ||
-        (status == MeetPreferenceStatus.interested && !hasAlert)) {
+    if (status == MeetPreferenceStatus.needEntry) {
       return _buildCornerPlanningBadge(context, diameter: diameter);
     }
-    if (status == MeetPreferenceStatus.interested) {
-      return _buildCornerInterestedBadge(context, diameter: diameter);
-    }
-    if (skipSelected &&
-        status == MeetPreferenceStatus.skipped &&
-        hasPreference) {
+    if (status == MeetPreferenceStatus.notGoing) {
       return _buildCornerSkippedBadge(context, diameter: diameter);
     }
     return null;
@@ -1565,66 +1598,39 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required bool skipSelected,
   }) {
     if (!hasPreference) {
-      return 'Need Decision';
+      return 'New';
     }
     if (entered) {
       return 'Entered';
     }
-    if (status == MeetPreferenceStatus.interested && hasAlert) {
+    if (status == MeetPreferenceStatus.needEntry && hasAlert) {
       return 'Remind me';
     }
-    if (status == MeetPreferenceStatus.planning ||
-        (status == MeetPreferenceStatus.interested && !hasAlert)) {
-      return 'Pending entries';
+    if (status == MeetPreferenceStatus.needEntry) {
+      return 'Need Entry';
     }
-    if (skipSelected &&
-        status == MeetPreferenceStatus.skipped &&
-        hasPreference) {
+    if (status == MeetPreferenceStatus.notGoing) {
       return 'Not Going';
     }
-    return 'Need Decision';
-  }
-
-  /// Solid (opaque) fill so the tag never shows the card edge through it.
-  Color _opaqueMeetTagFill(Color accent, {required bool compact}) {
-    return Color.lerp(
-      Colors.white,
-      accent,
-      compact ? 0.30 : 0.36,
-    )!;
-  }
-
-  Color _opaqueMeetTagBorder(Color accent) {
-    return Color.lerp(accent, _slateTitle, 0.42)!;
+    return 'New';
   }
 
   /// Small pill beside the corner disk; sits in the card [Stack] (outside [ClipRRect]).
   Widget _buildMeetStatusTagPill(
     BuildContext context, {
     required String label,
-    required Color accent,
+    required MeetPreferenceStatus status,
     required bool compact,
   }) {
-    final padH = compact ? 6.0 : 7.0;
-    final padV = compact ? 2.5 : 3.5;
-    final fontSize = compact ? 8.5 : 9.5;
-    final fill = _opaqueMeetTagFill(accent, compact: compact);
-    final stroke = _opaqueMeetTagBorder(accent);
+    final padH = compact ? 7.0 : 8.0;
+    final padV = compact ? 3.0 : 4.0;
+    final fontSize = compact ? 9.0 : 10.0;
+    final fill = _badgeBackgroundColor(status);
+    final textColor = _badgeTextColor(status);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(999.0),
-        border: Border.all(
-          color: stroke,
-          width: 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 3.0,
-            offset: const Offset(0.0, 1.0),
-          ),
-        ],
       ),
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
@@ -1634,10 +1640,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           overflow: TextOverflow.ellipsis,
           style: GoogleFonts.sora(
             fontSize: fontSize,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             letterSpacing: 0.1,
             height: 1.0,
-            color: _slateTitle,
+            color: textColor,
           ),
         ),
       ),
@@ -1661,7 +1667,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       skipSelected: skipSelected,
       diameter: _cornerStateBadgeSize,
     );
-    final accent = _meetCardStatusAccentColor(
+    final badgeStatus = _canonicalBadgeStatus(
       hasPreference: hasPreference,
       status: status,
       entered: entered,
@@ -1692,7 +1698,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             _buildMeetStatusTagPill(
               context,
               label: tagLabel,
-              accent: accent,
+              status: badgeStatus,
               compact: false,
             ),
           ],
@@ -1754,26 +1760,6 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildCornerInterestedBadge(
-    BuildContext context, {
-    double diameter = _cornerStateBadgeSize,
-  }) {
-    final g = _cornerGlyphSize(diameter, 14.0);
-    return Tooltip(
-      message:
-          'Interested — following this meet. Turn on “notify when sign-up opens” for reminders, or use the Meets filter (tune → Interested only) to see all followed meets.',
-      child: _buildCornerStateDisk(
-        diameter: diameter,
-        backgroundColor: _followingHeart,
-        child: Icon(
-          Icons.favorite_rounded,
-          color: Colors.white,
-          size: g,
-        ),
       ),
     );
   }
@@ -1846,12 +1832,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     return 'Verified: $firstName is entered';
   }
 
-  /// “Not going” or remind-me-watching cards: restore [MeetPreferenceStatus.planning]
+  /// “Not going” or remind-me-watching cards: restore [MeetPreferenceStatus.needEntry]
   /// (pending entries) and clear skip / alerts.
   Widget _buildChangeMindButton(BuildContext context) {
     Future<void> onTap() async {
       await _mergePref(
-        status: MeetPreferenceStatus.planning,
+        status: MeetPreferenceStatus.needEntry,
         hasAlert: false,
         skipSelected: false,
         isHidden: false,
@@ -1888,7 +1874,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     const chipRadius = BorderRadius.all(Radius.circular(10.0));
     Future<void> onYes() async {
       await _mergePref(
-        status: MeetPreferenceStatus.planning,
+        status: MeetPreferenceStatus.needEntry,
         hasAlert: false,
         skipSelected: false,
         isHidden: false,
@@ -1900,7 +1886,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
 
     Future<void> onSkip() async {
       await _mergePref(
-        status: MeetPreferenceStatus.skipped,
+        status: MeetPreferenceStatus.notGoing,
         hasAlert: false,
         skipSelected: true,
         isHidden: false,
@@ -2198,11 +2184,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   }) {
     final registrationPending = _meetSignupPendingContext(doc);
     final wantsToEnter = status == MeetPreferenceStatus.entered ||
-        status == MeetPreferenceStatus.planning ||
-        status == MeetPreferenceStatus.interested;
+        status == MeetPreferenceStatus.needEntry;
     final entered = status == MeetPreferenceStatus.entered;
-    final skipped =
-        skipSelected && status == MeetPreferenceStatus.skipped && hasPreference;
+    final skipped = status == MeetPreferenceStatus.notGoing && hasPreference;
     final interestedPick = wantsToEnter
         ? _BinaryChoice.yes
         : (skipped ? _BinaryChoice.no : _BinaryChoice.none);
@@ -2215,7 +2199,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       status: status,
       hasAlert: hasAlert,
     );
-    final remindMeLane = status == MeetPreferenceStatus.interested && hasAlert;
+    final remindMeLane = status == MeetPreferenceStatus.needEntry && hasAlert;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2230,7 +2214,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             selected: interestedPick,
             onNo: () async {
               await _mergePref(
-                status: MeetPreferenceStatus.skipped,
+                status: MeetPreferenceStatus.notGoing,
                 hasAlert: false,
                 skipSelected: true,
                 isHidden: false,
@@ -2241,7 +2225,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             },
             onYes: () async {
               await _mergePref(
-                status: MeetPreferenceStatus.planning,
+                status: MeetPreferenceStatus.needEntry,
                 hasAlert: false,
                 skipSelected: false,
               );
@@ -2282,7 +2266,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                 }
               } else {
                 await _mergePref(
-                  status: MeetPreferenceStatus.planning,
+                  status: MeetPreferenceStatus.needEntry,
                   hasAlert: false,
                 );
                 if (context.mounted) {
@@ -2303,14 +2287,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
-  /// For pending sign-up: `interested` + `has_alert` when the user wants reminders.
+  /// For pending sign-up: `need_entry` + `has_alert` when the user wants reminders.
   Widget _buildNotifyWhenSignUpOpensRow(
     BuildContext context,
     MeetPreferenceStatus status,
     bool hasAlert,
   ) {
     final notifyOn = hasAlert &&
-        (status == MeetPreferenceStatus.interested ||
+        (status == MeetPreferenceStatus.needEntry ||
             status == MeetPreferenceStatus.entered);
     return _buildFollowUpToggleRow(
       context,
@@ -2320,7 +2304,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         if (next) {
           await _mergePref(
             hasAlert: true,
-            status: MeetPreferenceStatus.interested,
+            status: MeetPreferenceStatus.needEntry,
             skipSelected: false,
           );
           if (context.mounted) {
@@ -2343,7 +2327,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         } else {
           await _mergePref(
             hasAlert: false,
-            status: MeetPreferenceStatus.planning,
+            status: MeetPreferenceStatus.needEntry,
             skipSelected: false,
           );
         }
@@ -2355,7 +2339,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     return OutlinedButton(
       onPressed: () async {
         await _mergePref(
-          status: MeetPreferenceStatus.skipped,
+          status: MeetPreferenceStatus.notGoing,
           hasAlert: false,
           skipSelected: true,
           isHidden: false,
@@ -2403,7 +2387,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
 
     Future<void> onNotGoing() async {
       await _mergePref(
-        status: MeetPreferenceStatus.skipped,
+        status: MeetPreferenceStatus.notGoing,
         hasAlert: false,
         skipSelected: true,
         isHidden: false,

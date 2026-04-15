@@ -48,6 +48,7 @@ Future<void> mergeMeetPreference(
           isHidden: isHidden,
           skipSelected: skipSelected,
           notes: notes,
+          statusUpdatedBy: status != null ? authUid : null,
         ),
         SetOptions(merge: true),
       );

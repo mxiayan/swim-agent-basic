@@ -92,7 +92,7 @@ abstract final class MeetListQuickFilter {
     if (pref == null) {
       return false;
     }
-    return pref.skipSelected && pref.status == MeetPreferenceStatus.skipped;
+    return pref.status == MeetPreferenceStatus.notGoing || pref.skipSelected;
   }
 
   /// Same as the tune-menu “Pending entries” bucket.
@@ -101,9 +101,7 @@ abstract final class MeetListQuickFilter {
       return false;
     }
     final status = pref.status;
-    final hasAlert = pref.hasAlert;
-    return status == MeetPreferenceStatus.planning ||
-        (status == MeetPreferenceStatus.interested && !hasAlert);
+    return status == MeetPreferenceStatus.needEntry;
   }
 
   /// Registration still actionable and swimmer is in a pending / planning state.
