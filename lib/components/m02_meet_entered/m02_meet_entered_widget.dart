@@ -591,26 +591,46 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         if (hasSheet) ...[
           SizedBox(width: location.isNotEmpty ? 12.0 : 8.0),
           Material(
-            color: Colors.transparent,
+            color: _electricBlue.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8.0),
             child: InkWell(
-              splashColor: Colors.transparent,
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              highlightColor: Colors.transparent,
+              borderRadius: BorderRadius.circular(8.0),
+              splashColor: _electricBlue.withValues(alpha: 0.18),
+              highlightColor: _electricBlue.withValues(alpha: 0.08),
               onTap: () async {
                 await launchURL(sheetUrl);
               },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.article_outlined,
-                    size: 14.0,
-                    color: _metaIconColor(),
-                  ),
-                  const SizedBox(width: 4.0),
-                  Text('Meet Sheet', style: _metaTextStyle()),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10.0,
+                  vertical: 6.0,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.description_outlined,
+                      size: 15.0,
+                      color: _electricBlue,
+                    ),
+                    const SizedBox(width: 6.0),
+                    Text(
+                      'Meet Sheet',
+                      style: GoogleFonts.sora(
+                        fontSize: 13.0,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                        color: _electricBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 4.0),
+                    Icon(
+                      Icons.open_in_new_rounded,
+                      size: 13.0,
+                      color: _electricBlue,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
