@@ -147,4 +147,18 @@ abstract final class MeetListQuickFilter {
     final deadlineDay = _dayOnly(end);
     return !deadlineDay.isBefore(weekStart) && !deadlineDay.isAfter(weekEndDay);
   }
+
+  /// True when the entry deadline ends within the next 48 hours (still open).
+  static bool entryDeadlineWithin48Hours(MonitoredMeetsRecord m) {
+    final end = entryDeadlineEnd(m);
+    if (end == null) {
+      return false;
+    }
+    final now = DateTime.now();
+    if (!now.isBefore(end)) {
+      return false;
+    }
+    final remaining = end.difference(now);
+    return remaining <= const Duration(hours: 48);
+  }
 }

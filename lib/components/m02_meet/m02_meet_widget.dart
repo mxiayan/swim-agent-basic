@@ -13,8 +13,9 @@ import 'meet_list_quick_filter.dart';
 import 'm02_meet_model.dart';
 export 'm02_meet_model.dart';
 
-enum _MeetQuickFilter { none, deadlineThisWeek }
 enum _MeetPrimaryView { myMeets, allMeets }
+
+enum _MyMeetSectionTone { needsAction, entered, skipped, neutral }
 
 class M02MeetWidget extends StatefulWidget {
   const M02MeetWidget({super.key});
@@ -27,8 +28,9 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   late M02MeetModel _model;
 
   bool _meetBannerReady = false;
-  _MeetQuickFilter _meetQuickFilter = _MeetQuickFilter.none;
   _MeetPrimaryView _primaryView = _MeetPrimaryView.myMeets;
+  /// Skipped / Not Attending section starts collapsed for a calmer default.
+  bool _skippedNotAttendingExpanded = false;
   final TextEditingController _allMeetsSearchController =
       TextEditingController();
 
@@ -226,70 +228,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   static const Color _pageBackground = Color(0xFFF8FAFC);
   static const Color _bannerTitle = Color(0xFF0F172A);
   static const Color _bannerMuted = Color(0xFF64748B);
-  static const Color _quickFilterDeadlineBg = Color(0xFFE11D48);
-  static const Color _quickFilterDeadlineBorder = Color(0xFFBE123C);
-
-  Widget _buildMeetQuickFilterPill({
-    required String label,
-    required IconData icon,
-    required bool selected,
-    required Color backgroundColor,
-    required Color borderColor,
-    required Color foregroundColor,
-    Color? iconColor,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999.0),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(999.0),
-            border: Border.all(
-              color: selected ? _electricBlue : borderColor,
-              width: selected ? 2.0 : 1.0,
-            ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: _electricBlue.withValues(alpha: 0.14),
-                      blurRadius: 8.0,
-                      offset: const Offset(0.0, 2.0),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: iconColor ?? foregroundColor,
-                size: 19.0,
-              ),
-              const SizedBox(width: 8.0),
-              Expanded(
-                child: Text(
-                  label,
-                  style: GoogleFonts.sora(
-                    fontSize: 13.0,
-                    fontWeight: FontWeight.w600,
-                    color: foregroundColor,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildPrimarySegmentedControl() {
     Widget segment({
       required String label,
@@ -462,16 +400,232 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     );
   }
 
-  Widget _buildSectionHeader(String text) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 8.0),
+  Color _myMeetSectionSurface(_MyMeetSectionTone tone) {
+    switch (tone) {
+      case _MyMeetSectionTone.needsAction:
+        return const Color(0xFFFFFAF6);
+      case _MyMeetSectionTone.entered:
+        return const Color(0xFFF2FBF6);
+      case _MyMeetSectionTone.skipped:
+        return const Color(0xFFF1F5F9);
+      case _MyMeetSectionTone.neutral:
+        return Colors.white;
+    }
+  }
+
+  /// One contextual line when a need-action meet has an entry deadline this calendar week.
+  String? _deadlineThisWeekInsightLine(
+    List<MonitoredMeetsRecord> needsAction,
+    Map<String, MeetPreferencesRecord> prefs,
+  ) {
+    for (final m in needsAction) {
+      if (!MeetListQuickFilter.entryDeadlineThisCalendarWeek(
+        m,
+        prefs[m.reference.id],
+      )) {
+        continue;
+      }
+      final d = MeetListQuickFilter.entryDeadline(m);
+      if (d == null) {
+        continue;
+      }
+      final name = m.name.trim();
+      if (name.isEmpty) {
+        continue;
+      }
+      return 'Deadline this week: $name closes ${dateTimeFormat('MMM d', d)}';
+    }
+    return null;
+  }
+
+  void _sortNeedsActionByUrgencyThenDate(
+    List<MonitoredMeetsRecord> list,
+    Map<String, MeetPreferencesRecord> prefs,
+  ) {
+    int weekRank(MonitoredMeetsRecord m) {
+      return MeetListQuickFilter.entryDeadlineThisCalendarWeek(
+            m,
+            prefs[m.reference.id],
+          )
+          ? 0
+          : 1;
+    }
+
+    list.sort((a, b) {
+      final rw = weekRank(a).compareTo(weekRank(b));
+      if (rw != 0) {
+        return rw;
+      }
+      return _sortDate(a).compareTo(_sortDate(b));
+    });
+  }
+
+  Widget _myMeetsSummaryChip({
+    required String label,
+    required Color background,
+    required Color border,
+    required Color foreground,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999.0),
+        border: Border.all(color: border, width: 1.0),
+      ),
       child: Text(
-        text,
+        label,
         style: GoogleFonts.sora(
-          fontSize: 11.0,
+          fontSize: 12.0,
           fontWeight: FontWeight.w600,
-          letterSpacing: 0.3,
-          color: _bannerMuted,
+          color: foreground,
+          height: 1.2,
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _interleaveGroupedMeetRows(List<Widget> rows) {
+    if (rows.isEmpty) {
+      return const <Widget>[];
+    }
+    final out = <Widget>[];
+    for (var i = 0; i < rows.length; i++) {
+      out.add(rows[i]);
+      if (i < rows.length - 1) {
+        out.add(
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 5.0),
+            child: Divider(
+              height: 1.0,
+              thickness: 1.0,
+              color: Color(0xFFEEF2F7),
+            ),
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
+  Widget _buildMyMeetGroupedSection({
+    required String title,
+    required int count,
+    required _MyMeetSectionTone tone,
+    required List<Widget> meetRows,
+    bool collapsible = false,
+    bool expanded = true,
+    VoidCallback? onToggleExpanded,
+  }) {
+    if (meetRows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final surface = _myMeetSectionSurface(tone);
+    final showRows = !collapsible || expanded;
+    final bottomPad = (collapsible && !expanded) ? 14.0 : 12.0;
+
+    final titleStyle = GoogleFonts.sora(
+      fontSize: 15.0,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.15,
+      color: _bannerTitle,
+    );
+
+    Widget sectionCountChip() {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 3.0),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(999.0),
+          border: Border.all(
+            color: const Color(0xFFE2E8F0),
+            width: 0.5,
+          ),
+        ),
+        child: Text(
+          '$count',
+          style: GoogleFonts.sora(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF94A3B8),
+          ),
+        ),
+      );
+    }
+
+    final headerRow = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(title, style: titleStyle),
+        ),
+        sectionCountChip(),
+        if (collapsible) ...[
+          const SizedBox(width: 4.0),
+          AnimatedRotation(
+            turns: expanded ? 0.5 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 22.0,
+              color: _bannerMuted,
+            ),
+          ),
+        ],
+      ],
+    );
+
+    final header = collapsible
+        ? Semantics(
+            button: true,
+            expanded: expanded,
+            label:
+                '$title, $count ${count == 1 ? 'meet' : 'meets'}. ${expanded ? 'Collapse' : 'Expand'} section.',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onToggleExpanded,
+                borderRadius: BorderRadius.circular(10.0),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: headerRow,
+                ),
+              ),
+            ),
+          )
+        : headerRow;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 0.0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(18.0),
+          border: Border.all(
+            color: const Color(0xFFD0D9E6),
+            width: 0.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.042),
+              blurRadius: 14.0,
+              offset: const Offset(0.0, 4.0),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14.0, 14.0, 14.0, bottomPad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              header,
+              if (showRows) ...[
+                const SizedBox(height: 10.0),
+                ..._interleaveGroupedMeetRows(meetRows),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -575,11 +729,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         mainAxisSize: MainAxisSize.max,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
+            padding: const EdgeInsets.fromLTRB(20.0, 4.0, 20.0, 0.0),
             child: _buildPrimarySegmentedControl(),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20.0, 9.0, 20.0, 2.0),
+            padding: const EdgeInsets.fromLTRB(20.0, 5.0, 20.0, 0.0),
             child: _buildZoneAndFiltersRow(context, app),
           ),
           Expanded(
@@ -690,11 +844,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                               prefs[m.reference.id],
                             ))
                         .toList();
+                    _sortNeedsActionByUrgencyThenDate(needsAction, prefs);
                     final entered = myMeets
                         .where((m) =>
                             prefs[m.reference.id]?.status ==
                             MeetPreferenceStatus.entered)
-                        .toList();
+                        .toList()
+                      ..sort((a, b) => _sortDate(a).compareTo(_sortDate(b)));
                     final skipped = myMeets
                         .where((m) =>
                             MeetListQuickFilter.isNotGoingCategory(
@@ -723,16 +879,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         deadlineWeekCount++;
                       }
                     }
-
-                    Iterable<MonitoredMeetsRecord> actionScoped = needsAction;
-                    if (_meetQuickFilter == _MeetQuickFilter.deadlineThisWeek) {
-                      actionScoped = needsAction.where((m) =>
-                          MeetListQuickFilter.entryDeadlineThisCalendarWeek(
-                            m,
-                            prefs[m.reference.id],
-                          ));
-                    }
-                    final needsActionScoped = actionScoped.toList();
+                    final anyDeadlineUrgent48h = needsAction.any(
+                      MeetListQuickFilter.entryDeadlineWithin48Hours,
+                    );
+                    final deadlineInsight =
+                        _deadlineThisWeekInsightLine(needsAction, prefs);
 
                     if (myMeets.isEmpty) {
                       return Center(
@@ -748,98 +899,145 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                     }
 
                     return ListView(
-                      padding: const EdgeInsets.fromLTRB(0.0, 6.0, 0.0, 24.0),
+                      padding: const EdgeInsets.fromLTRB(0.0, 2.0, 0.0, 28.0),
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20.0, 4.0, 20.0, 0.0),
-                          child: Text(
-                            '${needsAction.length} need action'
-                            '${deadlineWeekCount > 0 ? '  •  $deadlineWeekCount deadline this week' : ''}',
-                            style: GoogleFonts.sora(
-                              fontSize: 12.0,
-                              fontWeight: FontWeight.w500,
-                              color: _bannerMuted,
-                            ),
-                          ),
-                        ),
-                        if (deadlineWeekCount > 0) ...[
-                          const SizedBox(height: 8.0),
+                        if (needsAction.isNotEmpty ||
+                            deadlineWeekCount > 0) ...[
                           Padding(
                             padding:
-                                const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 0.0),
-                            child: _buildMeetQuickFilterPill(
-                              label:
-                                  '$deadlineWeekCount Deadline${deadlineWeekCount == 1 ? '' : 's'} This Week',
-                              icon: Icons.event_busy_rounded,
-                              selected:
-                                  _meetQuickFilter == _MeetQuickFilter.deadlineThisWeek,
-                              backgroundColor: _quickFilterDeadlineBg,
-                              borderColor: _quickFilterDeadlineBorder,
-                              foregroundColor: Colors.white,
-                              onTap: () => setState(() {
-                                _meetQuickFilter =
-                                    _meetQuickFilter == _MeetQuickFilter.deadlineThisWeek
-                                        ? _MeetQuickFilter.none
-                                        : _MeetQuickFilter.deadlineThisWeek;
-                              }),
+                                const EdgeInsets.fromLTRB(20.0, 4.0, 20.0, 0.0),
+                            child: Wrap(
+                              spacing: 8.0,
+                              runSpacing: 8.0,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                if (needsAction.isNotEmpty)
+                                  _myMeetsSummaryChip(
+                                    label:
+                                        '${needsAction.length} Need Action',
+                                    background: const Color(0xFFF1F5F9),
+                                    border: const Color(0xFFE2E8F0),
+                                    foreground: _bannerTitle,
+                                  ),
+                                if (deadlineWeekCount > 0)
+                                  Tooltip(
+                                    message: anyDeadlineUrgent48h
+                                        ? 'Summary only. Meets with a deadline in the next 48 hours are marked below.'
+                                        : 'Summary only — not a filter. Meets that count show “Due this week · closes …” on the row.',
+                                    child: _myMeetsSummaryChip(
+                                      label: deadlineWeekCount == 1
+                                          ? '1 deadline this week'
+                                          : '$deadlineWeekCount deadlines this week',
+                                      background: anyDeadlineUrgent48h
+                                          ? const Color(0xFFFFF1F2)
+                                          : const Color(0xFFF8FAFC),
+                                      border: anyDeadlineUrgent48h
+                                          ? const Color(0xFFFECACA)
+                                          : const Color(0xFFE2E8F0),
+                                      foreground: anyDeadlineUrgent48h
+                                          ? const Color(0xFF9F1239)
+                                          : const Color(0xFF9A3412),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
-                        if (newToReview.isNotEmpty) ...[
-                          _buildSectionHeader('NEW TO REVIEW'),
-                          ...newToReview.asMap().entries.map((entry) {
+                        if (deadlineInsight != null) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              20.0,
+                              8.0,
+                              20.0,
+                              0.0,
+                            ),
+                            child: Text(
+                              deadlineInsight,
+                              style: GoogleFonts.sora(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                height: 1.35,
+                                color: _bannerMuted,
+                              ),
+                            ),
+                          ),
+                        ],
+                        _buildMyMeetGroupedSection(
+                          title: 'New to review',
+                          count: newToReview.length,
+                          tone: _MyMeetSectionTone.neutral,
+                          meetRows: newToReview.asMap().entries.map((entry) {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
                               key: Key('my_new_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
+                              groupedInSection: true,
                             );
-                          }),
-                        ],
-                        if (needsActionScoped.isNotEmpty) ...[
-                          _buildSectionHeader('NEEDS ACTION'),
-                          ...needsActionScoped.asMap().entries.map((entry) {
+                          }).toList(),
+                        ),
+                        _buildMyMeetGroupedSection(
+                          title: 'Needs Action',
+                          count: needsAction.length,
+                          tone: _MyMeetSectionTone.needsAction,
+                          meetRows: needsAction.asMap().entries.map((entry) {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
                               key: Key('my_need_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
+                              groupedInSection: true,
                             );
-                          }),
-                        ],
-                        if (entered.isNotEmpty) ...[
-                          _buildSectionHeader('ALREADY ENTERED'),
-                          ...entered.asMap().entries.map((entry) {
+                          }).toList(),
+                        ),
+                        _buildMyMeetGroupedSection(
+                          title: 'Already Entered',
+                          count: entered.length,
+                          tone: _MyMeetSectionTone.entered,
+                          meetRows: entered.asMap().entries.map((entry) {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
                               key: Key('my_entered_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
+                              groupedInSection: true,
                             );
+                          }).toList(),
+                        ),
+                        _buildMyMeetGroupedSection(
+                          title: 'Skipped / Not Attending',
+                          count: skipped.length,
+                          tone: _MyMeetSectionTone.skipped,
+                          collapsible: true,
+                          expanded: _skippedNotAttendingExpanded,
+                          onToggleExpanded: () => setState(() {
+                            _skippedNotAttendingExpanded =
+                                !_skippedNotAttendingExpanded;
                           }),
-                        ],
-                        if (skipped.isNotEmpty) ...[
-                          _buildSectionHeader('SKIPPED / NOT ATTENDING'),
-                          ...skipped.asMap().entries.map((entry) {
+                          meetRows: skipped.asMap().entries.map((entry) {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
                               key: Key('my_skip_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
+                              groupedInSection: true,
                             );
-                          }),
-                        ],
-                        if (other.isNotEmpty) ...[
-                          _buildSectionHeader('OTHER MY MEETS'),
-                          ...other.asMap().entries.map((entry) {
+                          }).toList(),
+                        ),
+                        _buildMyMeetGroupedSection(
+                          title: 'Other My Meets',
+                          count: other.length,
+                          tone: _MyMeetSectionTone.neutral,
+                          meetRows: other.asMap().entries.map((entry) {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
                               key: Key('my_other_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
+                              groupedInSection: true,
                             );
-                          }),
-                        ],
+                          }).toList(),
+                        ),
                       ],
                     );
                   },
