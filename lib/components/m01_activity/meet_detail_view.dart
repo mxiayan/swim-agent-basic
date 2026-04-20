@@ -9,6 +9,64 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+String? _trimUrl(String? s) {
+  final t = (s ?? '').trim();
+  return t.isEmpty ? null : t;
+}
+
+/// Host club and official links (typically from [MonitoredMeetsRecord]).
+class MeetDetailExtras {
+  const MeetDetailExtras({
+    this.hostTeam,
+    this.viewOnFastSwimsUrl,
+    this.meetSheetUrl,
+    this.psychSheetUrl,
+    this.timelineUrl,
+    this.heatSheetUrl,
+  });
+
+  final String? hostTeam;
+  final String? viewOnFastSwimsUrl;
+  final String? meetSheetUrl;
+  final String? psychSheetUrl;
+  final String? timelineUrl;
+  final String? heatSheetUrl;
+
+  bool get hasAnyLink {
+    bool has(String? s) => (s ?? '').trim().isNotEmpty;
+    return has(viewOnFastSwimsUrl) ||
+        has(meetSheetUrl) ||
+        has(psychSheetUrl) ||
+        has(timelineUrl) ||
+        has(heatSheetUrl);
+  }
+}
+
+MeetDetailExtras meetDetailExtrasFromMonitoredMeet(MonitoredMeetsRecord m) {
+  final entry = m.entryUrl.trim();
+  String? viewFast;
+  if (entry.isNotEmpty) {
+    viewFast = entry.replaceAll(RegExp(r'/enter/?$'), '');
+    if (viewFast.isEmpty) {
+      viewFast = entry;
+    }
+  } else {
+    final id = m.meetId.trim();
+    if (RegExp(r'^\d+$').hasMatch(id)) {
+      viewFast = 'https://ome.fastswims.com/meets/$id';
+    }
+  }
+  final host = m.hostGroup.trim();
+  return MeetDetailExtras(
+    hostTeam: host.isEmpty ? null : host,
+    viewOnFastSwimsUrl: _trimUrl(viewFast),
+    meetSheetUrl: _trimUrl(m.meetSheetUrl),
+    psychSheetUrl: _trimUrl(m.psychSheetUrl),
+    timelineUrl: _trimUrl(m.timelineUrl),
+    heatSheetUrl: _trimUrl(m.heatSheetUrl),
+  );
+}
+
 class MeetDetailView extends StatefulWidget {
   const MeetDetailView({
     super.key,
@@ -16,12 +74,14 @@ class MeetDetailView extends StatefulWidget {
     required this.meetId,
     required this.heroTag,
     this.preference,
+    this.extras,
   });
 
   final ActivitiesRecord activity;
   final String meetId;
   final String heroTag;
   final MeetPreferencesRecord? preference;
+  final MeetDetailExtras? extras;
 
   @override
   State<MeetDetailView> createState() => _MeetDetailViewState();
@@ -159,86 +219,57 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     }
   }
 
-  Future<void> _showChangeStatusSheet() async {
-    await showModalBottomSheet<void>(
+  Future<void> _confirmWithdraw() async {
+    if (_savingNotGoing) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
       context: context,
-      useSafeArea: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40.0,
-                  height: 4.0,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(999.0),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16.0),
-              Text(
-                'Change status',
-                style: GoogleFonts.sora(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 8.0),
-              Text(
-                'If you need to withdraw or correct your plans for this meet, you can mark not going. You can update this again later from the meet list.',
-                style: GoogleFonts.sora(
-                  fontSize: 13.5,
-                  height: 1.35,
-                  color: _slate500,
-                ),
-              ),
-              const SizedBox(height: 20.0),
-              OutlinedButton(
-                onPressed: _savingNotGoing
-                    ? null
-                    : () {
-                        Navigator.pop(ctx);
-                        _markNotGoing();
-                      },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFB91C1C),
-                  side: const BorderSide(color: Color(0xFFFECACA)),
-                  padding: const EdgeInsets.symmetric(vertical: 14.0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                ),
-                child: Text(
-                  _savingNotGoing ? 'Updating…' : 'Mark not going / withdraw',
-                  style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(height: 10.0),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  'Cancel',
-                  style: GoogleFonts.sora(
-                    fontWeight: FontWeight.w600,
-                    color: _slate600,
-                  ),
-                ),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Withdraw from this meet?',
+          style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'We’ll mark this meet as not going. You can always update again from your meet list if plans change.',
+          style: GoogleFonts.sora(
+            fontSize: 14.0,
+            height: 1.35,
+            color: _slate600,
           ),
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.sora(
+                fontWeight: FontWeight.w600,
+                color: _slate600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Withdraw',
+              style: GoogleFonts.sora(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFFB91C1C),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+    if (confirmed == true && mounted) {
+      await _markNotGoing();
+    }
+  }
+
+  void _openInMaps(String query) {
+    final q = Uri.encodeComponent(query);
+    launchURL('https://www.google.com/maps/search/?api=1&query=$q');
   }
 
   String? _deadlineStateLine(DateTime? end, DateTime? start) {
@@ -488,140 +519,223 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     required String swimmerName,
     required MeetPreferencesRecord? pref,
   }) {
-    return _softCard(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18.0, 16.0, 18.0, 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.verified_rounded, color: _enteredFg, size: 22.0),
-                const SizedBox(width: 8.0),
-                Expanded(
-                  child: Text(
-                    'Your entry status',
-                    style: GoogleFonts.sora(
-                      fontSize: 16.0,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F172A),
-                    ),
+    Widget body(DateTime? submittedAt) {
+      final lastUpdated = pref?.statusUpdatedAt;
+      String? timeCaption;
+      String? timeDetail;
+      if (submittedAt != null) {
+        timeCaption = 'Submitted on';
+        timeDetail = dateTimeFormat('MMM d, y · h:mm a', submittedAt);
+      } else if (lastUpdated != null) {
+        timeCaption = 'Last updated';
+        timeDetail = dateTimeFormat('MMM d, y · h:mm a', lastUpdated);
+      }
+      final events = pref?.eventsEntered;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10.0),
+                decoration: BoxDecoration(
+                  color: _enteredBg,
+                  borderRadius: BorderRadius.circular(14.0),
+                  border: Border.all(
+                    color: _enteredBorder.withValues(alpha: 0.7),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 14.0),
-            _entrySummaryRow(
-              label: 'Status',
-              value: 'Entered',
-              emphasize: true,
-            ),
-            if (swimmerName.isNotEmpty) ...[
-              const SizedBox(height: 10.0),
-              _entrySummaryRow(label: 'Swimmer', value: swimmerName),
-            ],
-            if (pref?.eventsEntered != null && pref!.eventsEntered! > 0) ...[
-              const SizedBox(height: 10.0),
-              _entrySummaryRow(
-                label: 'Events',
-                value:
-                    '${pref.eventsEntered} entered',
+                child:
+                    Icon(Icons.verified_rounded, color: _enteredFg, size: 22.0),
               ),
-            ],
-            if (pref?.statusUpdatedAt != null) ...[
-              const SizedBox(height: 10.0),
-              _entrySummaryRow(
-                label: 'Status updated',
-                value: dateTimeFormat(
-                  'MMM d, y • h:mm a',
-                  pref!.statusUpdatedAt,
+              const SizedBox(width: 14.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your entry',
+                      style: GoogleFonts.sora(
+                        fontSize: 12.0,
+                        fontWeight: FontWeight.w600,
+                        color: _slate500,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      'Summary',
+                      style: GoogleFonts.sora(
+                        fontSize: 17.0,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-            if (currentUserUid.isNotEmpty) ...[
-              StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(currentUserUid)
-                    .collection('entered_meets')
-                    .doc(widget.meetId)
-                    .snapshots(),
-                builder: (context, snap) {
-                  if (!snap.hasData || !snap.data!.exists) {
-                    return const SizedBox.shrink();
-                  }
-                  final rec = EnteredMeetsRecord.fromSnapshot(snap.data!);
-                  if (rec.enteredAt == null) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 10.0),
-                    child: _entrySummaryRow(
-                      label: 'Submitted',
-                      value: dateTimeFormat(
-                        'MMM d, y',
-                        rec.enteredAt,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+          ),
+          const SizedBox(height: 20.0),
+          Text(
+            'Entered',
+            style: GoogleFonts.sora(
+              fontSize: 26.0,
+              fontWeight: FontWeight.w800,
+              height: 1.05,
+              color: _enteredFg,
+              letterSpacing: -0.5,
+            ),
+          ),
+          if (swimmerName.isNotEmpty) ...[
             const SizedBox(height: 10.0),
             Text(
-              'You’re all set. Use View entries below if you need to double-check heats or events on the host site.',
+              swimmerName,
               style: GoogleFonts.sora(
-                fontSize: 13.0,
-                height: 1.35,
-                color: _slate500,
+                fontSize: 18.0,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+                height: 1.2,
               ),
             ),
           ],
+          if (events != null && events > 0) ...[
+            const SizedBox(height: 12.0),
+            Text(
+              '$events ${events == 1 ? 'event' : 'events'} entered',
+              style: GoogleFonts.sora(
+                fontSize: 15.0,
+                fontWeight: FontWeight.w700,
+                color: _slate700,
+              ),
+            ),
+          ],
+          if (timeCaption != null && (timeDetail ?? '').isNotEmpty) ...[
+            const SizedBox(height: 12.0),
+            Text(
+              timeCaption,
+              style: GoogleFonts.sora(
+                fontSize: 11.0,
+                fontWeight: FontWeight.w600,
+                color: _slate500,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const SizedBox(height: 2.0),
+            Text(
+              timeDetail!,
+              style: GoogleFonts.sora(
+                fontSize: 14.0,
+                fontWeight: FontWeight.w600,
+                color: _slate700,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14.0),
+          Text(
+            'You’re all set. Use View entries below to open the meet site if you want to double-check events or warmups.',
+            style: GoogleFonts.sora(
+              fontSize: 12.0,
+              height: 1.4,
+              color: _slate500,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (currentUserUid.isEmpty) {
+      return _softCard(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 18.0),
+          child: body(null),
+        ),
+      );
+    }
+
+    return _softCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 18.0),
+        child: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUserUid)
+              .collection('entered_meets')
+              .doc(widget.meetId)
+              .snapshots(),
+          builder: (context, snap) {
+            DateTime? submittedAt;
+            if (snap.hasData && snap.data!.exists) {
+              final rec = EnteredMeetsRecord.fromSnapshot(snap.data!);
+              submittedAt = rec.enteredAt;
+            }
+            return body(submittedAt);
+          },
         ),
       ),
     );
   }
 
-  Widget _entrySummaryRow({
+  Widget _meetDayRow({
     required String label,
     required String value,
-    bool emphasize = false,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 118.0,
-          child: Text(
-            label,
-            style: GoogleFonts.sora(
-              fontSize: 13.0,
-              fontWeight: FontWeight.w600,
-              color: _slate500,
+    if (value.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 108.0,
+            child: Text(
+              label,
+              style: GoogleFonts.sora(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: _slate500,
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: GoogleFonts.sora(
-              fontSize: emphasize ? 15.0 : 14.0,
-              fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
-              color: emphasize ? _enteredFg : _slate700,
-              height: 1.3,
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.sora(
+                fontSize: 14.0,
+                fontWeight: FontWeight.w600,
+                color: _slate700,
+                height: 1.3,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildMeetInfoSection({
     required DateTime? start,
     required DateTime? end,
+    required DateTime? warmup,
     required String organizerNotes,
+    required MeetDetailExtras? extras,
   }) {
     final loc = _locationForMeetInfo;
+    final host = extras?.hostTeam?.trim() ?? '';
+    final warmupLabel = warmup != null
+        ? dateTimeFormat('EEE, MMM d · h:mm a', warmup)
+        : '';
+    final startLabel =
+        start != null ? dateTimeFormat('EEE, MMM d · h:mm a', start) : '';
+    final showMeetDay = warmupLabel.isNotEmpty ||
+        startLabel.isNotEmpty ||
+        loc.isNotEmpty ||
+        host.isNotEmpty;
+
     return _softCard(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18.0, 16.0, 18.0, 16.0),
@@ -645,29 +759,52 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 color: const Color(0xFF0F172A),
               ),
             ),
-            if (loc.isNotEmpty) ...[
-              const SizedBox(height: 14.0),
+            if (showMeetDay) ...[
+              const SizedBox(height: 16.0),
               Text(
-                'Location',
+                'Meet day',
                 style: GoogleFonts.sora(
                   fontSize: 12.0,
                   fontWeight: FontWeight.w600,
                   color: _slate500,
                 ),
               ),
-              const SizedBox(height: 4.0),
-              Text(
-                loc,
-                style: GoogleFonts.sora(
-                  fontSize: 15.0,
-                  fontWeight: FontWeight.w600,
-                  color: _slate700,
-                  height: 1.35,
+              const SizedBox(height: 8.0),
+              _meetDayRow(label: 'Warm-up', value: warmupLabel),
+              _meetDayRow(label: 'Meet start', value: startLabel),
+              _meetDayRow(label: 'Facility', value: loc),
+              _meetDayRow(label: 'Host team', value: host),
+              if (loc.isNotEmpty) ...[
+                const SizedBox(height: 4.0),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _openInMaps(loc),
+                    icon: Icon(
+                      Icons.map_outlined,
+                      size: 18.0,
+                      color: FlutterFlowTheme.of(context).primary,
+                    ),
+                    label: Text(
+                      'Open in Maps',
+                      style: GoogleFonts.sora(
+                        fontWeight: FontWeight.w700,
+                        color: FlutterFlowTheme.of(context).primary,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0,
+                        vertical: 4.0,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ],
-            const SizedBox(height: 14.0),
-            _buildMapPreviewBlock(),
+            const SizedBox(height: 8.0),
+            _buildCompactMapPreview(),
             if (organizerNotes.isNotEmpty) ...[
               const SizedBox(height: 16.0),
               Text(
@@ -694,38 +831,56 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     );
   }
 
-  Widget _buildMapPreviewBlock() {
+  /// Short map strip when geocoding works; otherwise a single compact line.
+  Widget _buildCompactMapPreview() {
     final loc = _locationForMeetInfo;
     if (loc.isEmpty) {
-      return _mapUnavailableCallout(
-        message: 'No location on file — map preview unavailable.',
+      return Padding(
+        padding: const EdgeInsets.only(top: 4.0),
+        child: Text(
+          'Add an address to the schedule to see a map preview.',
+          style: GoogleFonts.sora(
+            fontSize: 12.0,
+            height: 1.3,
+            color: _slate500,
+          ),
+        ),
       );
     }
     final q = Uri.encodeComponent(loc);
     final staticMapUrl =
-        'https://staticmap.openstreetmap.de/staticmap.php?center=$q&zoom=13&size=800x280&markers=$q,red-pushpin';
+        'https://staticmap.openstreetmap.de/staticmap.php?center=$q&zoom=13&size=640x200&markers=$q,red-pushpin';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Map',
+          'Map preview',
           style: GoogleFonts.sora(
             fontSize: 12.0,
             fontWeight: FontWeight.w600,
             color: _slate500,
           ),
         ),
-        const SizedBox(height: 8.0),
+        const SizedBox(height: 6.0),
         ClipRRect(
-          borderRadius: BorderRadius.circular(12.0),
+          borderRadius: BorderRadius.circular(10.0),
           child: SizedBox(
-            height: 120.0,
+            height: 72.0,
             width: double.infinity,
             child: Image.network(
               staticMapUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  _mapUnavailableCallout(message: 'Map preview unavailable.'),
+              errorBuilder: (_, __, ___) => Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Preview unavailable — use Open in Maps.',
+                  style: GoogleFonts.sora(
+                    fontSize: 12.0,
+                    color: _slate500,
+                    height: 1.25,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -733,30 +888,74 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     );
   }
 
-  Widget _mapUnavailableCallout({required String message}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12.0),
-        border: Border.all(color: _cardBorder.withValues(alpha: 0.65)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.map_outlined, size: 20.0, color: _slate500),
-          const SizedBox(width: 10.0),
-          Expanded(
-            child: Text(
-              message,
-              style: GoogleFonts.sora(
-                fontSize: 13.0,
-                color: _slate600,
-                height: 1.3,
+  String _normMeetBrowseUrl(String u) {
+    return u.trim().replaceAll(RegExp(r'/enter/?$'), '');
+  }
+
+  Widget _buildOfficialResourcesCard(MeetDetailExtras? extras) {
+    if (extras == null || !extras.hasAnyLink) {
+      return const SizedBox.shrink();
+    }
+    final rows = <({String label, String url})>[];
+    final signupNorm =
+        _signupUrl.isNotEmpty ? _normMeetBrowseUrl(_signupUrl) : '';
+
+    void add(String label, String? url) {
+      var u = (url ?? '').trim();
+      if (u.isEmpty) {
+        return;
+      }
+      if (label == 'View on FastSwims' &&
+          signupNorm.isNotEmpty &&
+          _normMeetBrowseUrl(u) == signupNorm) {
+        return;
+      }
+      if (rows.any((e) => e.url == u)) {
+        return;
+      }
+      rows.add((label: label, url: u));
+    }
+
+    add('View on FastSwims', extras.viewOnFastSwimsUrl);
+    add('Meet sheet', extras.meetSheetUrl);
+    add('Psych sheet', extras.psychSheetUrl);
+    add('Timeline', extras.timelineUrl);
+    add('Heat sheet', extras.heatSheetUrl);
+
+    if (rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return _softCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8.0, 6.0, 8.0, 6.0),
+        child: Column(
+          children: rows.map((r) {
+            return ListTile(
+              dense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0.0),
+              leading: Icon(
+                Icons.open_in_new_rounded,
+                size: 20.0,
+                color: FlutterFlowTheme.of(context).primary,
               ),
-            ),
-          ),
-        ],
+              title: Text(
+                r.label,
+                style: GoogleFonts.sora(
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.w600,
+                  color: _slate700,
+                ),
+              ),
+              trailing: Icon(
+                Icons.chevron_right_rounded,
+                color: _slate500,
+              ),
+              onTap: () => launchURL(r.url),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -1000,65 +1199,57 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       return SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18.0, 10.0, 18.0, 12.0),
+          padding: const EdgeInsets.fromLTRB(18.0, 10.0, 18.0, 10.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: canOpenSignup
-                          ? () => launchURL(_signupUrl)
-                          : null,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: canOpenSignup
-                            ? FlutterFlowTheme.of(context).primary
-                            : const Color(0xFF94A3B8),
-                        disabledBackgroundColor: const Color(0xFFE2E8F0),
-                        disabledForegroundColor: _slate500,
-                        padding: const EdgeInsets.symmetric(vertical: 14.0),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                        elevation: 0.0,
-                      ),
-                      child: Text(
-                        canOpenSignup
-                            ? 'View entries'
-                            : 'Entries on file',
-                        style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-                      ),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed:
+                      canOpenSignup ? () => launchURL(_signupUrl) : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: canOpenSignup
+                        ? FlutterFlowTheme.of(context).primary
+                        : const Color(0xFF94A3B8),
+                    disabledBackgroundColor: const Color(0xFFE2E8F0),
+                    disabledForegroundColor: _slate500,
+                    padding: const EdgeInsets.symmetric(vertical: 14.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.0),
                     ),
+                    elevation: 0.0,
                   ),
-                  const SizedBox(width: 10.0),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _savingNotGoing ? null : _showChangeStatusSheet,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _slate700,
-                        padding: const EdgeInsets.symmetric(vertical: 14.0),
-                        side: const BorderSide(color: _cardBorder),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                      ),
-                      child: Text(
-                        'Withdraw',
-                        style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-                      ),
-                    ),
+                  child: Text(
+                    canOpenSignup ? 'View entries' : 'Entries on file',
+                    style: GoogleFonts.sora(fontWeight: FontWeight.w700),
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 6.0),
+              TextButton(
+                onPressed: _savingNotGoing ? null : _confirmWithdraw,
+                style: TextButton.styleFrom(
+                  foregroundColor: _slate500,
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
+                  minimumSize: const Size(0.0, 36.0),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  _savingNotGoing ? 'Updating…' : 'Withdraw from meet',
+                  style: GoogleFonts.sora(
+                    fontSize: 13.0,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
               Text(
                 canOpenSignup
-                    ? 'Opens the meet site in your browser. Withdraw if your plans change.'
+                    ? 'Opens the meet site in your browser.'
                     : 'No entry link on file for this meet.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.sora(
-                  fontSize: 11.5,
+                  fontSize: 11.0,
                   color: _slate500,
                   height: 1.25,
                 ),
@@ -1158,8 +1349,16 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                     _buildMeetInfoSection(
                       start: start,
                       end: end,
+                      warmup: details.warmupTime,
                       organizerNotes: organizerNotes,
+                      extras: widget.extras,
                     ),
+                    if (widget.extras != null &&
+                        widget.extras!.hasAnyLink) ...[
+                      const SizedBox(height: 26.0),
+                      _sectionHeading('Official resources'),
+                      _buildOfficialResourcesCard(widget.extras),
+                    ],
                     const SizedBox(height: 26.0),
                     _sectionHeading('Parent note'),
                     _buildParentNoteSection(),

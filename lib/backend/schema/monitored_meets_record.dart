@@ -47,6 +47,18 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String get meetSheetUrl => _meetSheetUrl ?? '';
   bool hasMeetSheetUrl() => _meetSheetUrl != null;
 
+  String? _psychSheetUrl;
+  String get psychSheetUrl => _psychSheetUrl ?? '';
+  bool hasPsychSheetUrl() => _psychSheetUrl != null;
+
+  String? _heatSheetUrl;
+  String get heatSheetUrl => _heatSheetUrl ?? '';
+  bool hasHeatSheetUrl() => _heatSheetUrl != null;
+
+  String? _timelineUrl;
+  String get timelineUrl => _timelineUrl ?? '';
+  bool hasTimelineUrl() => _timelineUrl != null;
+
   DateTime? _startTime;
   DateTime? get startTime => _startTime;
   bool hasStartTime() => _startTime != null;
@@ -159,6 +171,26 @@ class MonitoredMeetsRecord extends FirestoreRecord {
       'meetSheet',
       'sheet_url',
       'sheetUrl',
+    ]);
+    _psychSheetUrl = _firstNonEmptyString(snapshotData, const [
+      'psych_sheet_url',
+      'psychSheetUrl',
+      'psych_sheet',
+      'psychSheet',
+      'psych_url',
+    ]);
+    _heatSheetUrl = _firstNonEmptyString(snapshotData, const [
+      'heat_sheet_url',
+      'heatSheetUrl',
+      'heat_sheet',
+      'heatSheet',
+      'heats_url',
+    ]);
+    _timelineUrl = _firstNonEmptyString(snapshotData, const [
+      'timeline_url',
+      'timelineUrl',
+      'meet_timeline_url',
+      'meetTimelineUrl',
     ]);
     _startTime = snapshotData['start_time'] as DateTime? ??
         snapshotData['startTime'] as DateTime? ??

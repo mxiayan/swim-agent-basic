@@ -778,6 +778,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           preference: pref,
           meetId: prefId,
           heroTag: prefId,
+          extras: meetDetailExtrasFromMonitoredMeet(doc),
         ),
       ),
     );
