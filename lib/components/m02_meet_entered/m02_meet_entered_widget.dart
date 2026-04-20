@@ -5,9 +5,11 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/backend/meet_preferences_api.dart';
 import '/backend/schema/meet_preferences_record.dart';
 import '/backend/backend.dart';
+import '/components/m01_activity/meet_detail_view.dart';
 import '/components/m02_meet/meet_list_quick_filter.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -759,6 +761,28 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
   }
 
+  Future<void> _openMeetFocusFromMonitored(
+    BuildContext context,
+    MonitoredMeetsRecord doc,
+    MeetPreferencesRecord? pref,
+  ) async {
+    final activity = activitiesRecordFromMonitoredMeet(doc);
+    final prefId = doc.reference.id;
+    if (!context.mounted) {
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      CupertinoPageRoute<void>(
+        builder: (_) => MeetDetailView(
+          activity: activity,
+          preference: pref,
+          meetId: prefId,
+          heroTag: prefId,
+        ),
+      ),
+    );
+  }
+
   Future<bool> _mergePref({
     MeetPreferenceStatus? status,
     bool? hasAlert,
@@ -1076,7 +1100,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(8.0),
-                onTap: revealMeet,
+                onTap: () => _openMeetFocusFromMonitored(context, doc, pref),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
                   child: Row(
@@ -1143,7 +1167,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                 child: InkWell(
                   borderRadius:
                       BorderRadius.circular(_meetCardCornerRadius),
-                  onTap: revealMeet,
+                  onTap: () => _openMeetFocusFromMonitored(context, doc, pref),
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -1351,7 +1375,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(6.0),
-                            onTap: () => _mergePref(isHidden: true),
+                            onTap: () =>
+                                _openMeetFocusFromMonitored(context, doc, pref),
                             child: Padding(
                               padding: EdgeInsetsDirectional.only(
                                 top: titleTopInsetBelowStatus,

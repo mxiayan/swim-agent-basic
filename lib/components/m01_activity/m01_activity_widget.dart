@@ -3,10 +3,12 @@ import '/backend/backend.dart';
 import '/backend/meet_preferences_api.dart';
 import '/backend/schema/meet_preferences_record.dart';
 import '/components/m01_activity_card/m01_activity_card_widget.dart';
+import '/components/m01_activity/meet_detail_view.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -90,6 +92,23 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
               await refreshSwimmerAppState();
             } catch (_) {}
           },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMeetFocusMode({
+    required ActivitiesRecord activity,
+    required MeetPreferencesRecord? preference,
+    required String meetId,
+  }) async {
+    await Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => MeetDetailView(
+          activity: activity,
+          preference: preference,
+          meetId: meetId,
+          heroTag: meetId,
         ),
       ),
     );
@@ -201,11 +220,16 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                   !_swipeDismissedActivityPaths.contains(e.reference.path))
               .toList();
 
-          return Container(
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
-            ),
-            child: AnimatedSwitcher(
+          return StreamBuilder<Map<String, MeetPreferencesRecord>>(
+            stream: streamMeetPreferencesMap(currentUserUid),
+            builder: (context, prefSnap) {
+              final preferences =
+                  prefSnap.data ?? <String, MeetPreferencesRecord>{};
+              return Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F5F9),
+                ),
+                child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 280),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
@@ -233,32 +257,89 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                         itemBuilder: (context, activitiesIndex) {
                           final activitiesItem = activities[activitiesIndex];
                           final rowKey = activitiesItem.reference.path;
+                          final parsedMeetId =
+                              _meetIdFromActivity(activitiesItem);
+                          final isMeet = _isMeetActivity(activitiesItem);
+                          // Prefer OME / numeric id; fall back so focus mode opens for all meet rows.
+                          final meetIdForFocus =
+                              parsedMeetId ?? activitiesItem.reference.id;
+                          final heroTag = isMeet
+                              ? meetIdForFocus
+                              : activitiesItem.reference.id;
+                          MeetPreferencesRecord? preference;
+                          if (isMeet) {
+                            if (parsedMeetId != null) {
+                              preference = preferences[parsedMeetId];
+                            }
+                            preference ??=
+                                preferences[activitiesItem.reference.id];
+                          }
+                          final openMeetFocus = isMeet
+                              ? () => _openMeetFocusMode(
+                                    activity: activitiesItem,
+                                    preference: preference,
+                                    meetId: meetIdForFocus,
+                                  )
+                              : null;
                           final card = Padding(
                             padding: const EdgeInsetsDirectional.fromSTEB(
                                 20.0, 0.0, 20.0, 0.0),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: activitiesItem.activityType == 'meet'
-                                      ? const Color(0xFF007AFF)
-                                          .withValues(alpha: 0.35)
-                                      : const Color(0x00000000),
-                                ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsetsDirectional.fromSTEB(
-                                    20.0, 0.0, 20.0, 0.0),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    M01ActivityCardWidget(
-                                      key: ValueKey<String>(rowKey),
-                                      complete: false,
-                                      index: 1,
-                                      activityItem: activitiesItem,
-                                    ).animateOnPageLoad(animationsMap[
-                                        'm01ActivityCardOnPageLoadAnimation']!),
-                                  ],
+                            child: Hero(
+                              tag: heroTag,
+                              flightShuttleBuilder: (
+                                _,
+                                animation,
+                                __,
+                                ___,
+                                toHeroContext,
+                              ) {
+                                final curved = CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeInOutCubic,
+                                );
+                                return FadeTransition(
+                                  opacity: curved,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(
+                                      begin: 0.98,
+                                      end: 1.0,
+                                    ).animate(curved),
+                                    child: toHeroContext.widget,
+                                  ),
+                                );
+                              },
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  onTap: openMeetFocus,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: isMeet
+                                            ? const Color(0xFF007AFF)
+                                                .withValues(alpha: 0.35)
+                                            : const Color(0x00000000),
+                                      ),
+                                    ),
+                                    child: Padding(
+                                      padding:
+                                          const EdgeInsetsDirectional.fromSTEB(
+                                              20.0, 0.0, 20.0, 0.0),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          M01ActivityCardWidget(
+                                            key: ValueKey<String>(rowKey),
+                                            complete: false,
+                                            index: 1,
+                                            activityItem: activitiesItem,
+                                          ).animateOnPageLoad(animationsMap[
+                                              'm01ActivityCardOnPageLoadAnimation']!),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ).animateOnPageLoad(
@@ -308,7 +389,9 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                         },
                       ),
                     ),
-            ),
+                ),
+              );
+            },
           );
         },
       ),

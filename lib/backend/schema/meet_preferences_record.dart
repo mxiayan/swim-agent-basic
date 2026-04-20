@@ -108,6 +108,8 @@ class MeetPreferencesRecord {
     required this.isHidden,
     required this.skipSelected,
     this.notes = '',
+    this.statusUpdatedAt,
+    this.eventsEntered,
   });
 
   final DocumentReference reference;
@@ -120,6 +122,28 @@ class MeetPreferencesRecord {
   /// Parent reminder text (`users/{uid}/meet_preferences/{meetId}` → `notes`).
   final String notes;
 
+  /// When status last changed in Firestore, if present (`statusUpdatedAt` / `status_updated_at`).
+  final DateTime? statusUpdatedAt;
+
+  /// Optional count from backend (`events_entered` / `eventsEntered`).
+  final int? eventsEntered;
+
+  static int? _readEventsEntered(Map<String, dynamic> data) {
+    final raw = data['events_entered'] ?? data['eventsEntered'];
+    if (raw is int) {
+      return raw;
+    }
+    if (raw is num) {
+      return raw.toInt();
+    }
+    return null;
+  }
+
+  static DateTime? _readStatusUpdatedAt(Map<String, dynamic> data) {
+    final raw = data['statusUpdatedAt'] ?? data['status_updated_at'];
+    return raw is DateTime ? raw : null;
+  }
+
   static MeetPreferencesRecord fromSnapshot(DocumentSnapshot snapshot) {
     final data = mapFromFirestore(snapshot.data() as Map<String, dynamic>);
     return MeetPreferencesRecord(
@@ -130,6 +154,8 @@ class MeetPreferencesRecord {
       isHidden: data['is_hidden'] as bool? ?? false,
       skipSelected: data['skip_selected'] as bool? ?? false,
       notes: (data['notes'] as String?)?.trim() ?? '',
+      statusUpdatedAt: _readStatusUpdatedAt(data),
+      eventsEntered: _readEventsEntered(data),
     );
   }
 
