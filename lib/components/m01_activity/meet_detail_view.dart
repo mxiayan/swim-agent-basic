@@ -3,6 +3,7 @@ import '/backend/backend.dart';
 import '/backend/meet_preferences_api.dart';
 import '/backend/schema/entered_meets_record.dart';
 import '/backend/schema/meet_preferences_record.dart';
+import '/backend/schema/personal_meet_resources.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
@@ -32,14 +33,9 @@ class MeetDetailExtras {
   final String? timelineUrl;
   final String? heatSheetUrl;
 
-  bool get hasAnyLink {
-    bool has(String? s) => (s ?? '').trim().isNotEmpty;
-    return has(viewOnFastSwimsUrl) ||
-        has(meetSheetUrl) ||
-        has(psychSheetUrl) ||
-        has(timelineUrl) ||
-        has(heatSheetUrl);
-  }
+  /// Team-hosted browse link only (meet sheet is surfaced in Meet info).
+  bool get hasOfficialBrowseLink =>
+      (viewOnFastSwimsUrl ?? '').trim().isNotEmpty;
 }
 
 MeetDetailExtras meetDetailExtrasFromMonitoredMeet(MonitoredMeetsRecord m) {
@@ -152,7 +148,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     if (prefNotes.isNotEmpty) {
       return prefNotes;
     }
-    return widget.activity.details.notes.trim();
+    return '';
   }
 
   @override
@@ -270,6 +266,297 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   void _openInMaps(String query) {
     final q = Uri.encodeComponent(query);
     launchURL('https://www.google.com/maps/search/?api=1&query=$q');
+  }
+
+  String _urlHostPreview(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) {
+      return '';
+    }
+    final withScheme =
+        t.startsWith('http://') || t.startsWith('https://') ? t : 'https://$t';
+    final uri = Uri.tryParse(withScheme);
+    if (uri != null && uri.host.isNotEmpty) {
+      return uri.host;
+    }
+    return t;
+  }
+
+  /// Expands long note previews in My meet resources rows.
+  final Set<PersonalResourceKind> _personalResourceNoteExpanded = {};
+
+  Future<void> _openPersonalResourceEditor(
+    PersonalResourceKind kind,
+    PersonalMeetResourceEntry initial,
+  ) async {
+    if (currentUserUid.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sign in to save meet resources.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+          ),
+          child: _PersonalResourceEditorSheet(
+            kind: kind,
+            initial: initial,
+            meetId: widget.meetId,
+            onSaved: () {
+              if (mounted) {
+                setState(() {});
+              }
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMyMeetResourcesSection() {
+    if (currentUserUid.isEmpty) {
+      return _softCard(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            'Sign in to save personal links and notes for this meet.',
+            style: GoogleFonts.sora(
+              fontSize: 13.0,
+              color: _slate500,
+              height: 1.35,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserUid)
+          .collection('meet_preferences')
+          .doc(widget.meetId)
+          .snapshots(),
+      builder: (context, snap) {
+        final bundle = (!snap.hasData || !snap.data!.exists)
+            ? PersonalMeetResources.empty
+            : MeetPreferencesRecord.fromSnapshot(snap.data!).personalResources;
+
+        return _softCard(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 14.0, 16.0, 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Personal links and notes for your family only — not from your team.',
+                  style: GoogleFonts.sora(
+                    fontSize: 12.0,
+                    height: 1.35,
+                    color: _slate500,
+                  ),
+                ),
+                const SizedBox(height: 12.0),
+                _personalResourceRow(
+                  kind: PersonalResourceKind.psychSheet,
+                  entry: bundle.psychSheet,
+                ),
+                _personalResourceRow(
+                  kind: PersonalResourceKind.timeline,
+                  entry: bundle.timeline,
+                ),
+                _personalResourceRow(
+                  kind: PersonalResourceKind.heatSheet,
+                  entry: bundle.heatSheet,
+                ),
+                _personalResourceRow(
+                  kind: PersonalResourceKind.additionalNotes,
+                  entry: bundle.additionalNotes,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _personalResourceRow({
+    required PersonalResourceKind kind,
+    required PersonalMeetResourceEntry entry,
+  }) {
+    final title = kind.uiTitle;
+    final empty = entry.isEmpty;
+    final expanded = _personalResourceNoteExpanded.contains(kind);
+    final notePreview = entry.note.trim();
+    final urlRaw = entry.url.trim();
+    final urlNorm = urlRaw.isEmpty
+        ? ''
+        : (urlRaw.startsWith('http://') || urlRaw.startsWith('https://')
+            ? urlRaw
+            : 'https://$urlRaw');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: Material(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12.0),
+        child: InkWell(
+          onTap: () => _openPersonalResourceEditor(kind, entry),
+          borderRadius: BorderRadius.circular(12.0),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12.0, 10.0, 10.0, 10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: GoogleFonts.sora(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _openPersonalResourceEditor(kind, entry),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0.0, 32.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: Text(
+                        empty ? 'Add' : 'Edit',
+                        style: GoogleFonts.sora(
+                          fontWeight: FontWeight.w700,
+                          color: FlutterFlowTheme.of(context).primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (empty) ...[
+                  const SizedBox(height: 4.0),
+                  Text(
+                    'No resource added · add link or note',
+                    style: GoogleFonts.sora(
+                      fontSize: 12.5,
+                      color: _slate500,
+                      height: 1.3,
+                    ),
+                  ),
+                ] else ...[
+                  if (urlRaw.isNotEmpty) ...[
+                    const SizedBox(height: 6.0),
+                    GestureDetector(
+                      onTap: () => launchURL(urlNorm),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.link_rounded,
+                            size: 16.0,
+                            color: FlutterFlowTheme.of(context).primary,
+                          ),
+                          const SizedBox(width: 6.0),
+                          Expanded(
+                            child: Text(
+                              _urlHostPreview(urlNorm),
+                              style: GoogleFonts.sora(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: FlutterFlowTheme.of(context).primary,
+                                decoration: TextDecoration.underline,
+                                decorationColor: FlutterFlowTheme.of(context)
+                                    .primary
+                                    .withValues(alpha: 0.4),
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.open_in_new_rounded,
+                            size: 15.0,
+                            color: _slate500,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (notePreview.isNotEmpty) ...[
+                    const SizedBox(height: 6.0),
+                    Text(
+                      notePreview,
+                      maxLines: expanded ? null : 2,
+                      overflow:
+                          expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                      style: GoogleFonts.sora(
+                        fontSize: 12.5,
+                        height: 1.35,
+                        color: _slate700,
+                      ),
+                    ),
+                    if (notePreview.length > 90 || notePreview.contains('\n'))
+                      TextButton(
+                        onPressed: () => setState(() {
+                          if (expanded) {
+                            _personalResourceNoteExpanded.remove(kind);
+                          } else {
+                            _personalResourceNoteExpanded.add(kind);
+                          }
+                        }),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0.0, 28.0),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          expanded ? 'Show less' : 'Show more',
+                          style: GoogleFonts.sora(
+                            fontSize: 12.0,
+                            fontWeight: FontWeight.w700,
+                            color: FlutterFlowTheme.of(context).primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                  if (entry.updatedAt != null) ...[
+                    const SizedBox(height: 2.0),
+                    Text(
+                      'Last updated ${dateTimeFormat('MMM d, y · h:mm a', entry.updatedAt)}',
+                      style: GoogleFonts.sora(
+                        fontSize: 11.0,
+                        color: _slate500,
+                      ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   String? _deadlineStateLine(DateTime? end, DateTime? start) {
@@ -721,7 +1008,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     required DateTime? start,
     required DateTime? end,
     required DateTime? warmup,
-    required String organizerNotes,
     required MeetDetailExtras? extras,
   }) {
     final loc = _locationForMeetInfo;
@@ -735,6 +1021,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         startLabel.isNotEmpty ||
         loc.isNotEmpty ||
         host.isNotEmpty;
+    final meetSheetUrl = (extras?.meetSheetUrl ?? '').trim();
 
     return _softCard(
       child: Padding(
@@ -759,6 +1046,59 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 color: const Color(0xFF0F172A),
               ),
             ),
+            if (meetSheetUrl.isNotEmpty) ...[
+              const SizedBox(height: 14.0),
+              Text(
+                'Official meet sheet',
+                style: GoogleFonts.sora(
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.w600,
+                  color: _slate500,
+                ),
+              ),
+              const SizedBox(height: 6.0),
+              Material(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10.0),
+                child: InkWell(
+                  onTap: () => launchURL(meetSheetUrl),
+                  borderRadius: BorderRadius.circular(10.0),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0,
+                      vertical: 10.0,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          size: 20.0,
+                          color: FlutterFlowTheme.of(context).primary,
+                        ),
+                        const SizedBox(width: 10.0),
+                        Expanded(
+                          child: Text(
+                            _urlHostPreview(meetSheetUrl),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.sora(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: _slate700,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.open_in_new_rounded,
+                          size: 18.0,
+                          color: _slate500,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
             if (showMeetDay) ...[
               const SizedBox(height: 16.0),
               Text(
@@ -805,26 +1145,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             ],
             const SizedBox(height: 8.0),
             _buildCompactMapPreview(),
-            if (organizerNotes.isNotEmpty) ...[
-              const SizedBox(height: 16.0),
-              Text(
-                'Notes from organizer',
-                style: GoogleFonts.sora(
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.w600,
-                  color: _slate500,
-                ),
-              ),
-              const SizedBox(height: 6.0),
-              Text(
-                organizerNotes,
-                style: GoogleFonts.sora(
-                  fontSize: 14.0,
-                  height: 1.45,
-                  color: _slate700,
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -892,70 +1212,38 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     return u.trim().replaceAll(RegExp(r'/enter/?$'), '');
   }
 
+  /// Team browse link (psych / heat / timeline live under My meet resources).
   Widget _buildOfficialResourcesCard(MeetDetailExtras? extras) {
-    if (extras == null || !extras.hasAnyLink) {
+    if (extras == null || !extras.hasOfficialBrowseLink) {
       return const SizedBox.shrink();
     }
-    final rows = <({String label, String url})>[];
+    final u = extras.viewOnFastSwimsUrl!.trim();
     final signupNorm =
         _signupUrl.isNotEmpty ? _normMeetBrowseUrl(_signupUrl) : '';
-
-    void add(String label, String? url) {
-      var u = (url ?? '').trim();
-      if (u.isEmpty) {
-        return;
-      }
-      if (label == 'View on FastSwims' &&
-          signupNorm.isNotEmpty &&
-          _normMeetBrowseUrl(u) == signupNorm) {
-        return;
-      }
-      if (rows.any((e) => e.url == u)) {
-        return;
-      }
-      rows.add((label: label, url: u));
-    }
-
-    add('View on FastSwims', extras.viewOnFastSwimsUrl);
-    add('Meet sheet', extras.meetSheetUrl);
-    add('Psych sheet', extras.psychSheetUrl);
-    add('Timeline', extras.timelineUrl);
-    add('Heat sheet', extras.heatSheetUrl);
-
-    if (rows.isEmpty) {
+    if (signupNorm.isNotEmpty && _normMeetBrowseUrl(u) == signupNorm) {
       return const SizedBox.shrink();
     }
 
     return _softCard(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8.0, 6.0, 8.0, 6.0),
-        child: Column(
-          children: rows.map((r) {
-            return ListTile(
-              dense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0.0),
-              leading: Icon(
-                Icons.open_in_new_rounded,
-                size: 20.0,
-                color: FlutterFlowTheme.of(context).primary,
-              ),
-              title: Text(
-                r.label,
-                style: GoogleFonts.sora(
-                  fontSize: 14.0,
-                  fontWeight: FontWeight.w600,
-                  color: _slate700,
-                ),
-              ),
-              trailing: Icon(
-                Icons.chevron_right_rounded,
-                color: _slate500,
-              ),
-              onTap: () => launchURL(r.url),
-            );
-          }).toList(),
+      child: ListTile(
+        dense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+        leading: Icon(
+          Icons.open_in_new_rounded,
+          size: 20.0,
+          color: FlutterFlowTheme.of(context).primary,
         ),
+        title: Text(
+          'View on FastSwims',
+          style: GoogleFonts.sora(
+            fontSize: 14.0,
+            fontWeight: FontWeight.w600,
+            color: _slate700,
+          ),
+        ),
+        trailing: Icon(Icons.chevron_right_rounded, color: _slate500),
+        onTap: () => launchURL(u),
       ),
     );
   }
@@ -1070,8 +1358,13 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 onChanged: (_) => setState(() {}),
                 minLines: 4,
                 maxLines: 10,
+                cursorColor: const Color(0xFF0F172A),
                 decoration: InputDecoration(
-                  hintText: 'One reminder per line — bullets are added when you save.',
+                  hintText: 'Add parent notes for your family (optional).',
+                  hintStyle: GoogleFonts.sora(
+                    color: const Color(0xFF94A3B8),
+                    fontSize: 14.0,
+                  ),
                   filled: true,
                   fillColor: const Color(0xFFFAFAFA),
                   border: OutlineInputBorder(
@@ -1094,6 +1387,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   fontSize: 14.0,
                   fontWeight: FontWeight.w500,
                   height: 1.4,
+                  color: const Color(0xFF0F172A),
                 ),
               ),
               const SizedBox(height: 12.0),
@@ -1315,8 +1609,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     final end = details.endTime;
     final entered = _isEntered;
     final canOpenSignup = _signupUrl.isNotEmpty;
-    final organizerNotes = details.notes.trim();
-
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
@@ -1350,18 +1642,22 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       start: start,
                       end: end,
                       warmup: details.warmupTime,
-                      organizerNotes: organizerNotes,
                       extras: widget.extras,
                     ),
-                    if (widget.extras != null &&
-                        widget.extras!.hasAnyLink) ...[
+                    if (entered) ...[
                       const SizedBox(height: 26.0),
-                      _sectionHeading('Official resources'),
-                      _buildOfficialResourcesCard(widget.extras),
+                      _sectionHeading('My meet resources'),
+                      _buildMyMeetResourcesSection(),
+                      if (widget.extras != null &&
+                          widget.extras!.hasOfficialBrowseLink) ...[
+                        const SizedBox(height: 26.0),
+                        _sectionHeading('Official resources'),
+                        _buildOfficialResourcesCard(widget.extras),
+                      ],
+                      const SizedBox(height: 26.0),
+                      _sectionHeading('Parent note'),
+                      _buildParentNoteSection(),
                     ],
-                    const SizedBox(height: 26.0),
-                    _sectionHeading('Parent note'),
-                    _buildParentNoteSection(),
                     // Space above sticky footer
                     SizedBox(height: entered ? 100.0 : 88.0),
                   ],
@@ -1394,6 +1690,343 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             entered: entered,
             canOpenSignup: canOpenSignup,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonalResourceEditorSheet extends StatefulWidget {
+  const _PersonalResourceEditorSheet({
+    required this.kind,
+    required this.initial,
+    required this.meetId,
+    required this.onSaved,
+  });
+
+  final PersonalResourceKind kind;
+  final PersonalMeetResourceEntry initial;
+  final String meetId;
+  final VoidCallback onSaved;
+
+  @override
+  State<_PersonalResourceEditorSheet> createState() =>
+      _PersonalResourceEditorSheetState();
+}
+
+class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorSheet> {
+  late final TextEditingController _url;
+  late final TextEditingController _note;
+  String? _urlError;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _url = TextEditingController(text: widget.initial.url);
+    _note = TextEditingController(text: widget.initial.note);
+  }
+
+  @override
+  void dispose() {
+    _url.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  bool _validateUrl() {
+    final raw = _url.text.trim();
+    if (raw.isEmpty) {
+      setState(() => _urlError = null);
+      return true;
+    }
+    final norm = raw.startsWith('http://') || raw.startsWith('https://')
+        ? raw
+        : 'https://$raw';
+    final uri = Uri.tryParse(norm);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      setState(() => _urlError =
+          'That doesn’t look like a valid web link. Try https://…');
+      return false;
+    }
+    setState(() => _urlError = null);
+    return true;
+  }
+
+  Future<void> _save() async {
+    if (!_validateUrl()) {
+      return;
+    }
+    if (_url.text.trim().isEmpty && _note.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add a link or note, or use Delete to clear.'),
+        ),
+      );
+      return;
+    }
+    final rawUrl = _url.text.trim();
+    final urlOut = rawUrl.isEmpty
+        ? ''
+        : (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
+            ? rawUrl
+            : 'https://$rawUrl');
+    setState(() => _saving = true);
+    try {
+      await mergePersonalMeetResource(
+        currentUserUid,
+        widget.meetId,
+        widget.kind,
+        url: urlOut,
+        note: _note.text,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${widget.kind.uiTitle} saved.')),
+      );
+      Navigator.pop(context);
+      widget.onSaved();
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _delete() async {
+    if (widget.initial.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Remove saved resource?',
+          style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'This clears your saved link and note for ${widget.kind.uiTitle.toLowerCase()}.',
+          style: GoogleFonts.sora(fontSize: 14.0, color: const Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.sora(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF475569),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.sora(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFB91C1C),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await mergePersonalMeetResource(
+        currentUserUid,
+        widget.meetId,
+        widget.kind,
+        url: '',
+        note: '',
+        delete: true,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${widget.kind.uiTitle} removed.')),
+      );
+      Navigator.pop(context);
+      widget.onSaved();
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 16.0 + bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 40.0,
+                height: 4.0,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(999.0),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16.0),
+            Text(
+              widget.kind.uiTitle,
+              style: GoogleFonts.sora(
+                fontSize: 18.0,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 6.0),
+            Text(
+              'Saved on this device for your account only.',
+              style: GoogleFonts.sora(
+                fontSize: 12.5,
+                color: const Color(0xFF64748B),
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 18.0),
+            Text(
+              'Link (optional)',
+              style: GoogleFonts.sora(
+                fontSize: 12.0,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 6.0),
+            TextField(
+              controller: _url,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              cursorColor: const Color(0xFF0F172A),
+              onChanged: (_) {
+                if (_urlError != null) {
+                  setState(() => _urlError = null);
+                }
+              },
+              decoration: InputDecoration(
+                hintText: 'https://…',
+                hintStyle: GoogleFonts.sora(
+                  color: const Color(0xFF94A3B8),
+                  fontSize: 14.0,
+                ),
+                errorText: _urlError,
+                filled: true,
+                fillColor: const Color(0xFFFAFAFA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                ),
+              ),
+              style: GoogleFonts.sora(
+                fontSize: 14.0,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 16.0),
+            Text(
+              'Note (optional)',
+              style: GoogleFonts.sora(
+                fontSize: 12.0,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 6.0),
+            TextField(
+              controller: _note,
+              minLines: 3,
+              maxLines: 8,
+              cursorColor: const Color(0xFF0F172A),
+              decoration: InputDecoration(
+                hintText: 'Parking, warmup reminders, heat info…',
+                hintStyle: GoogleFonts.sora(
+                  color: const Color(0xFF94A3B8),
+                  fontSize: 14.0,
+                ),
+                filled: true,
+                fillColor: const Color(0xFFFAFAFA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                ),
+              ),
+              style: GoogleFonts.sora(
+                fontSize: 14.0,
+                height: 1.35,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 20.0),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+              ),
+              child: Text(
+                _saving ? 'Saving…' : 'Save',
+                style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (!widget.initial.isEmpty) ...[
+              const SizedBox(height: 8.0),
+              OutlinedButton(
+                onPressed: _saving ? null : _delete,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB91C1C),
+                  side: const BorderSide(color: Color(0xFFFECACA)),
+                  padding: const EdgeInsets.symmetric(vertical: 14.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                ),
+                child: Text(
+                  'Delete saved resource',
+                  style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+            TextButton(
+              onPressed: _saving ? null : () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.sora(
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF475569),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

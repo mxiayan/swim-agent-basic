@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '/backend/schema/meet_preferences_record.dart';
+import '/backend/schema/personal_meet_resources.dart';
 
 CollectionReference<Map<String, dynamic>> _meetPreferencesCol(String uid) =>
     FirebaseFirestore.instance
@@ -64,4 +65,71 @@ Future<void> deleteMeetPreference(String uid, String meetId) async {
     return;
   }
   await _meetPreferencesCol(authUid).doc(meetId).delete();
+}
+
+/// Saves or removes one slot under `personal_resources` on the user’s meet doc.
+Future<void> mergePersonalMeetResource(
+  String uid,
+  String meetId,
+  PersonalResourceKind kind, {
+  required String url,
+  required String note,
+  bool delete = false,
+}) async {
+  final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (authUid.isEmpty || meetId.isEmpty) {
+    return;
+  }
+  if (uid.isNotEmpty && uid != authUid) {
+    return;
+  }
+
+  final ref = _meetPreferencesCol(authUid).doc(meetId);
+  final key = kind.firestoreKey;
+
+  if (delete) {
+    try {
+      await ref.update({
+        FieldPath(['personal_resources', key]): FieldValue.delete(),
+        'updated_time': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      if (e.code == 'not-found') {
+        return;
+      }
+      rethrow;
+    }
+    return;
+  }
+
+  final u = url.trim();
+  final n = note.trim();
+  if (u.isEmpty && n.isEmpty) {
+    try {
+      await ref.update({
+        FieldPath(['personal_resources', key]): FieldValue.delete(),
+        'updated_time': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      if (e.code == 'not-found') {
+        return;
+      }
+      rethrow;
+    }
+    return;
+  }
+
+  await ref.set(
+    {
+      'personal_resources': {
+        key: {
+          'url': u,
+          'note': n,
+          'updated_at': FieldValue.serverTimestamp(),
+        },
+      },
+      'updated_time': FieldValue.serverTimestamp(),
+    },
+    SetOptions(merge: true),
+  );
 }

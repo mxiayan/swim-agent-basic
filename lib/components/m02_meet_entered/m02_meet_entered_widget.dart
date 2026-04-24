@@ -46,6 +46,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     with TickerProviderStateMixin {
   late M02MeetEnteredModel _model;
   bool _swipeSkipPanelOpen = false;
+  bool _expandedInList = false;
 
   /// Plays when the user turns “I’ve entered this meet” on (after confirm).
   late final AnimationController _enteredCelebrateController;
@@ -502,9 +503,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         SizedBox(width: _logisticsIconGap),
         Expanded(
           child: Text(
-            'Sign-up isn’t open yet. Tap YES I’m going below if you plan to enter, then choose whether to get a reminder when registration opens.',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            "Sign-up is not open yet. Use I'm Going or Not Going below, and set a reminder if you want one when registration opens.",
             style: GoogleFonts.sora(
               fontSize: 12.0,
               fontWeight: FontWeight.w600,
@@ -1070,8 +1069,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
 
     final pref = widget.preference;
 
-    /// No Firestore doc yet → start collapsed so the list stays scannable.
-    final hidden = pref?.isHidden ?? true;
+    /// Always start collapsed on tab/view re-entry; expand state is local only.
+    final hidden = !_expandedInList;
 
     if (hidden) {
       final hStatus = pref?.status ?? MeetPreferenceStatus.newStatus;
@@ -1094,7 +1093,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         skipSelected: hSkipSelected,
       );
       final metaLine = _collapsedMeetMetadataLine(doc, pref);
-      void revealMeet() => _mergePref(isHidden: false);
+      void revealMeet() => setState(() => _expandedInList = true);
 
       final hiddenCard = widget.groupedInSection
           ? Material(
@@ -1890,7 +1889,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               ),
             _buildMeetChevronToggle(
               expanded: true,
-              onPressed: () => _mergePref(isHidden: true),
+              onPressed: () => setState(() => _expandedInList = false),
             ),
           ],
         ),

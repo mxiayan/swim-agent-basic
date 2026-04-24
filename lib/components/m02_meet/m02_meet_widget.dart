@@ -29,8 +29,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
 
   bool _meetBannerReady = false;
   _MeetPrimaryView _primaryView = _MeetPrimaryView.myMeets;
-  /// Skipped / Not Attending section starts collapsed for a calmer default.
-  bool _skippedNotAttendingExpanded = false;
   final TextEditingController _allMeetsSearchController =
       TextEditingController();
 
@@ -117,9 +115,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       return true;
     }
     if (pref.status == MeetPreferenceStatus.newStatus) {
-      return true;
-    }
-    if (MeetListQuickFilter.isNotGoingCategory(pref)) {
       return true;
     }
     return MeetListQuickFilter.meetNeedsAction(m, pref) ||
@@ -851,12 +846,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                             MeetPreferenceStatus.entered)
                         .toList()
                       ..sort((a, b) => _sortDate(a).compareTo(_sortDate(b)));
-                    final skipped = myMeets
-                        .where((m) =>
-                            MeetListQuickFilter.isNotGoingCategory(
-                              prefs[m.reference.id],
-                            ))
-                        .toList();
                     final newToReview = myMeets
                         .where((m) =>
                             prefs[m.reference.id]?.status ==
@@ -866,7 +855,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         .where((m) =>
                             !needsAction.contains(m) &&
                             !entered.contains(m) &&
-                            !skipped.contains(m) &&
                             !newToReview.contains(m))
                         .toList();
 
@@ -998,26 +986,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
                               key: Key('my_entered_${meet.reference.id}_${entry.key}'),
-                              meetDoc: meet,
-                              preference: prefs[meet.reference.id],
-                              groupedInSection: true,
-                            );
-                          }).toList(),
-                        ),
-                        _buildMyMeetGroupedSection(
-                          title: 'Skipped / Not Attending',
-                          count: skipped.length,
-                          tone: _MyMeetSectionTone.skipped,
-                          collapsible: true,
-                          expanded: _skippedNotAttendingExpanded,
-                          onToggleExpanded: () => setState(() {
-                            _skippedNotAttendingExpanded =
-                                !_skippedNotAttendingExpanded;
-                          }),
-                          meetRows: skipped.asMap().entries.map((entry) {
-                            final meet = entry.value;
-                            return M02MeetEnteredWidget(
-                              key: Key('my_skip_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
                               groupedInSection: true,
