@@ -47,6 +47,14 @@
 		<true/>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
+		<key>NSCameraUsageDescription</key>
+		<string>Take photos and videos for meet resources and swim videos.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Select photos and videos to attach to your personal meet resources.</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Save captured media for your personal meet resources and swim videos.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Record audio with swim videos when capturing race clips.</string>
 		<key>UIApplicationSceneManifest</key>
 		<dict>
 			<key>UIApplicationSupportsMultipleScenes</key>

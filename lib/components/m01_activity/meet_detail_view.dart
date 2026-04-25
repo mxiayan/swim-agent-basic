@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'dart:ui';
+
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/backend/local/local_meet_media_store.dart';
 import '/backend/meet_preferences_api.dart';
 import '/backend/schema/entered_meets_record.dart';
 import '/backend/schema/meet_preferences_record.dart';
@@ -11,10 +15,15 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:gallery_saver_plus/gallery_saver.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:numberpicker/numberpicker.dart';
 import 'package:provider/provider.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 String? _trimUrl(String? s) {
   final t = (s ?? '').trim();
@@ -110,6 +119,14 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   String _mapAddressOverride = '';
   bool _savingLocationAddress = false;
   final Map<String, Future<_GeoPointLite?>> _previewGeocodeCache = {};
+  final ImagePicker _mediaPicker = ImagePicker();
+  int _resourceMediaRevision = 0;
+  bool _loadingSwimVideos = false;
+  bool _savingSwimVideo = false;
+  List<LocalSwimVideoEntry> _swimVideos = const <LocalSwimVideoEntry>[];
+  List<String> _strokePresets = const <String>[];
+  List<_MeetEventOption> _meetEventOptions = const <_MeetEventOption>[];
+  final Map<String, Future<String?>> _videoThumbCache = {};
 
   static const String _locationSourceUserVerified = 'user_verified';
 
@@ -177,6 +194,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     super.initState();
     _noteController = TextEditingController(text: _noteSeed);
     _primeMapAddressOverrideFromMonitored();
+    _loadLocalSwimMedia();
   }
 
   /// Resolves `monitored_meets/{id}` when this detail was opened from a meet list row.
@@ -704,12 +722,11 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   }
 
   /// Expands long note previews in My meet resources rows.
-  final Set<PersonalResourceKind> _personalResourceNoteExpanded = {};
+  final Set<String> _personalResourceNoteExpanded = {};
 
-  Future<void> _openPersonalResourceEditor(
-    PersonalResourceKind kind,
-    PersonalMeetResourceEntry initial,
-  ) async {
+  Future<void> _openPersonalResourceEditor({
+    PersonalMeetResourceEntry? initial,
+  }) async {
     if (currentUserUid.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -737,18 +754,694 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             bottom: MediaQuery.viewInsetsOf(ctx).bottom,
           ),
           child: _PersonalResourceEditorSheet(
-            kind: kind,
             initial: initial,
             meetId: widget.meetId,
             onSaved: () {
               if (mounted) {
-                setState(() {});
+                setState(() => _resourceMediaRevision++);
               }
             },
           ),
         );
       },
     );
+  }
+
+  Future<void> _loadLocalSwimMedia() async {
+    if (currentUserUid.isEmpty || !mounted) {
+      return;
+    }
+    setState(() => _loadingSwimVideos = true);
+    try {
+      final swimmerName = FFAppState().currentSwimmerName.trim();
+      final videos =
+          await LocalMeetMediaStore.listVideos(currentUserUid, widget.meetId);
+      final strokes = await LocalMeetMediaStore.getStrokePresets(
+        currentUserUid,
+        swimmerName,
+      );
+      final eventOptions = await _loadMeetEventOptions();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _swimVideos = videos;
+        _strokePresets = strokes;
+        _meetEventOptions = eventOptions;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingSwimVideos = false);
+      }
+    }
+  }
+
+  Future<List<_MeetEventOption>> _loadMeetEventOptions() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserUid)
+          .collection('entered_meets')
+          .doc(widget.meetId)
+          .get();
+      final data = snap.data() ?? <String, dynamic>{};
+      final candidates = <String>[
+        'events',
+        'event_list',
+        'events_entered',
+        'entered_events',
+      ];
+      dynamic rawList;
+      for (final k in candidates) {
+        if (data.containsKey(k)) {
+          rawList = data[k];
+          break;
+        }
+      }
+      if (rawList is! List) {
+        return const <_MeetEventOption>[];
+      }
+      final out = <_MeetEventOption>[];
+      for (final item in rawList) {
+        if (item is String) {
+          final txt = item.trim();
+          if (txt.isNotEmpty) {
+            out.add(_MeetEventOption(label: txt));
+          }
+          continue;
+        }
+        if (item is Map) {
+          final m = item.cast<String, dynamic>();
+          final label = (m['label'] ?? m['event'] ?? m['name'] ?? '').toString().trim();
+          if (label.isEmpty) {
+            continue;
+          }
+          out.add(
+            _MeetEventOption(
+              label: label,
+              stroke: (m['stroke'] ?? '').toString().trim(),
+              distance: (m['distance'] as num?)?.toInt() ?? 0,
+              unit: (m['unit'] ?? 'Y').toString().trim().toUpperCase(),
+              isLongCourse: m['is_long_course'] as bool? ?? false,
+            ),
+          );
+        }
+      }
+      return out;
+    } catch (_) {
+      return const <_MeetEventOption>[];
+    }
+  }
+
+  Future<void> _editStrokePresets() async {
+    final seed = _strokePresets.join(', ');
+    final c = TextEditingController(text: seed);
+    final updated = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          16.0,
+          12.0,
+          16.0,
+          16.0 + MediaQuery.viewInsetsOf(ctx).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Preferred strokes',
+              style: GoogleFonts.sora(
+                fontSize: 16.0,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8.0),
+            Text(
+              'Comma separated, e.g. Freestyle, Backstroke, Butterfly, IM',
+              style: GoogleFonts.sora(
+                fontSize: 12.0,
+                color: _slate500,
+              ),
+            ),
+            const SizedBox(height: 8.0),
+            TextField(
+              controller: c,
+              minLines: 2,
+              maxLines: 4,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFFFAFAFA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12.0),
+            FilledButton(
+              onPressed: () {
+                final out = c.text
+                    .split(',')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+                Navigator.pop(ctx, out);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (updated == null || updated.isEmpty || !mounted) {
+      return;
+    }
+    final swimmerName = FFAppState().currentSwimmerName.trim();
+    await LocalMeetMediaStore.saveStrokePresets(
+      currentUserUid,
+      swimmerName,
+      updated,
+    );
+    setState(() => _strokePresets = updated);
+  }
+
+  Future<void> _addSwimVideo() async {
+    if (currentUserUid.isEmpty || _savingSwimVideo) {
+      return;
+    }
+    await _openAddSwimVideoSheet();
+  }
+
+  Future<String?> _ensureVideoThumbnail(String videoPath) {
+    final key = videoPath.trim();
+    if (key.isEmpty) {
+      return Future.value(null);
+    }
+    return _videoThumbCache.putIfAbsent(
+      key,
+      () async {
+        try {
+          final out = await VideoThumbnail.thumbnailFile(
+            video: key,
+            imageFormat: ImageFormat.JPEG,
+            maxWidth: 420,
+            quality: 75,
+          );
+          return out;
+        } catch (_) {
+          return null;
+        }
+      },
+    );
+  }
+
+  String _shortStroke(String stroke) {
+    final s = stroke.trim().toLowerCase();
+    if (s.startsWith('free')) return 'Free';
+    if (s.startsWith('back')) return 'Back';
+    if (s.startsWith('breast')) return 'Breast';
+    if (s.startsWith('butter')) return 'Fly';
+    if (s == 'im') return 'IM';
+    return stroke.trim().isEmpty ? 'Race' : stroke.trim();
+  }
+
+  String _strokeGlyph(String stroke) {
+    final s = stroke.trim().toLowerCase();
+    if (s.startsWith('free')) return 'F';
+    if (s.startsWith('back')) return 'B';
+    if (s.startsWith('breast')) return 'Br';
+    if (s.startsWith('butter')) return 'Fl';
+    if (s == 'im') return 'IM';
+    final t = stroke.trim();
+    return t.isEmpty ? '?' : t.substring(0, 1).toUpperCase();
+  }
+
+  Future<void> _openAddSwimVideoSheet({
+    String? initialStroke,
+    String initialEventLabel = '',
+    String initialNote = '',
+    bool quickRecordFirst = false,
+  }) async {
+    final eventController = TextEditingController(text: initialEventLabel);
+    final noteController = TextEditingController(text: initialNote);
+    _MeetEventOption? selectedEvent;
+    int selectedDistance = 0;
+    String selectedUnit = 'Y';
+    bool selectedLongCourse = false;
+    var selectedStroke = (initialStroke ?? '').trim().isNotEmpty
+        ? initialStroke!.trim()
+        : (_strokePresets.isNotEmpty ? _strokePresets.first : 'Freestyle');
+    XFile? picked;
+    var capturedFromCamera = false;
+
+    if (quickRecordFirst) {
+      picked = await _mediaPicker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(minutes: 5),
+      );
+      capturedFromCamera = picked != null;
+      if (picked == null) {
+        return;
+      }
+      if (eventController.text.trim().isEmpty) {
+        eventController.text = 'Started ${dateTimeFormat('h:mm a', DateTime.now())}';
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            16.0,
+            12.0,
+            16.0,
+            16.0 + MediaQuery.viewInsetsOf(ctx).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Add swim video',
+                style: GoogleFonts.sora(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 10.0),
+              if (_meetEventOptions.isNotEmpty) ...[
+                Text(
+                  'Event mapping',
+                  style: GoogleFonts.sora(
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w700,
+                    color: _slate500,
+                  ),
+                ),
+                const SizedBox(height: 6.0),
+                Wrap(
+                  spacing: 6.0,
+                  runSpacing: 6.0,
+                  children: [
+                    ..._meetEventOptions.map(
+                      (e) => ChoiceChip(
+                        label: Text(
+                          e.label,
+                          style: GoogleFonts.sora(fontSize: 11.5),
+                        ),
+                        selected: selectedEvent?.label == e.label,
+                        onSelected: (_) {
+                          setSheetState(() {
+                            selectedEvent = e;
+                            if (e.stroke.trim().isNotEmpty) {
+                              selectedStroke = e.stroke.trim();
+                            }
+                            if (e.distance > 0) {
+                              selectedDistance = e.distance;
+                            }
+                            if (e.unit.trim().isNotEmpty) {
+                              selectedUnit = e.unit.trim();
+                            }
+                            selectedLongCourse = e.isLongCourse;
+                            eventController.text = e.label;
+                          });
+                        },
+                      ),
+                    ),
+                    ActionChip(
+                      label: Text(
+                        'Custom',
+                        style: GoogleFonts.sora(fontSize: 11.5),
+                      ),
+                      onPressed: () async {
+                        final custom = await _openCustomEventBuilder(
+                          stroke: selectedStroke,
+                          distance: selectedDistance == 0 ? 50 : selectedDistance,
+                          unit: selectedUnit,
+                          isLongCourse: selectedLongCourse,
+                        );
+                        if (custom == null) return;
+                        setSheetState(() {
+                          selectedStroke = custom.stroke;
+                          selectedDistance = custom.distance;
+                          selectedUnit = custom.unit;
+                          selectedLongCourse = custom.isLongCourse;
+                          selectedEvent = custom;
+                          eventController.text = custom.label;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8.0),
+              ],
+              DropdownButtonFormField<String>(
+                initialValue: selectedStroke,
+                style: GoogleFonts.sora(
+                  fontSize: 14.0,
+                  color: const Color(0xFF0F172A),
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Stroke',
+                  labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                  filled: true,
+                  fillColor: const Color(0xFFFAFAFA),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                ),
+                items: _strokePresets
+                    .map(
+                      (s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s, style: GoogleFonts.sora()),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setSheetState(() => selectedStroke = v);
+                },
+              ),
+              const SizedBox(height: 8.0),
+              TextField(
+                controller: eventController,
+                style: GoogleFonts.sora(
+                  fontSize: 14.0,
+                  color: const Color(0xFF0F172A),
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Event / Heat (optional)',
+                  labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                  filled: true,
+                  fillColor: const Color(0xFFFAFAFA),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8.0),
+              TextField(
+                controller: noteController,
+                minLines: 2,
+                maxLines: 4,
+                style: GoogleFonts.sora(
+                  fontSize: 14.0,
+                  color: const Color(0xFF0F172A),
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Notes (optional)',
+                  labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                  filled: true,
+                  fillColor: const Color(0xFFFAFAFA),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10.0),
+              Wrap(
+                spacing: 8.0,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final v = await _mediaPicker.pickVideo(
+                        source: ImageSource.camera,
+                        maxDuration: const Duration(minutes: 5),
+                      );
+                      if (v != null) {
+                        capturedFromCamera = true;
+                        setSheetState(() => picked = v);
+                      }
+                    },
+                    icon: const Icon(Icons.videocam_rounded),
+                    label: const Text('Record'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final v = await _mediaPicker.pickVideo(
+                        source: ImageSource.gallery,
+                      );
+                      if (v != null) {
+                        capturedFromCamera = false;
+                        setSheetState(() => picked = v);
+                      }
+                    },
+                    icon: const Icon(Icons.video_library_rounded),
+                    label: const Text('Choose video'),
+                  ),
+                ],
+              ),
+              if (picked != null) ...[
+                const SizedBox(height: 6.0),
+                Text(
+                  picked!.name,
+                  style: GoogleFonts.sora(fontSize: 12.0, color: _slate500),
+                ),
+              ],
+              const SizedBox(height: 12.0),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 8.0),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: picked == null ? null : () => Navigator.pop(ctx, true),
+                      child: const Text('Save Video'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (result != true || picked == null) {
+      return;
+    }
+    setState(() => _savingSwimVideo = true);
+    try {
+      final copied = await LocalMeetMediaStore.copyIntoLocalMedia(
+        picked!.path,
+        'videos',
+      );
+      if (capturedFromCamera) {
+        try {
+          await GallerySaver.saveVideo(copied, albumName: 'Swim Agent');
+        } catch (_) {}
+      }
+      final thumb = await _ensureVideoThumbnail(copied);
+      final item = LocalSwimVideoEntry(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        path: copied,
+        thumbnailPath: thumb ?? '',
+        stroke: selectedStroke,
+        distance: selectedDistance,
+        unit: selectedUnit,
+        isLongCourse: selectedLongCourse,
+        createdAt: DateTime.now(),
+        eventLabel: eventController.text.trim(),
+        note: noteController.text.trim(),
+      );
+      final next = <LocalSwimVideoEntry>[item, ..._swimVideos];
+      await LocalMeetMediaStore.saveVideos(currentUserUid, widget.meetId, next);
+      if (!mounted) return;
+      setState(() => _swimVideos = next);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Swim video saved on this device.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save video locally.')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingSwimVideo = false);
+    }
+  }
+
+  Future<void> _quickRecordForStroke(String stroke) async {
+    await _openAddSwimVideoSheet(
+      initialStroke: stroke,
+      initialEventLabel: 'Started ${dateTimeFormat('h:mm a', DateTime.now())}',
+      quickRecordFirst: true,
+    );
+  }
+
+  Future<_MeetEventOption?> _openCustomEventBuilder({
+    required String stroke,
+    required int distance,
+    required String unit,
+    required bool isLongCourse,
+  }) async {
+    var d = distance;
+    var u = unit;
+    var s = stroke.trim().isEmpty ? 'Freestyle' : stroke.trim();
+    var lc = isLongCourse;
+    return showModalBottomSheet<_MeetEventOption>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Custom event',
+                style: GoogleFonts.sora(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8.0),
+              NumberPicker(
+                minValue: 25,
+                maxValue: 1650,
+                step: 25,
+                value: d <= 0 ? 50 : d,
+                onChanged: (v) => setSheet(() => d = v),
+              ),
+              const SizedBox(height: 4.0),
+              DropdownButtonFormField<String>(
+                initialValue: u,
+                style: GoogleFonts.sora(
+                  fontSize: 14.0,
+                  color: const Color(0xFF0F172A),
+                ),
+                items: const ['Y', 'M']
+                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    setSheet(() => u = v);
+                  }
+                },
+                decoration: InputDecoration(
+                  labelText: 'Unit',
+                  labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                ),
+              ),
+              const SizedBox(height: 8.0),
+              DropdownButtonFormField<String>(
+                initialValue: s,
+                style: GoogleFonts.sora(
+                  fontSize: 14.0,
+                  color: const Color(0xFF0F172A),
+                ),
+                items: _strokePresets
+                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    setSheet(() => s = v);
+                  }
+                },
+                decoration: InputDecoration(
+                  labelText: 'Stroke',
+                  labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                ),
+              ),
+              const SizedBox(height: 6.0),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: lc,
+                onChanged: (v) => setSheet(() => lc = v),
+                title: Text(
+                  'Long course',
+                  style: GoogleFonts.sora(fontSize: 13.0),
+                ),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final label = '$d$u ${_shortStroke(s)}';
+                  Navigator.pop(
+                    ctx,
+                    _MeetEventOption(
+                      label: label,
+                      stroke: s,
+                      distance: d,
+                      unit: u,
+                      isLongCourse: lc,
+                    ),
+                  );
+                },
+                child: const Text('Use event'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _playVideoInApp(LocalSwimVideoEntry video) async {
+    if (!mounted) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _LocalVideoPlayerPage(video: video),
+      ),
+    );
+  }
+
+  Future<void> _deleteSwimVideo(LocalSwimVideoEntry video) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete video?', style: GoogleFonts.sora(fontWeight: FontWeight.w700)),
+        content: Text(
+          'This removes the local video reference from this meet.',
+          style: GoogleFonts.sora(fontSize: 14.0, color: _slate600),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final next = _swimVideos.where((e) => e.id != video.id).toList();
+    await LocalMeetMediaStore.saveVideos(currentUserUid, widget.meetId, next);
+    try {
+      final f = File(video.path);
+      if (await f.exists()) {
+        await f.delete();
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _swimVideos = next);
   }
 
   Widget _buildMyMeetResourcesSection() {
@@ -768,17 +1461,10 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       );
     }
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUserUid)
-          .collection('meet_preferences')
-          .doc(widget.meetId)
-          .snapshots(),
+    return StreamBuilder<List<PersonalMeetResourceEntry>>(
+      stream: streamPersonalMeetResources(currentUserUid, widget.meetId),
       builder: (context, snap) {
-        final bundle = (!snap.hasData || !snap.data!.exists)
-            ? PersonalMeetResources.empty
-            : MeetPreferencesRecord.fromSnapshot(snap.data!).personalResources;
+        final resources = snap.data ?? const <PersonalMeetResourceEntry>[];
 
         return _softCard(
           child: Padding(
@@ -786,31 +1472,110 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Personal links and notes for your family only — not from your team.',
-                  style: GoogleFonts.sora(
-                    fontSize: 12.0,
-                    height: 1.35,
-                    color: _slate500,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Personal links and notes for your family only — not from your team.',
+                        style: GoogleFonts.sora(
+                          fontSize: 12.0,
+                          height: 1.35,
+                          color: _slate500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8.0),
+                    TextButton.icon(
+                      onPressed: () => _openPersonalResourceEditor(),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0.0, 32.0),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: Icon(
+                        Icons.add_rounded,
+                        size: 16.0,
+                        color: FlutterFlowTheme.of(context).primary,
+                      ),
+                      label: Text(
+                        'Add Resource',
+                        style: GoogleFonts.sora(
+                          fontWeight: FontWeight.w700,
+                          color: FlutterFlowTheme.of(context).primary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12.0),
-                _personalResourceRow(
-                  kind: PersonalResourceKind.psychSheet,
-                  entry: bundle.psychSheet,
-                ),
-                _personalResourceRow(
-                  kind: PersonalResourceKind.timeline,
-                  entry: bundle.timeline,
-                ),
-                _personalResourceRow(
-                  kind: PersonalResourceKind.heatSheet,
-                  entry: bundle.heatSheet,
-                ),
-                _personalResourceRow(
-                  kind: PersonalResourceKind.additionalNotes,
-                  entry: bundle.additionalNotes,
-                ),
+                if (snap.connectionState == ConnectionState.waiting &&
+                    !snap.hasData)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: CircularProgressIndicator(strokeWidth: 2.0),
+                    ),
+                  )
+                else if (snap.hasError)
+                  Text(
+                    'Could not load meet resources. Please try again.',
+                    style: GoogleFonts.sora(
+                      fontSize: 12.5,
+                      color: _slate500,
+                    ),
+                  )
+                else if (resources.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(12.0, 12.0, 12.0, 10.0),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'No resources yet.',
+                          style: GoogleFonts.sora(
+                            fontSize: 13.0,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 4.0),
+                        Text(
+                          'Add links, volunteer jobs, reminders, or notes for this meet.',
+                          style: GoogleFonts.sora(
+                            fontSize: 12.0,
+                            color: _slate500,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 8.0),
+                        TextButton.icon(
+                          onPressed: () => _openPersonalResourceEditor(),
+                          icon: Icon(
+                            Icons.add_rounded,
+                            size: 16.0,
+                            color: FlutterFlowTheme.of(context).primary,
+                          ),
+                          label: Text(
+                            'Add Resource',
+                            style: GoogleFonts.sora(
+                              fontWeight: FontWeight.w700,
+                              color: FlutterFlowTheme.of(context).primary,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(0.0, 32.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...resources.map(_personalResourceRow),
               ],
             ),
           ),
@@ -819,20 +1584,68 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     );
   }
 
-  Widget _personalResourceRow({
-    required PersonalResourceKind kind,
-    required PersonalMeetResourceEntry entry,
-  }) {
-    final title = kind.uiTitle;
-    final empty = entry.isEmpty;
-    final expanded = _personalResourceNoteExpanded.contains(kind);
-    final notePreview = entry.note.trim();
-    final urlRaw = entry.url.trim();
-    final urlNorm = urlRaw.isEmpty
-        ? ''
-        : (urlRaw.startsWith('http://') || urlRaw.startsWith('https://')
-            ? urlRaw
-            : 'https://$urlRaw');
+  Widget _personalResourceRow(PersonalMeetResourceEntry entry) {
+    final expanded = _personalResourceNoteExpanded.contains(entry.id);
+    final notePreview = entry.notes.trim();
+    final urlNorm = entry.normalizedUrl;
+    final title = entry.resourceLabel.trim().isEmpty
+        ? entry.kind.uiTitle
+        : entry.resourceLabel.trim();
+    final photosFuture = LocalMeetMediaStore.listPhotos(
+      currentUserUid,
+      widget.meetId,
+      entry.id,
+    );
+
+    final lines = <String>[];
+    switch (entry.kind) {
+      case PersonalResourceKind.psychSheet:
+      case PersonalResourceKind.timeline:
+      case PersonalResourceKind.heatSheet:
+        break;
+      case PersonalResourceKind.volunteerJob:
+        if (entry.title.trim().isNotEmpty) {
+          lines.add(entry.title.trim());
+        }
+        final when = [entry.date, entry.startTime, entry.endTime]
+            .where((s) => s.trim().isNotEmpty)
+            .join('  ');
+        if (when.isNotEmpty) {
+          lines.add(when);
+        }
+        if (entry.location.trim().isNotEmpty) {
+          lines.add(entry.location.trim());
+        }
+        break;
+      case PersonalResourceKind.warmupInfo:
+        final when = [entry.date, entry.time]
+            .where((s) => s.trim().isNotEmpty)
+            .join('  ');
+        if (when.isNotEmpty) {
+          lines.add(when);
+        }
+        if (entry.location.trim().isNotEmpty) {
+          lines.add(entry.location.trim());
+        }
+        break;
+      case PersonalResourceKind.parkingInfo:
+        if (entry.address.trim().isNotEmpty) {
+          lines.add(entry.address.trim());
+        }
+        break;
+      case PersonalResourceKind.reminder:
+      case PersonalResourceKind.otherNote:
+        if (entry.title.trim().isNotEmpty) {
+          lines.add(entry.title.trim());
+        }
+        final when = [entry.date, entry.time]
+            .where((s) => s.trim().isNotEmpty)
+            .join('  ');
+        if (when.isNotEmpty && entry.kind == PersonalResourceKind.reminder) {
+          lines.add(when);
+        }
+        break;
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
@@ -840,7 +1653,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12.0),
         child: InkWell(
-          onTap: () => _openPersonalResourceEditor(kind, entry),
+          onTap: () => _openPersonalResourceEditor(initial: entry),
           borderRadius: BorderRadius.circular(12.0),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12.0, 10.0, 10.0, 10.0),
@@ -861,14 +1674,14 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => _openPersonalResourceEditor(kind, entry),
+                      onPressed: () => _openPersonalResourceEditor(initial: entry),
                       style: TextButton.styleFrom(
                         minimumSize: const Size(0.0, 32.0),
                         padding: const EdgeInsets.symmetric(horizontal: 8.0),
                         visualDensity: VisualDensity.compact,
                       ),
                       child: Text(
-                        empty ? 'Add' : 'Edit',
+                        'Edit',
                         style: GoogleFonts.sora(
                           fontWeight: FontWeight.w700,
                           color: FlutterFlowTheme.of(context).primary,
@@ -877,18 +1690,23 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                     ),
                   ],
                 ),
-                if (empty) ...[
-                  const SizedBox(height: 4.0),
-                  Text(
-                    'No resource yet. Add a link or quick note.',
-                    style: GoogleFonts.sora(
-                      fontSize: 12.5,
-                      color: _slate500,
-                      height: 1.3,
+                if (lines.isNotEmpty) ...[
+                  const SizedBox(height: 6.0),
+                  ...lines.map(
+                    (line) => Padding(
+                      padding: const EdgeInsets.only(bottom: 3.0),
+                      child: Text(
+                        line,
+                        style: GoogleFonts.sora(
+                          fontSize: 12.5,
+                          height: 1.3,
+                          color: _slate700,
+                        ),
+                      ),
                     ),
                   ),
-                ] else ...[
-                  if (urlRaw.isNotEmpty) ...[
+                ],
+                if (urlNorm.isNotEmpty) ...[
                     const SizedBox(height: 6.0),
                     GestureDetector(
                       onTap: () => launchURL(urlNorm),
@@ -924,57 +1742,342 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       ),
                     ),
                   ],
-                  if (notePreview.isNotEmpty) ...[
-                    const SizedBox(height: 6.0),
-                    Text(
-                      notePreview,
-                      maxLines: expanded ? null : 2,
-                      overflow:
-                          expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-                      style: GoogleFonts.sora(
-                        fontSize: 12.5,
-                        height: 1.35,
-                        color: _slate700,
+                if (notePreview.isNotEmpty) ...[
+                  const SizedBox(height: 6.0),
+                  Text(
+                    notePreview,
+                    maxLines: expanded ? null : 2,
+                    overflow:
+                        expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                    style: GoogleFonts.sora(
+                      fontSize: 12.5,
+                      height: 1.35,
+                      color: _slate700,
+                    ),
+                  ),
+                  if (notePreview.length > 90 || notePreview.contains('\n'))
+                    TextButton(
+                      onPressed: () => setState(() {
+                        if (expanded) {
+                          _personalResourceNoteExpanded.remove(entry.id);
+                        } else {
+                          _personalResourceNoteExpanded.add(entry.id);
+                        }
+                      }),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0.0, 28.0),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        expanded ? 'Show less' : 'Show more',
+                        style: GoogleFonts.sora(
+                          fontSize: 12.0,
+                          fontWeight: FontWeight.w700,
+                          color: FlutterFlowTheme.of(context).primary,
+                        ),
                       ),
                     ),
-                    if (notePreview.length > 90 || notePreview.contains('\n'))
-                      TextButton(
-                        onPressed: () => setState(() {
-                          if (expanded) {
-                            _personalResourceNoteExpanded.remove(kind);
-                          } else {
-                            _personalResourceNoteExpanded.add(kind);
-                          }
-                        }),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(0.0, 28.0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          expanded ? 'Show less' : 'Show more',
-                          style: GoogleFonts.sora(
-                            fontSize: 12.0,
-                            fontWeight: FontWeight.w700,
-                            color: FlutterFlowTheme.of(context).primary,
-                          ),
-                        ),
-                      ),
-                  ],
-                  if (entry.updatedAt != null) ...[
-                    const SizedBox(height: 2.0),
-                    Text(
-                      'Last updated ${dateTimeFormat('MMM d, y · h:mm a', entry.updatedAt)}',
-                      style: GoogleFonts.sora(
-                        fontSize: 11.0,
-                        color: _slate500,
-                      ),
-                    ),
-                  ],
                 ],
+                if (entry.updatedAt != null) ...[
+                  const SizedBox(height: 2.0),
+                  Text(
+                    'Last updated ${dateTimeFormat('MMM d, y · h:mm a', entry.updatedAt)}',
+                    style: GoogleFonts.sora(
+                      fontSize: 11.0,
+                      color: _slate500,
+                    ),
+                  ),
+                ],
+                FutureBuilder<List<LocalResourcePhoto>>(
+                  future: photosFuture,
+                  key: ValueKey('${entry.id}::$_resourceMediaRevision'),
+                  builder: (context, snap) {
+                    final photos = snap.data ?? const <LocalResourcePhoto>[];
+                    if (photos.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6.0),
+                      child: Text(
+                        '${photos.length} photo${photos.length == 1 ? '' : 's'} attached',
+                        style: GoogleFonts.sora(
+                          fontSize: 11.5,
+                          color: _slate500,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwimVideosSection() {
+    return _softCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16.0, 14.0, 16.0, 8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Store meet videos on this device and tag by stroke.',
+                    style: GoogleFonts.sora(
+                      fontSize: 12.0,
+                      height: 1.35,
+                      color: _slate500,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _savingSwimVideo ? null : _addSwimVideo,
+                  icon: Icon(
+                    Icons.add_rounded,
+                    size: 16.0,
+                    color: FlutterFlowTheme.of(context).primary,
+                  ),
+                  label: Text(
+                    'Add Video',
+                    style: GoogleFonts.sora(
+                      fontWeight: FontWeight.w700,
+                      color: FlutterFlowTheme.of(context).primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _editStrokePresets,
+                  icon: const Icon(Icons.tune_rounded, size: 15.0),
+                  label: const Text('Stroke presets'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    minimumSize: const Size(0, 30),
+                  ),
+                ),
+                const SizedBox(width: 6.0),
+                Expanded(
+                  child: Text(
+                    _strokePresets.join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.sora(fontSize: 11.5, color: _slate500),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8.0),
+            if (_strokePresets.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14.0),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(10.0, 10.0, 10.0, 10.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(14.0),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
+                    ),
+                    child: Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: _strokePresets
+                          .map(
+                            (stroke) => InkWell(
+                              borderRadius: BorderRadius.circular(999.0),
+                              onTap: _savingSwimVideo
+                                  ? null
+                                  : () => _quickRecordForStroke(stroke),
+                              child: Container(
+                                width: 56.0,
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xCCFFFFFF),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: const Color(0x66FFFFFF),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.videocam_rounded,
+                                      size: 14.0,
+                                      color: FlutterFlowTheme.of(context).primary,
+                                    ),
+                                    const SizedBox(height: 2.0),
+                                    Text(
+                                      _strokeGlyph(stroke),
+                                      style: GoogleFonts.sora(
+                                        fontSize: 11.0,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10.0),
+            ],
+            if (_loadingSwimVideos)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                  child: CircularProgressIndicator(strokeWidth: 2.0),
+                ),
+              )
+            else if (_swimVideos.isEmpty)
+              SizedBox(
+                height: 154.0,
+                child: _DashedPlaceholderCard(
+                  text: 'Record your first race.',
+                  subtitle: 'Capture race clips for stroke-by-stroke analysis.',
+                  onTap: _addSwimVideo,
+                ),
+              )
+            else
+              SizedBox(
+                height: 176.0,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _swimVideos.length,
+                  itemBuilder: (context, index) {
+                    final v = _swimVideos[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        right: index == _swimVideos.length - 1 ? 0 : 10.0,
+                      ),
+                      child: GestureDetector(
+                        onTap: () => _playVideoInApp(v),
+                        child: SizedBox(
+                          width: 230.0,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14.0),
+                                  child: FutureBuilder<String?>(
+                                    future: v.thumbnailPath.trim().isNotEmpty
+                                        ? Future.value(v.thumbnailPath)
+                                        : _ensureVideoThumbnail(v.path),
+                                    builder: (context, snap) {
+                                      final thumb = snap.data ?? '';
+                                      if (thumb.isEmpty) {
+                                        return Container(
+                                          color: const Color(0xFFE2E8F0),
+                                          alignment: Alignment.center,
+                                          child: const Icon(
+                                            Icons.videocam_rounded,
+                                            size: 28.0,
+                                          ),
+                                        );
+                                      }
+                                      return Image.file(
+                                        File(thumb),
+                                        fit: BoxFit.cover,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                              Positioned.fill(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(14.0),
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Color(0x11000000),
+                                        Color(0x66000000),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                left: 8.0,
+                                bottom: 8.0,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(999.0),
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8.0,
+                                        vertical: 4.0,
+                                      ),
+                                      color: const Color(0x66FFFFFF),
+                                      child: Text(
+                                        _strokeGlyph(v.stroke),
+                                        style: GoogleFonts.sora(
+                                          fontSize: 11.0,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                right: 8.0,
+                                bottom: 8.0,
+                                child: Text(
+                                  dateTimeFormat('h:mm a', v.createdAt),
+                                  style: GoogleFonts.sora(
+                                    fontSize: 11.0,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 8.0,
+                                right: 8.0,
+                                child: InkWell(
+                                  onTap: () => _deleteSwimVideo(v),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(5.0),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xAA0F172A),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: Colors.white,
+                                      size: 15.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -2183,6 +3286,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       _sectionHeading('My meet resources'),
                       _buildMyMeetResourcesSection(),
                       const SizedBox(height: 26.0),
+                      _sectionHeading('Swim videos'),
+                      _buildSwimVideosSection(),
+                      const SizedBox(height: 26.0),
                       _buildParentNoteSection(),
                     ],
                     // Space above sticky footer
@@ -2225,14 +3331,12 @@ class _MeetDetailViewState extends State<MeetDetailView> {
 
 class _PersonalResourceEditorSheet extends StatefulWidget {
   const _PersonalResourceEditorSheet({
-    required this.kind,
     required this.initial,
     required this.meetId,
     required this.onSaved,
   });
 
-  final PersonalResourceKind kind;
-  final PersonalMeetResourceEntry initial;
+  final PersonalMeetResourceEntry? initial;
   final String meetId;
   final VoidCallback onSaved;
 
@@ -2242,29 +3346,133 @@ class _PersonalResourceEditorSheet extends StatefulWidget {
 }
 
 class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorSheet> {
-  late final TextEditingController _url;
-  late final TextEditingController _note;
-  String? _urlError;
+  late PersonalResourceKind _kind;
+  final Map<String, TextEditingController> _controllers = {};
+  final Map<String, String?> _errors = {};
+  final ImagePicker _picker = ImagePicker();
   bool _saving = false;
+  bool _loadingPhotos = false;
+  List<LocalResourcePhoto> _photos = const <LocalResourcePhoto>[];
+  bool _savedNewResource = false;
 
   @override
   void initState() {
     super.initState();
-    _url = TextEditingController(text: widget.initial.url);
-    _note = TextEditingController(text: widget.initial.note);
+    _kind = widget.initial?.kind ?? PersonalResourceKind.psychSheet;
+    for (final key in _allFormKeys) {
+      _controllers[key] = TextEditingController(
+        text: _initialValueFor(key),
+      );
+    }
+    _loadPhotos();
   }
 
   @override
   void dispose() {
-    _url.dispose();
-    _note.dispose();
+    if (widget.initial == null && !_savedNewResource) {
+      // User cancelled Add flow after selecting local photos; best-effort cleanup.
+      for (final p in _photos) {
+        try {
+          final f = File(p.path);
+          if (f.existsSync()) {
+            f.deleteSync();
+          }
+        } catch (_) {}
+      }
+    }
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  bool _validateUrl() {
-    final raw = _url.text.trim();
+  String _initialValueFor(String key) {
+    final i = widget.initial;
+    if (i == null) {
+      return '';
+    }
+    switch (key) {
+      case 'title':
+        return i.title;
+      case 'url':
+        return i.url;
+      case 'date':
+        return i.date;
+      case 'time':
+        return i.time;
+      case 'start_time':
+        return i.startTime;
+      case 'end_time':
+        return i.endTime;
+      case 'location':
+        return i.location;
+      case 'address':
+        return i.address;
+      case 'notes':
+        return i.notes;
+      default:
+        return '';
+    }
+  }
+
+  static const List<String> _allFormKeys = <String>[
+    'title',
+    'url',
+    'date',
+    'time',
+    'start_time',
+    'end_time',
+    'location',
+    'address',
+    'notes',
+  ];
+
+  static const Map<PersonalResourceKind, List<String>> _fieldsByType =
+      <PersonalResourceKind, List<String>>{
+    PersonalResourceKind.psychSheet: ['url', 'notes'],
+    PersonalResourceKind.timeline: ['url', 'notes'],
+    PersonalResourceKind.heatSheet: ['url', 'notes'],
+    PersonalResourceKind.volunteerJob: [
+      'title',
+      'date',
+      'start_time',
+      'end_time',
+      'location',
+      'notes',
+    ],
+    PersonalResourceKind.warmupInfo: ['date', 'time', 'location', 'notes'],
+    PersonalResourceKind.parkingInfo: ['url', 'address', 'notes'],
+    PersonalResourceKind.reminder: ['title', 'date', 'time', 'notes'],
+    PersonalResourceKind.otherNote: ['title', 'url', 'notes'],
+  };
+
+  bool _hasRequiredRuleForSelectedType() {
+    String v(String key) => (_controllers[key]?.text ?? '').trim();
+    switch (_kind) {
+      case PersonalResourceKind.psychSheet:
+      case PersonalResourceKind.timeline:
+      case PersonalResourceKind.heatSheet:
+        return v('url').isNotEmpty || v('notes').isNotEmpty;
+      case PersonalResourceKind.volunteerJob:
+        return v('title').isNotEmpty || v('notes').isNotEmpty;
+      case PersonalResourceKind.warmupInfo:
+        return v('date').isNotEmpty ||
+            v('time').isNotEmpty ||
+            v('location').isNotEmpty ||
+            v('notes').isNotEmpty;
+      case PersonalResourceKind.parkingInfo:
+        return v('url').isNotEmpty || v('address').isNotEmpty || v('notes').isNotEmpty;
+      case PersonalResourceKind.reminder:
+        return v('title').isNotEmpty && v('date').isNotEmpty;
+      case PersonalResourceKind.otherNote:
+        return v('title').isNotEmpty || v('notes').isNotEmpty;
+    }
+  }
+
+  bool _validateUrlField() {
+    final raw = (_controllers['url']?.text ?? '').trim();
     if (raw.isEmpty) {
-      setState(() => _urlError = null);
+      setState(() => _errors['url'] = null);
       return true;
     }
     final norm = raw.startsWith('http://') || raw.startsWith('https://')
@@ -2274,49 +3482,188 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
     if (uri == null ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
         uri.host.isEmpty) {
-      setState(() => _urlError =
+      setState(() => _errors['url'] =
           'That doesn’t look like a valid web link. Try https://…');
       return false;
     }
-    setState(() => _urlError = null);
+    setState(() => _errors['url'] = null);
     return true;
   }
 
-  Future<void> _save() async {
-    if (!_validateUrl()) {
+  Future<void> _loadPhotos() async {
+    final resourceId = widget.initial?.id.trim() ?? '';
+    if (resourceId.isEmpty || currentUserUid.isEmpty) {
       return;
     }
-    if (_url.text.trim().isEmpty && _note.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add a link or note, or use Delete to clear.'),
-        ),
-      );
-      return;
-    }
-    final rawUrl = _url.text.trim();
-    final urlOut = rawUrl.isEmpty
-        ? ''
-        : (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
-            ? rawUrl
-            : 'https://$rawUrl');
-    setState(() => _saving = true);
+    setState(() => _loadingPhotos = true);
     try {
-      await mergePersonalMeetResource(
+      final photos = await LocalMeetMediaStore.listPhotos(
         currentUserUid,
         widget.meetId,
-        widget.kind,
-        url: urlOut,
-        note: _note.text,
+        resourceId,
       );
+      if (!mounted) return;
+      setState(() => _photos = photos);
+    } finally {
+      if (mounted) {
+        setState(() => _loadingPhotos = false);
+      }
+    }
+  }
+
+  Future<void> _addPhoto(ImageSource source) async {
+    final resourceId = widget.initial?.id.trim() ?? '';
+    final picked = await _picker.pickImage(
+      source: source,
+      imageQuality: 92,
+      maxWidth: 2200,
+    );
+    if (picked == null) {
+      return;
+    }
+    final localPath = await LocalMeetMediaStore.copyIntoLocalMedia(
+      picked.path,
+      'photos',
+    );
+    final next = <LocalResourcePhoto>[
+      LocalResourcePhoto(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        path: localPath,
+        createdAt: DateTime.now(),
+      ),
+      ..._photos,
+    ];
+    if (resourceId.isNotEmpty) {
+      await LocalMeetMediaStore.savePhotos(
+        currentUserUid,
+        widget.meetId,
+        resourceId,
+        next,
+      );
+    }
+    if (!mounted) return;
+    setState(() => _photos = next);
+    if (resourceId.isNotEmpty) {
+      widget.onSaved();
+    }
+  }
+
+  Future<void> _removePhoto(LocalResourcePhoto photo) async {
+    final resourceId = widget.initial?.id.trim() ?? '';
+    if (resourceId.isEmpty) {
+      return;
+    }
+    final next = _photos.where((e) => e.id != photo.id).toList();
+    await LocalMeetMediaStore.savePhotos(
+      currentUserUid,
+      widget.meetId,
+      resourceId,
+      next,
+    );
+    try {
+      final f = File(photo.path);
+      if (await f.exists()) {
+        await f.delete();
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _photos = next);
+    widget.onSaved();
+  }
+
+  Future<void> _openPhotoFullscreen(LocalResourcePhoto photo) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.file(
+                    File(photo.path),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Text(
+                      'Could not load photo.',
+                      style: GoogleFonts.sora(color: Colors.white70),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 44.0,
+              right: 12.0,
+              child: IconButton(
+                onPressed: () => Navigator.pop(ctx),
+                icon: const Icon(Icons.close_rounded),
+                color: Colors.white,
+                tooltip: 'Close',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    if (!_validateUrlField()) {
+      return;
+    }
+    if (!_hasRequiredRuleForSelectedType()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill required fields for this type.')),
+      );
+      return;
+    }
+    final fields = <String, String>{};
+    for (final key in _allFormKeys) {
+      var out = (_controllers[key]?.text ?? '').trim();
+      if (key == 'url' && out.isNotEmpty) {
+        out = out.startsWith('http://') || out.startsWith('https://')
+            ? out
+            : 'https://$out';
+      }
+      fields[key] = out;
+    }
+    setState(() => _saving = true);
+    try {
+      final savedId = await upsertPersonalMeetResource(
+        currentUserUid,
+        widget.meetId,
+        resourceId: widget.initial?.id ?? '',
+        kind: _kind,
+        fields: fields,
+        createdAt: widget.initial?.createdAt,
+      );
+      if (widget.initial == null && savedId.isNotEmpty) {
+        await LocalMeetMediaStore.savePhotos(
+          currentUserUid,
+          widget.meetId,
+          savedId,
+          _photos,
+        );
+        _savedNewResource = true;
+      }
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.kind.uiTitle} saved.')),
+        SnackBar(content: Text('${_kind.uiTitle} saved.')),
       );
       Navigator.pop(context);
       widget.onSaved();
+    } on FirebaseException {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cloud Sync Error')),
+      );
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -2325,7 +3672,8 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
   }
 
   Future<void> _delete() async {
-    if (widget.initial.isEmpty) {
+    final initial = widget.initial;
+    if (initial == null || initial.id.trim().isEmpty) {
       Navigator.pop(context);
       return;
     }
@@ -2333,11 +3681,11 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(
-          'Remove saved resource?',
+          'Delete resource?',
           style: GoogleFonts.sora(fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'This clears your saved link and note for ${widget.kind.uiTitle.toLowerCase()}.',
+          'This will remove this resource from your meet resources.',
           style: GoogleFonts.sora(fontSize: 14.0, color: const Color(0xFF475569)),
         ),
         actions: [
@@ -2369,22 +3717,31 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
     }
     setState(() => _saving = true);
     try {
-      await mergePersonalMeetResource(
+      await deletePersonalMeetResource(
         currentUserUid,
         widget.meetId,
-        widget.kind,
-        url: '',
-        note: '',
-        delete: true,
+        initial.id,
+      );
+      await LocalMeetMediaStore.clearPhotos(
+        currentUserUid,
+        widget.meetId,
+        initial.id,
       );
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.kind.uiTitle} removed.')),
+        const SnackBar(content: Text('Resource deleted.')),
       );
       Navigator.pop(context);
       widget.onSaved();
+    } on FirebaseException {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cloud Sync Error')),
+      );
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -2392,9 +3749,88 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
     }
   }
 
+  String _fieldLabel(String key) {
+    switch (key) {
+      case 'title':
+        return _kind == PersonalResourceKind.volunteerJob ? 'Job title' : 'Title';
+      case 'url':
+        return 'URL';
+      case 'date':
+        return 'Date';
+      case 'time':
+        return 'Time';
+      case 'start_time':
+        return 'Start time';
+      case 'end_time':
+        return 'End time';
+      case 'location':
+        return 'Location';
+      case 'address':
+        return 'Address';
+      case 'notes':
+      default:
+        return 'Notes';
+    }
+  }
+
+  Widget _buildField(String key) {
+    final c = _controllers[key]!;
+    final multiline = key == 'notes';
+    final keyboard = key == 'url' ? TextInputType.url : TextInputType.text;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _fieldLabel(key),
+          style: GoogleFonts.sora(
+            fontSize: 12.0,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF64748B),
+          ),
+        ),
+        const SizedBox(height: 6.0),
+        TextField(
+          controller: c,
+          keyboardType: keyboard,
+          autocorrect: !multiline,
+          minLines: multiline ? 3 : 1,
+          maxLines: multiline ? 8 : 1,
+          onChanged: (_) {
+            if (key == 'url' && _errors['url'] != null) {
+              setState(() => _errors['url'] = null);
+            } else {
+              setState(() {});
+            }
+          },
+          decoration: InputDecoration(
+            hintText: key == 'url' ? 'https://…' : '',
+            errorText: key == 'url' ? _errors['url'] : null,
+            filled: true,
+            fillColor: const Color(0xFFFAFAFA),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+          ),
+          style: GoogleFonts.sora(
+            fontSize: 14.0,
+            color: const Color(0xFF0F172A),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
+    final editing = widget.initial != null;
+    final fields = _fieldsByType[_kind] ?? const <String>['url', 'notes'];
+    final canSave = !_saving && _hasRequiredRuleForSelectedType();
     return Padding(
       padding: EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 16.0 + bottom),
       child: SingleChildScrollView(
@@ -2414,7 +3850,7 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
             ),
             const SizedBox(height: 16.0),
             Text(
-              widget.kind.uiTitle,
+              editing ? 'Edit meet resource' : 'Add meet resource',
               style: GoogleFonts.sora(
                 fontSize: 18.0,
                 fontWeight: FontWeight.w700,
@@ -2422,43 +3858,21 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
               ),
             ),
             const SizedBox(height: 6.0),
-            Text(
-              'Saved on this device for your account only.',
+            DropdownButtonFormField<PersonalResourceKind>(
+              initialValue: _kind,
+              isExpanded: true,
               style: GoogleFonts.sora(
-                fontSize: 12.5,
-                color: const Color(0xFF64748B),
-                height: 1.3,
+                fontSize: 14.0,
+                color: const Color(0xFF0F172A),
               ),
-            ),
-            const SizedBox(height: 18.0),
-            Text(
-              'Link (optional)',
-              style: GoogleFonts.sora(
-                fontSize: 12.0,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF64748B),
-              ),
-            ),
-            const SizedBox(height: 6.0),
-            TextField(
-              controller: _url,
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              cursorColor: const Color(0xFF0F172A),
-              onChanged: (_) {
-                if (_urlError != null) {
-                  setState(() => _urlError = null);
-                }
-              },
+              dropdownColor: Colors.white,
+              iconEnabledColor: const Color(0xFF64748B),
               decoration: InputDecoration(
-                hintText: 'https://…',
-                hintStyle: GoogleFonts.sora(
-                  color: const Color(0xFF94A3B8),
-                  fontSize: 14.0,
-                ),
-                errorText: _urlError,
                 filled: true,
                 fillColor: const Color(0xFFFAFAFA),
+                labelStyle: GoogleFonts.sora(
+                  color: const Color(0xFF64748B),
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.0),
                   borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -2468,64 +3882,145 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
                   borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
                 ),
               ),
-              style: GoogleFonts.sora(
-                fontSize: 14.0,
-                color: const Color(0xFF0F172A),
-              ),
+              items: PersonalResourceKind.values
+                  .map(
+                    (kind) => DropdownMenuItem(
+                      value: kind,
+                      child: Text(
+                        kind.uiTitle,
+                        style: GoogleFonts.sora(fontSize: 14.0),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _saving
+                  ? null
+                  : (v) {
+                      if (v == null) {
+                        return;
+                      }
+                      setState(() => _kind = v);
+                    },
             ),
-            const SizedBox(height: 16.0),
-            Text(
-              'Note (optional)',
-              style: GoogleFonts.sora(
-                fontSize: 12.0,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF64748B),
+            const SizedBox(height: 14.0),
+            ...fields.expand((k) => [ _buildField(k), const SizedBox(height: 14.0)]),
+            ...[
+              Text(
+                'Photos (local only)',
+                style: GoogleFonts.sora(
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F172A),
+                ),
               ),
-            ),
+              const SizedBox(height: 6.0),
+              Wrap(
+                spacing: 8.0,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _saving ? null : () => _addPhoto(ImageSource.camera),
+                    icon: const Icon(Icons.photo_camera_rounded, size: 16.0),
+                    label: const Text('Take photo'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _saving ? null : () => _addPhoto(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library_rounded, size: 16.0),
+                    label: const Text('Choose photo'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8.0),
+              if (_loadingPhotos)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: CircularProgressIndicator(strokeWidth: 2.0),
+                )
+              else if (_photos.isEmpty)
+                Text(
+                  'No photos attached yet.',
+                  style: GoogleFonts.sora(fontSize: 12.0, color: const Color(0xFF64748B)),
+                )
+              else
+                SizedBox(
+                  height: 116.0,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemBuilder: (context, index) {
+                      final p = _photos[index];
+                      return Stack(
+                        children: [
+                          GestureDetector(
+                            onTap: () => _openPhotoFullscreen(p),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10.0),
+                              child: Image.file(
+                                File(p.path),
+                                width: 116.0,
+                                height: 116.0,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 116.0,
+                                  height: 116.0,
+                                  color: const Color(0xFFE2E8F0),
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.broken_image_outlined),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: InkWell(
+                              onTap: () => _removePhoto(p),
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Color(0xCC0F172A),
+                                  shape: BoxShape.circle,
+                                ),
+                                padding: const EdgeInsets.all(3.0),
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  size: 12.0,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(width: 8.0),
+                    itemCount: _photos.length,
+                  ),
+                ),
+              const SizedBox(height: 12.0),
+            ],
             const SizedBox(height: 6.0),
-            TextField(
-              controller: _note,
-              minLines: 3,
-              maxLines: 8,
-              cursorColor: const Color(0xFF0F172A),
-              decoration: InputDecoration(
-                hintText: 'Parking, warmup reminders, heat info…',
-                hintStyle: GoogleFonts.sora(
-                  color: const Color(0xFF94A3B8),
-                  fontSize: 14.0,
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _saving ? null : () => Navigator.pop(context),
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.sora(fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ),
-                filled: true,
-                fillColor: const Color(0xFFFAFAFA),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                const SizedBox(width: 10.0),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: canSave ? _save : null,
+                    child: Text(
+                      _saving ? 'Saving…' : 'Save Resource',
+                      style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+                    ),
+                  ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                ),
-              ),
-              style: GoogleFonts.sora(
-                fontSize: 14.0,
-                height: 1.35,
-                color: const Color(0xFF0F172A),
-              ),
+              ],
             ),
-            const SizedBox(height: 20.0),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14.0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-              ),
-              child: Text(
-                _saving ? 'Saving…' : 'Save',
-                style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-              ),
-            ),
-            if (!widget.initial.isEmpty) ...[
+            if (editing) ...[
               const SizedBox(height: 8.0),
               OutlinedButton(
                 onPressed: _saving ? null : _delete,
@@ -2538,21 +4033,11 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
                   ),
                 ),
                 child: Text(
-                  'Delete saved resource',
+                  'Delete Resource',
                   style: GoogleFonts.sora(fontWeight: FontWeight.w700),
                 ),
               ),
             ],
-            TextButton(
-              onPressed: _saving ? null : () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.sora(
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF475569),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -2570,6 +4055,115 @@ class _VenueSelectionResult {
   final String venueId;
 }
 
+class _MeetEventOption {
+  const _MeetEventOption({
+    required this.label,
+    this.stroke = '',
+    this.distance = 0,
+    this.unit = 'Y',
+    this.isLongCourse = false,
+  });
+
+  final String label;
+  final String stroke;
+  final int distance;
+  final String unit;
+  final bool isLongCourse;
+}
+
+class _DashedPlaceholderCard extends StatelessWidget {
+  const _DashedPlaceholderCard({
+    required this.text,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final String text;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14.0),
+      child: CustomPaint(
+        painter: _DashedBorderPainter(
+          color: const Color(0xFF7DD3FC),
+          radius: 14.0,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(14.0),
+          ),
+          padding: const EdgeInsets.all(14.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                text,
+                style: GoogleFonts.sora(
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0C4A6E),
+                ),
+              ),
+              const SizedBox(height: 6.0),
+              Text(
+                subtitle,
+                style: GoogleFonts.sora(
+                  fontSize: 12.0,
+                  color: const Color(0xFF0369A1),
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter({
+    required this.color,
+    required this.radius,
+  });
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    final path = Path()..addRRect(rect);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    const dash = 6.0;
+    const gap = 4.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + dash;
+        canvas.drawPath(metric.extractPath(distance, next), paint);
+        distance = next + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius;
+}
+
 class _GeoPointLite {
   const _GeoPointLite({
     required this.lat,
@@ -2578,6 +4172,213 @@ class _GeoPointLite {
 
   final double lat;
   final double lon;
+}
+
+class _LocalVideoPlayerPage extends StatefulWidget {
+  const _LocalVideoPlayerPage({
+    required this.video,
+  });
+
+  final LocalSwimVideoEntry video;
+
+  @override
+  State<_LocalVideoPlayerPage> createState() => _LocalVideoPlayerPageState();
+}
+
+class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
+  VideoPlayerController? _controller;
+  bool _loading = true;
+  bool _slowMotion = false;
+  static const Duration _frameStep = Duration(milliseconds: 33);
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      final c = VideoPlayerController.file(File(widget.video.path));
+      await c.initialize();
+      c.setLooping(true);
+      c.addListener(() {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
+      setState(() {
+        _controller = c;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleSlowMotion() async {
+    final c = _controller;
+    if (c == null) return;
+    _slowMotion = !_slowMotion;
+    await c.setPlaybackSpeed(_slowMotion ? 0.5 : 1.0);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _stepFrame(int direction) async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    final pos = c.value.position;
+    final total = c.value.duration;
+    var next = pos + (_frameStep * direction);
+    if (next < Duration.zero) {
+      next = Duration.zero;
+    }
+    if (next > total) {
+      next = total;
+    }
+    await c.pause();
+    await c.seekTo(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _controller;
+    final caption = [
+      widget.video.eventLabel.trim(),
+      widget.video.note.trim(),
+    ].where((e) => e.isNotEmpty).join('\n');
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          widget.video.stroke,
+          style: GoogleFonts.sora(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: Center(
+        child: _loading
+            ? const CircularProgressIndicator()
+            : (c == null || !c.value.isInitialized)
+                ? Text(
+                    'Could not open this video.',
+                    style: GoogleFonts.sora(color: Colors.white70),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: Stack(
+                            children: [
+                              AspectRatio(
+                                aspectRatio: c.value.aspectRatio,
+                                child: VideoPlayer(c),
+                              ),
+                              if (caption.isNotEmpty)
+                                Positioned(
+                                  left: 8.0,
+                                  right: 8.0,
+                                  bottom: 8.0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8.0),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.45),
+                                      borderRadius: BorderRadius.circular(8.0),
+                                    ),
+                                    child: Text(
+                                      caption,
+                                      style: GoogleFonts.sora(
+                                        color: Colors.white,
+                                        fontSize: 12.0,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Slider(
+                        value: c.value.position.inMilliseconds
+                            .clamp(0, c.value.duration.inMilliseconds)
+                            .toDouble(),
+                        max: c.value.duration.inMilliseconds.toDouble().clamp(1, double.infinity),
+                        min: 0,
+                        onChanged: (v) async {
+                          await c.seekTo(Duration(milliseconds: v.toInt()));
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 14.0),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              color: Colors.white,
+                              onPressed: () => _stepFrame(-1),
+                              icon: const Icon(Icons.skip_previous_rounded),
+                              tooltip: 'Previous frame',
+                            ),
+                            IconButton(
+                              iconSize: 42.0,
+                              color: Colors.white,
+                              onPressed: () {
+                                if (c.value.isPlaying) {
+                                  c.pause();
+                                } else {
+                                  c.play();
+                                }
+                              },
+                              icon: Icon(
+                                c.value.isPlaying
+                                    ? Icons.pause_circle_filled_rounded
+                                    : Icons.play_circle_fill_rounded,
+                              ),
+                            ),
+                            IconButton(
+                              color: Colors.white,
+                              onPressed: () => _stepFrame(1),
+                              icon: const Icon(Icons.skip_next_rounded),
+                              tooltip: 'Next frame',
+                            ),
+                            const Spacer(),
+                            FilterChip(
+                              label: Text(
+                                'Slow Motion 0.5x',
+                                style: GoogleFonts.sora(
+                                  color: _slowMotion ? Colors.white : Colors.white70,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                              selected: _slowMotion,
+                              selectedColor: const Color(0xFF1D4ED8),
+                              backgroundColor: const Color(0x331E293B),
+                              onSelected: (_) => _toggleSlowMotion(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+      ),
+    );
+  }
 }
 
 /// Minimal [ActivitiesRecord] for [MeetDetailView] when only a [MonitoredMeetsRecord] exists.

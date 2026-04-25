@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '/backend/schema/personal_meet_resources.dart';
 import '/backend/schema/util/firestore_util.dart';
 
 /// Stored under `users/{uid}/meet_preferences/{meetId}`.
@@ -111,7 +110,6 @@ class MeetPreferencesRecord {
     this.notes = '',
     this.statusUpdatedAt,
     this.eventsEntered,
-    this.personalResources = PersonalMeetResources.empty,
   });
 
   final DocumentReference reference;
@@ -129,9 +127,6 @@ class MeetPreferencesRecord {
 
   /// Optional count from backend (`events_entered` / `eventsEntered`).
   final int? eventsEntered;
-
-  /// Per-family links and notes (`personal_resources`).
-  final PersonalMeetResources personalResources;
 
   static int? _readEventsEntered(Map<String, dynamic> data) {
     final raw = data['events_entered'] ?? data['eventsEntered'];
@@ -161,8 +156,6 @@ class MeetPreferencesRecord {
       notes: (data['notes'] as String?)?.trim() ?? '',
       statusUpdatedAt: _readStatusUpdatedAt(data),
       eventsEntered: _readEventsEntered(data),
-      personalResources:
-          PersonalMeetResources.fromFirestore(data['personal_resources']),
     );
   }
 

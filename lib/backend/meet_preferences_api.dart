@@ -67,69 +67,91 @@ Future<void> deleteMeetPreference(String uid, String meetId) async {
   await _meetPreferencesCol(authUid).doc(meetId).delete();
 }
 
-/// Saves or removes one slot under `personal_resources` on the user’s meet doc.
-Future<void> mergePersonalMeetResource(
+CollectionReference<Map<String, dynamic>> _personalResourcesCol(
   String uid,
   String meetId,
-  PersonalResourceKind kind, {
-  required String url,
-  required String note,
-  bool delete = false,
+) =>
+    _meetPreferencesCol(uid).doc(meetId).collection('personal_resources');
+
+Stream<List<PersonalMeetResourceEntry>> streamPersonalMeetResources(
+  String uid,
+  String meetId,
+) {
+  if (uid.isEmpty || meetId.isEmpty) {
+    return Stream.value(const <PersonalMeetResourceEntry>[]);
+  }
+  return _personalResourcesCol(uid, meetId).snapshots().map((snap) {
+    final out = snap.docs
+        .map((d) => PersonalMeetResourceEntry.fromSnapshot(d))
+        .toList();
+    final order = PersonalResourceKind.values
+        .asMap()
+        .map((i, v) => MapEntry(v, i));
+    out.sort((a, b) {
+      final pa = order[a.kind] ?? 999;
+      final pb = order[b.kind] ?? 999;
+      if (pa != pb) {
+        return pa.compareTo(pb);
+      }
+      final au = a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bu = b.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bu.compareTo(au);
+    });
+    return out;
+  });
+}
+
+Future<String> upsertPersonalMeetResource(
+  String uid,
+  String meetId, {
+  String resourceId = '',
+  required PersonalResourceKind kind,
+  required Map<String, String> fields,
+  DateTime? createdAt,
 }) async {
   final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
   if (authUid.isEmpty || meetId.isEmpty) {
+    return '';
+  }
+  if (uid.isNotEmpty && uid != authUid) {
+    return '';
+  }
+
+  final col = _personalResourcesCol(authUid, meetId);
+  final doc = resourceId.trim().isEmpty ? col.doc() : col.doc(resourceId.trim());
+  await doc.set({
+    'resource_type': kind.firestoreValue,
+    'resource_label': kind.uiTitle,
+    'title': (fields['title'] ?? '').trim(),
+    'url': (fields['url'] ?? '').trim(),
+    'date': (fields['date'] ?? '').trim(),
+    'time': (fields['time'] ?? '').trim(),
+    'start_time': (fields['start_time'] ?? '').trim(),
+    'end_time': (fields['end_time'] ?? '').trim(),
+    'location': (fields['location'] ?? '').trim(),
+    'address': (fields['address'] ?? '').trim(),
+    'notes': (fields['notes'] ?? '').trim(),
+    'source': 'manual',
+    'is_private': true,
+    'user_id': authUid,
+    'meet_id': meetId,
+    if (createdAt == null) 'created_at': FieldValue.serverTimestamp(),
+    'updated_at': FieldValue.serverTimestamp(),
+  }, SetOptions(merge: true));
+  return doc.id;
+}
+
+Future<void> deletePersonalMeetResource(
+  String uid,
+  String meetId,
+  String resourceId,
+) async {
+  final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (authUid.isEmpty || meetId.isEmpty || resourceId.trim().isEmpty) {
     return;
   }
   if (uid.isNotEmpty && uid != authUid) {
     return;
   }
-
-  final ref = _meetPreferencesCol(authUid).doc(meetId);
-  final key = kind.firestoreKey;
-
-  if (delete) {
-    try {
-      await ref.update({
-        FieldPath(['personal_resources', key]): FieldValue.delete(),
-        'updated_time': FieldValue.serverTimestamp(),
-      });
-    } on FirebaseException catch (e) {
-      if (e.code == 'not-found') {
-        return;
-      }
-      rethrow;
-    }
-    return;
-  }
-
-  final u = url.trim();
-  final n = note.trim();
-  if (u.isEmpty && n.isEmpty) {
-    try {
-      await ref.update({
-        FieldPath(['personal_resources', key]): FieldValue.delete(),
-        'updated_time': FieldValue.serverTimestamp(),
-      });
-    } on FirebaseException catch (e) {
-      if (e.code == 'not-found') {
-        return;
-      }
-      rethrow;
-    }
-    return;
-  }
-
-  await ref.set(
-    {
-      'personal_resources': {
-        key: {
-          'url': u,
-          'note': n,
-          'updated_at': FieldValue.serverTimestamp(),
-        },
-      },
-      'updated_time': FieldValue.serverTimestamp(),
-    },
-    SetOptions(merge: true),
-  );
+  await _personalResourcesCol(authUid, meetId).doc(resourceId.trim()).delete();
 }
