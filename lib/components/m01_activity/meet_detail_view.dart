@@ -459,7 +459,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 if (empty) ...[
                   const SizedBox(height: 4.0),
                   Text(
-                    'No resource added · add link or note',
+                    'No resource yet. Add a link or quick note.',
                     style: GoogleFonts.sora(
                       fontSize: 12.5,
                       color: _slate500,
@@ -922,7 +922,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
           ],
           const SizedBox(height: 14.0),
           Text(
-            'You’re all set. Use View entries below to open the meet site if you want to double-check events or warmups.',
+            'You are all set. Use View Entries below to open the meet site if you want to double-check events or warmups.',
             style: GoogleFonts.sora(
               fontSize: 12.0,
               height: 1.4,
@@ -1102,7 +1102,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             if (showMeetDay) ...[
               const SizedBox(height: 16.0),
               Text(
-                'Meet day',
+                'Schedule details',
                 style: GoogleFonts.sora(
                   fontSize: 12.0,
                   fontWeight: FontWeight.w600,
@@ -1192,12 +1192,32 @@ class _MeetDetailViewState extends State<MeetDetailView> {
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  'Preview unavailable — use Open in Maps.',
-                  style: GoogleFonts.sora(
-                    fontSize: 12.0,
-                    color: _slate500,
-                    height: 1.25,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0,
+                    vertical: 8.0,
+                  ),
+                  color: const Color(0xFFF8FAFC),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.map_outlined,
+                        size: 16.0,
+                        color: _slate500,
+                      ),
+                      const SizedBox(width: 8.0),
+                      Expanded(
+                        child: Text(
+                          'Map preview unavailable. Open in Maps for navigation.',
+                          style: GoogleFonts.sora(
+                            fontSize: 12.0,
+                            color: _slate500,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1515,7 +1535,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                     elevation: 0.0,
                   ),
                   child: Text(
-                    canOpenSignup ? 'View entries' : 'Entries on file',
+                    canOpenSignup ? 'View Entries' : 'Entries On File',
                     style: GoogleFonts.sora(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -1530,7 +1550,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  _savingNotGoing ? 'Updating…' : 'Withdraw from meet',
+                  _savingNotGoing ? 'Updating…' : 'Withdraw From Meet',
                   style: GoogleFonts.sora(
                     fontSize: 13.0,
                     fontWeight: FontWeight.w600,

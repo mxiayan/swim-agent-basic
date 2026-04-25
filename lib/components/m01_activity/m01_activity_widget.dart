@@ -8,10 +8,12 @@ import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/theme/swim_ui_tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'm01_activity_model.dart';
 export 'm01_activity_model.dart';
 
@@ -30,9 +32,6 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
 
   /// Activity doc paths swiped away locally (activities stream is unrelated to meet_preferences).
   final Set<String> _swipeDismissedActivityPaths = <String>{};
-
-  static const Color _swipeBackgroundGrey = Color(0xFFF1F5F9);
-  static const Color _swipeIconSlate = Color(0xFF64748B);
 
   bool _isMeetActivity(ActivitiesRecord a) =>
       a.activityType.trim().toLowerCase() == 'meet';
@@ -227,7 +226,7 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                   prefSnap.data ?? <String, MeetPreferencesRecord>{};
               return Container(
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF1F5F9),
+                  color: SwimUiTokens.surfaceCanvasSchedule,
                 ),
                 child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 280),
@@ -238,10 +237,38 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                       key: const ValueKey<String>('m01_schedule_empty'),
                       child: Center(
                         child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: Image.asset(
-                            'assets/images/vineyard.png',
-                            fit: BoxFit.contain,
+                          padding: const EdgeInsets.fromLTRB(32.0, 24.0, 32.0, 32.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Image.asset(
+                                'assets/images/vineyard.png',
+                                fit: BoxFit.contain,
+                                height: 160.0,
+                              ),
+                              const SizedBox(height: 20.0),
+                              Text(
+                                'Nothing on the schedule',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.sora(
+                                  fontSize: 17.0,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.2,
+                                  color: SwimUiTokens.textBannerTitle,
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                              Text(
+                                'Team activities and meets will show up here when they are posted.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.sora(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.4,
+                                  color: SwimUiTokens.textMuted,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -251,9 +278,9 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                         'm01_schedule_${activities.length}',
                       ),
                       child: ListView.separated(
-                        padding: EdgeInsets.only(top: 2.0, bottom: 24.0),
+                        padding: const EdgeInsets.only(top: 12.0, bottom: 28.0),
                         itemCount: activities.length,
-                        separatorBuilder: (_, __) => SizedBox(height: 8.0),
+                        separatorBuilder: (_, __) => const SizedBox(height: 10.0),
                         itemBuilder: (context, activitiesIndex) {
                           final activitiesItem = activities[activitiesIndex];
                           final rowKey = activitiesItem.reference.path;
@@ -283,7 +310,7 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                               : null;
                           final card = Padding(
                             padding: const EdgeInsetsDirectional.fromSTEB(
-                                20.0, 0.0, 20.0, 0.0),
+                                16.0, 0.0, 16.0, 0.0),
                             child: Hero(
                               tag: heroTag,
                               flightShuttleBuilder: (
@@ -311,21 +338,23 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(12.0),
+                                  borderRadius: BorderRadius.circular(
+                                    SwimUiTokens.radiusCard,
+                                  ),
                                   onTap: openMeetFocus,
                                   child: Container(
                                     decoration: BoxDecoration(
                                       border: Border.all(
                                         color: isMeet
-                                            ? const Color(0xFF007AFF)
-                                                .withValues(alpha: 0.35)
-                                            : const Color(0x00000000),
+                                            ? SwimUiTokens.meetRowRing
+                                            : Colors.transparent,
+                                        width: isMeet ? 1.0 : 0.0,
                                       ),
                                     ),
                                     child: Padding(
                                       padding:
                                           const EdgeInsetsDirectional.fromSTEB(
-                                              20.0, 0.0, 20.0, 0.0),
+                                              16.0, 0.0, 16.0, 0.0),
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -351,7 +380,9 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                           }
 
                           return ClipRRect(
-                            borderRadius: BorderRadius.circular(12.0),
+                            borderRadius: BorderRadius.circular(
+                              SwimUiTokens.radiusCard,
+                            ),
                             clipBehavior: Clip.antiAlias,
                             child: Dismissible(
                               key: ValueKey<String>('dismiss_$rowKey'),
@@ -364,7 +395,9 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                               background: Container(
                                 decoration: BoxDecoration(
                                   color: Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12.0),
+                                  borderRadius: BorderRadius.circular(
+                                    SwimUiTokens.radiusCard,
+                                  ),
                                 ),
                               ),
                               secondaryBackground: Container(
@@ -372,12 +405,14 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                                 padding:
                                     const EdgeInsetsDirectional.only(end: 20.0),
                                 decoration: BoxDecoration(
-                                  color: _swipeBackgroundGrey,
-                                  borderRadius: BorderRadius.circular(12.0),
+                                  color: SwimUiTokens.swipeBackground,
+                                  borderRadius: BorderRadius.circular(
+                                    SwimUiTokens.radiusCard,
+                                  ),
                                 ),
                                 child: const Icon(
                                   Icons.archive_outlined,
-                                  color: _swipeIconSlate,
+                                  color: SwimUiTokens.swipeIcon,
                                   size: 28.0,
                                 ),
                               ),

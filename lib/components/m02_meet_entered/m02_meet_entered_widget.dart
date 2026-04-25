@@ -9,6 +9,7 @@ import '/components/m01_activity/meet_detail_view.dart';
 import '/components/m02_meet/meet_list_quick_filter.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/theme/swim_ui_tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -53,11 +54,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   late final Animation<double> _celebrateScale;
   late final Animation<double> _celebrateFade;
 
-  static const Color _slateTitle = Color(0xFF1E293B);
-  static const Color _slateSecondary = Color(0xFF64748B);
-  static const Color _electricBlue = Color(0xFF007AFF);
-  static const Color _cardBorder = Color(0xFFE7EDF5);
-  static const Color _verifiedGreen = Color(0xFF15803D);
+  static const Color _verifiedGreen = Color(0xFF1D4ED8);
 
   /// Interested + reminders on (sign-up / alerts).
   static const Color _watchingAmber = Color(0xFFF59E0B);
@@ -77,8 +74,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _badgeNewText = Color(0xFF2F6FED);
   static const Color _badgeNeedEntryBg = Color(0xFFFFE4C2);
   static const Color _badgeNeedEntryText = Color(0xFFB45309);
-  static const Color _badgeEnteredBg = Color(0xFFC8E9D6);
-  static const Color _badgeEnteredText = Color(0xFF247A4A);
+  static const Color _badgeEnteredBg = Color(0xFFDCEBFF);
+  static const Color _badgeEnteredText = Color(0xFF1D4ED8);
   static const Color _badgeNotGoingBg = Color(0xFFE4E8ED);
   static const Color _badgeNotGoingText = Color(0xFF6B7280);
 
@@ -240,11 +237,11 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   TextStyle _metaTextStyle() => GoogleFonts.sora(
         fontSize: 12.0,
         fontWeight: FontWeight.w500,
-        color: _slateSecondary,
+        color: SwimUiTokens.textMuted,
         letterSpacing: 0.0,
       );
 
-  Color _metaIconColor() => _slateSecondary;
+  Color _metaIconColor() => SwimUiTokens.textMuted;
 
   DateTime? _entryDeadline(MonitoredMeetsRecord m) {
     final end = m.endTime ?? m.startTime;
@@ -359,7 +356,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               ? Icons.expand_less_rounded
               : Icons.expand_more_rounded,
           size: 22.0,
-          color: _slateSecondary,
+          color: SwimUiTokens.textMuted,
         ),
         padding: const EdgeInsets.all(6.0),
         constraints: const BoxConstraints(
@@ -377,14 +374,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   TextStyle _dateLineStyle() => GoogleFonts.sora(
         fontSize: 12.0,
         fontWeight: FontWeight.w500,
-        color: _slateSecondary,
+        color: SwimUiTokens.textMuted,
         letterSpacing: 0.0,
       );
 
   TextStyle _pillTextStyle() => GoogleFonts.sora(
         fontSize: 11.0,
         fontWeight: FontWeight.w600,
-        color: _slateSecondary,
+        color: SwimUiTokens.textMuted,
         letterSpacing: 0.0,
       );
 
@@ -425,7 +422,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           child: Icon(
             Icons.calendar_today_outlined,
             size: 14.0,
-            color: _slateSecondary,
+            color: SwimUiTokens.textMuted,
           ),
         ),
         SizedBox(width: _logisticsIconGap),
@@ -444,7 +441,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             decoration: BoxDecoration(
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(999.0),
-              border: Border.all(color: _cardBorder, width: 1.0),
+              border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
             ),
             child: Text(pill, style: _pillTextStyle()),
           ),
@@ -463,7 +460,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           child: Icon(
             Icons.event_busy_outlined,
             size: 15.0,
-            color: _slateSecondary,
+            color: SwimUiTokens.textMuted,
           ),
         ),
         SizedBox(width: _logisticsIconGap),
@@ -475,7 +472,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             style: GoogleFonts.sora(
               fontSize: 12.0,
               fontWeight: FontWeight.w600,
-              color: _slateSecondary,
+              color: SwimUiTokens.textMuted,
               letterSpacing: 0.0,
             ),
           ),
@@ -496,7 +493,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             child: Icon(
               Icons.schedule_rounded,
               size: 15.0,
-              color: _slateSecondary,
+              color: SwimUiTokens.textMuted,
             ),
           ),
         ),
@@ -507,7 +504,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             style: GoogleFonts.sora(
               fontSize: 12.0,
               fontWeight: FontWeight.w600,
-              color: _slateSecondary,
+              color: SwimUiTokens.textMuted,
               letterSpacing: 0.0,
               height: 1.25,
             ),
@@ -532,18 +529,18 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final dl = _deadlineShort(m);
     final urgency = _deadlineUrgency(m, entered);
     final iconColor = entered
-        ? _slateSecondary
+        ? SwimUiTokens.textMuted
         : switch (urgency) {
             _DeadlineUrgency.passed => Colors.red,
             _DeadlineUrgency.approaching => Colors.orange,
-            _DeadlineUrgency.none => _slateSecondary,
+            _DeadlineUrgency.none => SwimUiTokens.textMuted,
           };
     final lineColor = entered
-        ? _slateSecondary
+        ? SwimUiTokens.textMuted
         : switch (urgency) {
             _DeadlineUrgency.passed => Colors.red,
             _DeadlineUrgency.approaching => Colors.orange,
-            _DeadlineUrgency.none => _slateSecondary,
+            _DeadlineUrgency.none => SwimUiTokens.textMuted,
           };
     final showUrgent = !entered && urgency == _DeadlineUrgency.approaching;
     final within24h = _entryDeadlineWithin24h(m, entered);
@@ -688,12 +685,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         if (hasSheet) ...[
           SizedBox(width: location.isNotEmpty ? 12.0 : 8.0),
           Material(
-            color: _electricBlue.withValues(alpha: 0.1),
+            color: SwimUiTokens.accentBlue.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8.0),
             child: InkWell(
               borderRadius: BorderRadius.circular(8.0),
-              splashColor: _electricBlue.withValues(alpha: 0.18),
-              highlightColor: _electricBlue.withValues(alpha: 0.08),
+              splashColor: SwimUiTokens.accentBlue.withValues(alpha: 0.18),
+              highlightColor: SwimUiTokens.accentBlue.withValues(alpha: 0.08),
               onTap: () async {
                 await launchURL(sheetUrl);
               },
@@ -708,7 +705,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                     Icon(
                       Icons.description_outlined,
                       size: 15.0,
-                      color: _electricBlue,
+                      color: SwimUiTokens.accentBlue,
                     ),
                     const SizedBox(width: 6.0),
                     Text(
@@ -717,14 +714,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                         fontSize: 13.0,
                         fontWeight: FontWeight.w600,
                         height: 1.2,
-                        color: _electricBlue,
+                        color: SwimUiTokens.accentBlue,
                       ),
                     ),
                     const SizedBox(width: 4.0),
                     Icon(
                       Icons.open_in_new_rounded,
                       size: 13.0,
-                      color: _electricBlue,
+                      color: SwimUiTokens.accentBlue,
                     ),
                   ],
                 ),
@@ -860,7 +857,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                     style: GoogleFonts.sora(
                       fontSize: 16.0,
                       fontWeight: FontWeight.w700,
-                      color: _slateTitle,
+                      color: SwimUiTokens.textTitle,
                     ),
                   ),
                   const SizedBox(height: 8.0),
@@ -869,14 +866,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                     style: GoogleFonts.sora(
                       fontSize: 13.0,
                       fontWeight: FontWeight.w500,
-                      color: _slateSecondary,
+                      color: SwimUiTokens.textMuted,
                     ),
                   ),
                   const SizedBox(height: 14.0),
                   OutlinedButton(
                     onPressed: () => Navigator.of(sheetContext).pop(false),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: _slateSecondary,
+                      foregroundColor: SwimUiTokens.textMuted,
                       side: const BorderSide(color: _meetSecondaryOutline),
                       minimumSize: const Size(double.infinity, 42.0),
                       shape: const RoundedRectangleBorder(
@@ -993,7 +990,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           ),
           child: const Icon(
             Icons.archive_outlined,
-            color: _slateSecondary,
+            color: SwimUiTokens.textMuted,
             size: 24.0,
           ),
         ),
@@ -1130,7 +1127,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                 fontSize: 14.0,
                                 fontWeight: FontWeight.w600,
                                 height: 1.25,
-                                color: _slateTitle,
+                                color: SwimUiTokens.textTitle,
                               ),
                             ),
                             if (metaLine != null) ...[
@@ -1143,7 +1140,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w500,
                                   height: 1.2,
-                                  color: _slateSecondary,
+                                  color: SwimUiTokens.textMuted,
                                 ),
                               ),
                             ],
@@ -1199,7 +1196,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                           fontSize: 14.0,
                                           fontWeight: FontWeight.w600,
                                           height: 1.25,
-                                          color: _slateTitle,
+                                          color: SwimUiTokens.textTitle,
                                         ),
                                       ),
                                       if (metaLine != null) ...[
@@ -1212,7 +1209,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.w500,
                                             height: 1.2,
-                                            color: _slateSecondary,
+                                            color: SwimUiTokens.textMuted,
                                           ),
                                         ),
                                       ],
@@ -1336,20 +1333,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final fullCard = Padding(
       padding: grouped
           ? const EdgeInsets.only(top: 10.0, bottom: 4.0)
-          : const EdgeInsetsDirectional.fromSTEB(20.0, 14.0, 20.0, 22.0),
+          : const EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 22.0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(cardRadius),
-          boxShadow: grouped
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.035),
-                    blurRadius: 10.0,
-                    offset: const Offset(0.0, 3.0),
-                  ),
-                ],
+          boxShadow: grouped ? null : SwimUiTokens.shadowCard,
         ),
         child: Stack(
           clipBehavior: Clip.none,
@@ -1359,7 +1348,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               child: Opacity(
                 opacity: isExplicitNotGoing ? 0.5 : 1.0,
                 child: Container(
-                  color: Colors.white,
+                  color: SwimUiTokens.surfaceCard,
                   child: Padding(
                     padding: EdgeInsetsDirectional.fromSTEB(
                       innerHPad,
@@ -1395,7 +1384,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                     fontWeight: FontWeight.w700,
                                     height: 1.25,
                                     letterSpacing: 0.0,
-                                    color: _slateTitle,
+                                    color: SwimUiTokens.textTitle,
                                   ),
                                 ),
                               ),
@@ -1590,7 +1579,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   TextStyle _meetSecondaryButtonTextStyle() => GoogleFonts.sora(
         fontWeight: FontWeight.w600,
         fontSize: 14.0,
-        color: _slateSecondary,
+        color: SwimUiTokens.textMuted,
       );
 
   Widget _buildParentNoteBox(
@@ -1605,7 +1594,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         child: TextButton(
           onPressed: () => _openParentNoteEditor(context, notes),
           style: TextButton.styleFrom(
-            foregroundColor: _electricBlue,
+            foregroundColor: SwimUiTokens.accentBlue,
             padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
             minimumSize: const Size(0.0, 36.0),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1616,7 +1605,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             style: GoogleFonts.sora(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: _electricBlue,
+              color: SwimUiTokens.accentBlue,
             ),
           ),
         ),
@@ -1644,7 +1633,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                     Icon(
                       Icons.attach_file,
                       size: 18.0,
-                      color: _slateSecondary,
+                      color: SwimUiTokens.textMuted,
                     ),
                     const SizedBox(width: 8.0),
                     Expanded(
@@ -1654,7 +1643,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                           fontSize: 12.0,
                           fontWeight: FontWeight.w500,
                           height: 1.35,
-                          color: _slateTitle,
+                          color: SwimUiTokens.textTitle,
                         ),
                       ),
                     ),
@@ -1775,7 +1764,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       case MeetPreferenceStatus.needEntry:
         return const Color(0xFFE0B888);
       case MeetPreferenceStatus.entered:
-        return const Color(0xFF9DC9B0);
+        return const Color(0xFFB8D4FA);
       case MeetPreferenceStatus.notGoing:
         return const Color(0xFFC9D1DB);
     }
@@ -2164,7 +2153,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         backgroundColor: _skippedFill,
         child: Icon(
           Icons.close_rounded,
-          color: _slateSecondary,
+          color: SwimUiTokens.textMuted,
           size: g,
         ),
       ),
@@ -2197,7 +2186,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     return OutlinedButton(
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
-        foregroundColor: _slateSecondary,
+        foregroundColor: SwimUiTokens.textMuted,
         backgroundColor: Colors.transparent,
         side: const BorderSide(color: _meetSecondaryOutline, width: 1.0),
         padding: _meetActionButtonPadding,
@@ -2247,7 +2236,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       required VoidCallback onTap,
       required Widget child,
       Color fillColor = Colors.white,
-      BorderSide outline = const BorderSide(color: _cardBorder, width: 1.0),
+      BorderSide outline = const BorderSide(color: SwimUiTokens.borderSubtle, width: 1.0),
       double? minHeight,
       EdgeInsetsGeometry padding =
           const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
@@ -2289,16 +2278,16 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       decoration: BoxDecoration(
         color: _parentNoteBg,
         borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(color: _cardBorder, width: 1.0),
+        border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: chip(
-              fillColor: _electricBlue,
+              fillColor: SwimUiTokens.accentBlue,
               outline: BorderSide(
-                color: Color.lerp(_electricBlue, Colors.black, 0.14)!,
+                color: Color.lerp(SwimUiTokens.accentBlue, Colors.black, 0.14)!,
                 width: 1.0,
               ),
               splashColor: Colors.white.withValues(alpha: 0.22),
@@ -2332,7 +2321,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               style: GoogleFonts.sora(
                 fontWeight: FontWeight.w600,
                 fontSize: 13.0,
-                color: _slateTitle,
+                color: SwimUiTokens.textTitle,
               ),
             ),
           ),
@@ -2358,7 +2347,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             style: GoogleFonts.sora(
               fontSize: 13.0,
               fontWeight: FontWeight.w600,
-              color: _slateTitle,
+              color: SwimUiTokens.textTitle,
               height: 1.25,
             ),
           ),
@@ -2373,7 +2362,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             }),
             trackColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return _electricBlue;
+                return SwimUiTokens.accentBlue;
               }
               return theme.lineColor;
             }),
@@ -2398,7 +2387,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       decoration: BoxDecoration(
         color: _parentNoteBg,
         borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(color: _cardBorder, width: 1.0),
+        border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -2409,7 +2398,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               style: GoogleFonts.sora(
                 fontSize: 13.0,
                 fontWeight: FontWeight.w600,
-                color: _slateSecondary,
+                color: SwimUiTokens.textMuted,
                 height: 1.25,
               ),
             ),
@@ -2446,10 +2435,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         await onPressed();
       },
       style: OutlinedButton.styleFrom(
-        foregroundColor: on ? _slateTitle : _slateSecondary,
+        foregroundColor: on ? SwimUiTokens.textTitle : SwimUiTokens.textMuted,
         backgroundColor: Colors.white,
         side: BorderSide(
-          color: on ? _slateTitle : _meetSecondaryOutline,
+          color: on ? SwimUiTokens.textTitle : _meetSecondaryOutline,
           width: on ? 2.0 : 1.0,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0.0),
@@ -2483,11 +2472,11 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       style: FilledButton.styleFrom(
         elevation: on ? 2.0 : 0.0,
         shadowColor:
-            on ? _electricBlue.withValues(alpha: 0.25) : Colors.transparent,
+            on ? SwimUiTokens.accentBlue.withValues(alpha: 0.25) : Colors.transparent,
         backgroundColor: muted
-            ? _cardBorder
-            : (on ? _electricBlue : _electricBlue.withValues(alpha: 0.92)),
-        foregroundColor: muted ? _slateSecondary : Colors.white,
+            ? SwimUiTokens.borderSubtle
+            : (on ? SwimUiTokens.accentBlue : SwimUiTokens.accentBlue.withValues(alpha: 0.92)),
+        foregroundColor: muted ? SwimUiTokens.textMuted : Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0.0),
         minimumSize: const Size(72.0, _meetActionButtonHeight),
         maximumSize: const Size(double.infinity, _meetActionButtonHeight),
@@ -2500,7 +2489,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         style: GoogleFonts.sora(
           fontWeight: FontWeight.w700,
           fontSize: 12.5,
-          color: muted ? _slateSecondary : Colors.white,
+          color: muted ? SwimUiTokens.textMuted : Colors.white,
         ),
       ),
     );
@@ -2681,7 +2670,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         }
       },
       style: OutlinedButton.styleFrom(
-        foregroundColor: _slateSecondary,
+        foregroundColor: SwimUiTokens.textMuted,
         backgroundColor: Colors.transparent,
         side: const BorderSide(color: _meetSecondaryOutline, width: 1.0),
         padding: _meetActionButtonPadding,
@@ -2730,12 +2719,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     }
 
     final pendingPrimaryStyle = FilledButton.styleFrom(
-      backgroundColor: _electricBlue,
+      backgroundColor: SwimUiTokens.accentBlue,
       foregroundColor: theme.primaryBtnText,
       disabledBackgroundColor: theme.accent3,
       disabledForegroundColor: theme.secondaryText,
       elevation: hasUrl ? 2.0 : 0.0,
-      shadowColor: _electricBlue.withValues(alpha: 0.28),
+      shadowColor: SwimUiTokens.accentBlue.withValues(alpha: 0.28),
       padding: _meetPendingPairPadding,
       minimumSize: const Size(double.infinity, _meetPendingPairButtonHeight),
       maximumSize: const Size(double.infinity, _meetPendingPairButtonHeight),
@@ -2744,7 +2733,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       visualDensity: VisualDensity.compact,
     );
     final pendingSecondaryStyle = OutlinedButton.styleFrom(
-      foregroundColor: _slateSecondary,
+      foregroundColor: SwimUiTokens.textMuted,
       backgroundColor: Colors.transparent,
       side: const BorderSide(color: _meetSecondaryOutline, width: 1.0),
       padding: _meetPendingPairPadding,
@@ -2833,12 +2822,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       return FilledButton(
         onPressed: hasUrl ? open : null,
         style: FilledButton.styleFrom(
-          backgroundColor: _electricBlue,
+          backgroundColor: SwimUiTokens.accentBlue,
           foregroundColor: theme.primaryBtnText,
           disabledBackgroundColor: theme.accent3,
           disabledForegroundColor: theme.secondaryText,
           elevation: hasUrl ? 2.0 : 0.0,
-          shadowColor: _electricBlue.withValues(alpha: 0.28),
+          shadowColor: SwimUiTokens.accentBlue.withValues(alpha: 0.28),
           padding: _meetActionButtonPadding,
           minimumSize: const Size(double.infinity, _meetActionButtonHeight),
           maximumSize: const Size(double.infinity, _meetActionButtonHeight),
@@ -2874,12 +2863,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       return FilledButton(
         onPressed: hasUrl ? open : null,
         style: FilledButton.styleFrom(
-          backgroundColor: _electricBlue,
+          backgroundColor: SwimUiTokens.accentBlue,
           foregroundColor: theme.primaryBtnText,
           disabledBackgroundColor: theme.accent3,
           disabledForegroundColor: theme.secondaryText,
           elevation: hasUrl ? 2.0 : 0.0,
-          shadowColor: _electricBlue.withValues(alpha: 0.28),
+          shadowColor: SwimUiTokens.accentBlue.withValues(alpha: 0.28),
           padding: _meetActionButtonPadding,
           minimumSize: const Size(double.infinity, _meetActionButtonHeight),
           maximumSize: const Size(double.infinity, _meetActionButtonHeight),
@@ -2950,7 +2939,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     return FilledButton(
       onPressed: hasUrl ? open : null,
       style: FilledButton.styleFrom(
-        backgroundColor: _electricBlue,
+        backgroundColor: SwimUiTokens.accentBlue,
         foregroundColor: theme.primaryBtnText,
         disabledBackgroundColor: theme.accent3,
         disabledForegroundColor: theme.secondaryText,
@@ -2958,7 +2947,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         minimumSize: const Size(double.infinity, _meetActionButtonHeight),
         maximumSize: const Size(double.infinity, _meetActionButtonHeight),
         elevation: 2,
-        shadowColor: _electricBlue.withValues(alpha: 0.28),
+        shadowColor: SwimUiTokens.accentBlue.withValues(alpha: 0.28),
         shape: const RoundedRectangleBorder(borderRadius: _actionRadius),
         visualDensity: VisualDensity.compact,
       ),
@@ -3036,10 +3025,6 @@ class _ParentNoteEditorSheet extends StatefulWidget {
 class _ParentNoteEditorSheetState extends State<_ParentNoteEditorSheet> {
   late final TextEditingController _controller;
 
-  static const Color _sheetSlateTitle = Color(0xFF1E293B);
-  static const Color _sheetCardBorder = Color(0xFFE2E8F0);
-  static const Color _sheetElectricBlue = Color(0xFF007AFF);
-
   @override
   void initState() {
     super.initState();
@@ -3070,7 +3055,7 @@ class _ParentNoteEditorSheetState extends State<_ParentNoteEditorSheet> {
                 style: GoogleFonts.sora(
                   fontSize: 17.0,
                   fontWeight: FontWeight.w700,
-                  color: _sheetSlateTitle,
+                  color: SwimUiTokens.textTitle,
                 ),
               ),
               const SizedBox(height: 12.0),
@@ -3081,26 +3066,26 @@ class _ParentNoteEditorSheetState extends State<_ParentNoteEditorSheet> {
                 textCapitalization: TextCapitalization.sentences,
                 style: GoogleFonts.sora(
                   fontSize: 15.0,
-                  color: _sheetSlateTitle,
+                  color: SwimUiTokens.textTitle,
                 ),
                 decoration: InputDecoration(
                   hintText: 'e.g. Bring extra towels…',
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: SwimUiTokens.surfaceCard,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
                     borderSide:
-                        const BorderSide(color: _sheetCardBorder, width: 1.0),
+                        const BorderSide(color: SwimUiTokens.borderSubtle, width: 1.0),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
                     borderSide:
-                        const BorderSide(color: _sheetCardBorder, width: 1.0),
+                        const BorderSide(color: SwimUiTokens.borderSubtle, width: 1.0),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
                     borderSide: const BorderSide(
-                      color: _sheetElectricBlue,
+                      color: SwimUiTokens.accentBlue,
                       width: 1.5,
                     ),
                   ),
@@ -3109,7 +3094,7 @@ class _ParentNoteEditorSheetState extends State<_ParentNoteEditorSheet> {
               const SizedBox(height: 16.0),
               FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: _sheetElectricBlue,
+                  backgroundColor: SwimUiTokens.accentBlue,
                   foregroundColor: Colors.white,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),

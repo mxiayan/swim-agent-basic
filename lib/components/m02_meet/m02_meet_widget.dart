@@ -6,6 +6,7 @@ import '/components/m02_meet_entered/m02_meet_entered_widget.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/theme/swim_ui_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -219,10 +220,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     app.persistMeetUiState();
   }
 
-  static const Color _electricBlue = Color(0xFF007AFF);
-  static const Color _pageBackground = Color(0xFFF8FAFC);
-  static const Color _bannerTitle = Color(0xFF0F172A);
-  static const Color _bannerMuted = Color(0xFF64748B);
   Widget _buildPrimarySegmentedControl() {
     Widget segment({
       required String label,
@@ -237,21 +234,15 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
             curve: Curves.easeOut,
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             decoration: BoxDecoration(
-              color: selected ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(9.0),
+              color: selected ? SwimUiTokens.surfaceCard : Colors.transparent,
+              borderRadius: BorderRadius.circular(SwimUiTokens.radiusSm),
               border: Border.all(
-                color: selected ? const Color(0xFFE1E8F5) : Colors.transparent,
+                color: selected
+                    ? SwimUiTokens.borderSubtle
+                    : Colors.transparent,
                 width: 1.0,
               ),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 6.0,
-                        offset: const Offset(0.0, 1.0),
-                      ),
-                    ]
-                  : null,
+              boxShadow: selected ? SwimUiTokens.shadowSegmentPill : null,
             ),
             child: Text(
               label,
@@ -259,7 +250,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
               style: GoogleFonts.sora(
                 fontSize: 13.0,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                color: selected ? _bannerTitle : _bannerMuted,
+                color: selected ? SwimUiTokens.textBannerTitle : SwimUiTokens.textMuted,
               ),
             ),
           ),
@@ -270,10 +261,10 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     return Container(
       padding: const EdgeInsets.all(3.0),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(11.0),
+        color: SwimUiTokens.surfaceCanvasSchedule,
+        borderRadius: BorderRadius.circular(SwimUiTokens.radiusSegmentShell),
         border: Border.all(
-          color: const Color(0xFFE2E8F0),
+          color: SwimUiTokens.borderSegmentTrack,
         ),
       ),
       child: Row(
@@ -303,7 +294,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                     style: GoogleFonts.sora(
                       fontSize: 13.0,
                       fontWeight: FontWeight.w600,
-                      color: _bannerTitle,
+                      color: SwimUiTokens.textBannerTitle,
                     ),
                     children: [
                       TextSpan(
@@ -311,7 +302,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         style: GoogleFonts.sora(
                           fontSize: 13.0,
                           fontWeight: FontWeight.w500,
-                          color: _bannerMuted,
+                          color: SwimUiTokens.textMuted,
                         ),
                       ),
                       TextSpan(text: _meetsScopeHeadline(app)),
@@ -327,25 +318,28 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
           icon: Icon(
             Icons.tune_rounded,
             size: 16.0,
-            color: _electricBlue,
+            color: SwimUiTokens.accentBlue,
           ),
           label: Text(
             'Filters',
             style: GoogleFonts.sora(
               fontSize: 12.0,
               fontWeight: FontWeight.w600,
-              color: _electricBlue,
+              color: SwimUiTokens.accentBlue,
             ),
           ),
           style: OutlinedButton.styleFrom(
             side: BorderSide(
-              color: filtersOn ? _electricBlue : const Color(0xFFDCE3EE),
+              color: filtersOn
+                  ? SwimUiTokens.accentBlue
+                  : SwimUiTokens.borderSubtle,
               width: 1.0,
             ),
-            backgroundColor:
-                filtersOn ? _electricBlue.withValues(alpha: 0.06) : Colors.white,
+            backgroundColor: filtersOn
+                ? SwimUiTokens.accentBlue.withValues(alpha: 0.06)
+                : SwimUiTokens.surfaceCard,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(9.0),
+              borderRadius: BorderRadius.circular(SwimUiTokens.radiusSm),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 7.0),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -360,9 +354,12 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     return Container(
       height: 38.0,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+        color: SwimUiTokens.surfaceCard,
+        borderRadius: BorderRadius.circular(SwimUiTokens.radiusMd),
+        border: Border.all(
+          color: SwimUiTokens.borderSubtle,
+          width: 1.0,
+        ),
       ),
       child: TextField(
         controller: _allMeetsSearchController,
@@ -373,13 +370,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
           hintText: 'Search meets by name, location, zone',
           hintStyle: GoogleFonts.sora(
             fontSize: 12.5,
-            color: _bannerMuted,
+            color: SwimUiTokens.textMuted,
           ),
-          prefixIcon: Icon(Icons.search_rounded, color: _bannerMuted, size: 18.0),
+          prefixIcon: Icon(Icons.search_rounded, color: SwimUiTokens.textMuted, size: 18.0),
           suffixIcon: _allMeetsSearchController.text.isEmpty
               ? null
               : IconButton(
-                  icon: Icon(Icons.close_rounded, color: _bannerMuted, size: 18.0),
+                  icon: Icon(Icons.close_rounded, color: SwimUiTokens.textMuted, size: 18.0),
                   onPressed: () {
                     _allMeetsSearchController.clear();
                     setState(() {});
@@ -389,7 +386,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         style: GoogleFonts.sora(
           fontSize: 12.5,
           fontWeight: FontWeight.w500,
-          color: _bannerTitle,
+          color: SwimUiTokens.textBannerTitle,
         ),
       ),
     );
@@ -398,13 +395,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   Color _myMeetSectionSurface(_MyMeetSectionTone tone) {
     switch (tone) {
       case _MyMeetSectionTone.needsAction:
-        return const Color(0xFFFFFAF6);
+        return SwimUiTokens.sectionNeedsAction;
       case _MyMeetSectionTone.entered:
-        return const Color(0xFFF2FBF6);
+        return SwimUiTokens.sectionEntered;
       case _MyMeetSectionTone.skipped:
-        return const Color(0xFFF1F5F9);
+        return SwimUiTokens.sectionSkipped;
       case _MyMeetSectionTone.neutral:
-        return Colors.white;
+        return SwimUiTokens.surfaceCard;
     }
   }
 
@@ -489,12 +486,12 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       out.add(rows[i]);
       if (i < rows.length - 1) {
         out.add(
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 5.0),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5.0),
             child: Divider(
               height: 1.0,
               thickness: 1.0,
-              color: Color(0xFFEEF2F7),
+              color: SwimUiTokens.borderSubtle.withValues(alpha: 0.65),
             ),
           ),
         );
@@ -523,17 +520,17 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       fontSize: 15.0,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.15,
-      color: _bannerTitle,
+      color: SwimUiTokens.textBannerTitle,
     );
 
     Widget sectionCountChip() {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 3.0),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: SwimUiTokens.surfaceCanvasSchedule,
           borderRadius: BorderRadius.circular(999.0),
           border: Border.all(
-            color: const Color(0xFFE2E8F0),
+            color: SwimUiTokens.borderSubtle,
             width: 0.5,
           ),
         ),
@@ -542,7 +539,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
           style: GoogleFonts.sora(
             fontSize: 11.5,
             fontWeight: FontWeight.w500,
-            color: const Color(0xFF94A3B8),
+            color: SwimUiTokens.textFaint,
           ),
         ),
       );
@@ -564,7 +561,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
             child: Icon(
               Icons.keyboard_arrow_down_rounded,
               size: 22.0,
-              color: _bannerMuted,
+              color: SwimUiTokens.textMuted,
             ),
           ),
         ],
@@ -596,18 +593,12 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       child: Container(
         decoration: BoxDecoration(
           color: surface,
-          borderRadius: BorderRadius.circular(18.0),
+          borderRadius: BorderRadius.circular(SwimUiTokens.radiusSection),
           border: Border.all(
-            color: const Color(0xFFD0D9E6),
+            color: SwimUiTokens.borderSection,
             width: 0.5,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.042),
-              blurRadius: 14.0,
-              offset: const Offset(0.0, 4.0),
-            ),
-          ],
+          boxShadow: SwimUiTokens.shadowCardLift,
         ),
         child: Padding(
           padding: EdgeInsets.fromLTRB(14.0, 14.0, 14.0, bottomPad),
@@ -719,16 +710,16 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     final app = context.watch<FFAppState>();
 
     return ColoredBox(
-      color: _pageBackground,
+      color: SwimUiTokens.surfaceCanvas,
       child: Column(
         mainAxisSize: MainAxisSize.max,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20.0, 4.0, 20.0, 0.0),
+            padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
             child: _buildPrimarySegmentedControl(),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20.0, 5.0, 20.0, 0.0),
+            padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
             child: _buildZoneAndFiltersRow(context, app),
           ),
           Expanded(
@@ -752,7 +743,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                           height: 50.0,
                           child: CircularProgressIndicator(
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              _electricBlue,
+                              SwimUiTokens.accentBlue,
                             ),
                           ),
                         ),
@@ -779,9 +770,41 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                             const SizedBox(height: 10.0),
                             Expanded(
                               child: Center(
-                                child: Text(
-                                  'No meets found.',
-                                  style: FlutterFlowTheme.of(context).bodyMedium,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 32.0,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.search_off_rounded,
+                                        size: 40.0,
+                                        color: SwimUiTokens.textFaint,
+                                      ),
+                                      const SizedBox(height: 12.0),
+                                      Text(
+                                        'No meets match',
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.sora(
+                                          fontSize: 16.0,
+                                          fontWeight: FontWeight.w600,
+                                          color: SwimUiTokens.textBannerTitle,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6.0),
+                                      Text(
+                                        'Try another search, or open Filters to widen class or zone.',
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.sora(
+                                          fontSize: 13.0,
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.35,
+                                          color: SwimUiTokens.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -876,11 +899,43 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                     if (myMeets.isEmpty) {
                       return Center(
                         child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Text(
-                            'No meets in My Meets yet.\nUse All Meets to browse and follow meets.',
-                            textAlign: TextAlign.center,
-                            style: FlutterFlowTheme.of(context).bodyMedium,
+                          padding: const EdgeInsets.fromLTRB(
+                            32.0,
+                            24.0,
+                            32.0,
+                            32.0,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.event_available_outlined,
+                                size: 44.0,
+                                color: SwimUiTokens.textFaint,
+                              ),
+                              const SizedBox(height: 14.0),
+                              Text(
+                                'My Meets is empty',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.sora(
+                                  fontSize: 17.0,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.15,
+                                  color: SwimUiTokens.textBannerTitle,
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                              Text(
+                                'Switch to All Meets to browse, then follow or enter meets — they will appear here.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.sora(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.4,
+                                  color: SwimUiTokens.textMuted,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
@@ -905,7 +960,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                         '${needsAction.length} Need Action',
                                     background: const Color(0xFFF1F5F9),
                                     border: const Color(0xFFE2E8F0),
-                                    foreground: _bannerTitle,
+                                    foreground: SwimUiTokens.textBannerTitle,
                                   ),
                                 if (deadlineWeekCount > 0)
                                   Tooltip(
@@ -945,7 +1000,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w500,
                                 height: 1.35,
-                                color: _bannerMuted,
+                                color: SwimUiTokens.textMuted,
                               ),
                             ),
                           ),
@@ -1033,11 +1088,6 @@ class _MeetRefineSheetContent extends StatelessWidget {
 
   final _MeetClassToggle onMeetClassToggle;
 
-  static const Color _refineBlue = Color(0xFF3B82F6);
-  static const Color _refineTitle = Color(0xFF0F172A);
-  static const Color _refineMuted = Color(0xFF64748B);
-  static const Color _chipBorder = Color(0xFFE2E8F0);
-
   Widget _sectionLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
@@ -1046,7 +1096,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
         style: GoogleFonts.sora(
           fontSize: 12.0,
           fontWeight: FontWeight.w600,
-          color: _refineMuted,
+          color: SwimUiTokens.textMuted,
           letterSpacing: 0.2,
         ),
       ),
@@ -1066,7 +1116,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
           children: [
             Icon(
               selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-              color: selected ? _refineBlue : _chipBorder,
+              color: selected ? SwimUiTokens.accentBlueSheet : SwimUiTokens.borderSubtle,
               size: 22.0,
             ),
             const SizedBox(width: 12.0),
@@ -1076,12 +1126,12 @@ class _MeetRefineSheetContent extends StatelessWidget {
                 style: GoogleFonts.sora(
                   fontSize: 14.0,
                   fontWeight: FontWeight.w500,
-                  color: _refineTitle,
+                  color: SwimUiTokens.textBannerTitle,
                 ),
               ),
             ),
             if (selected)
-              Icon(Icons.check_rounded, color: _refineBlue, size: 22.0),
+              Icon(Icons.check_rounded, color: SwimUiTokens.accentBlueSheet, size: 22.0),
           ],
         ),
       ),
@@ -1104,10 +1154,10 @@ class _MeetRefineSheetContent extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: 12.0, vertical: 7.0),
             decoration: BoxDecoration(
-              color: selected ? _refineBlue : Colors.white,
+              color: selected ? SwimUiTokens.accentBlueSheet : Colors.white,
               borderRadius: BorderRadius.circular(999.0),
               border: Border.all(
-                color: selected ? _refineBlue : _chipBorder,
+                color: selected ? SwimUiTokens.accentBlueSheet : SwimUiTokens.borderSubtle,
                 width: 1.0,
               ),
             ),
@@ -1116,7 +1166,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
               style: GoogleFonts.sora(
                 fontSize: 12.0,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : _refineTitle,
+                color: selected ? Colors.white : SwimUiTokens.textBannerTitle,
               ),
             ),
           ),
@@ -1171,7 +1221,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                     child: IconButton(
                       icon: Icon(
                         Icons.close_rounded,
-                        color: _refineMuted,
+                        color: SwimUiTokens.textMuted,
                         size: 26.0,
                       ),
                       onPressed: () => Navigator.pop(context),
@@ -1183,7 +1233,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                     style: GoogleFonts.sora(
                       fontSize: 17.0,
                       fontWeight: FontWeight.w700,
-                      color: _refineTitle,
+                      color: SwimUiTokens.textBannerTitle,
                     ),
                   ),
                   Align(
@@ -1209,7 +1259,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                         style: GoogleFonts.sora(
                           fontSize: 14.0,
                           fontWeight: FontWeight.w600,
-                          color: _refineBlue,
+                          color: SwimUiTokens.accentBlueSheet,
                         ),
                       ),
                     ),
@@ -1270,7 +1320,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
             Theme(
               data: Theme.of(context).copyWith(
                 dividerColor: Colors.transparent,
-                splashColor: _refineBlue.withValues(alpha: 0.08),
+                splashColor: SwimUiTokens.accentBlueSheet.withValues(alpha: 0.08),
               ),
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
@@ -1280,7 +1330,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                   style: GoogleFonts.sora(
                     fontSize: 12.0,
                     fontWeight: FontWeight.w600,
-                    color: _refineMuted,
+                    color: SwimUiTokens.textMuted,
                   ),
                 ),
                 children: [
@@ -1345,7 +1395,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                 style: GoogleFonts.sora(
                   fontSize: 14.0,
                   fontWeight: FontWeight.w500,
-                  color: _refineTitle,
+                  color: SwimUiTokens.textBannerTitle,
                 ),
               ),
               value: !app.meetShowNotGoingInList,
@@ -1356,7 +1406,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                 app.update(() => app.meetShowNotGoingInList = !v);
                 persist();
               },
-              activeColor: _refineBlue,
+              activeColor: SwimUiTokens.accentBlueSheet,
               controlAffinity: ListTileControlAffinity.leading,
             ),
             const SizedBox(height: 18.0),
@@ -1364,7 +1414,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
               width: double.infinity,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: _refineBlue,
+                  backgroundColor: SwimUiTokens.accentBlueSheet,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14.0),
                   shape: RoundedRectangleBorder(

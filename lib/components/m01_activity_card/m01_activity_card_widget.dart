@@ -3,6 +3,7 @@ import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/theme/swim_ui_tokens.dart';
 import 'dart:math';
 import 'dart:ui';
 import 'package:auto_size_text/auto_size_text.dart';
@@ -34,12 +35,10 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
     with TickerProviderStateMixin {
   late M01ActivityCardModel _model;
 
-  static const Color _slateTitle = Color(0xFF1E293B);
-  static const Color _slateSecondary = Color(0xFF64748B);
-  static const Color _cardBorder = Color(0xFFE2E8F0);
-  static const Color _electricBlue = Color(0xFF007AFF);
-
   final animationsMap = <String, AnimationInfo>{};
+
+  bool get _isMeetType =>
+      (widget.activityItem?.activityType ?? '').trim().toLowerCase() == 'meet';
 
   @override
   void setState(VoidCallback callback) {
@@ -228,27 +227,24 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
       children: [
         Padding(
           padding: const EdgeInsetsDirectional.fromSTEB(
-              20.0, 10.0, 20.0, 30.0),
+              16.0, 12.0, 16.0, 28.0),
           child: Container(
             width: MediaQuery.sizeOf(context).width * 1.0,
             constraints: BoxConstraints(
               maxWidth: 450.0,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: _cardBorder, width: 1.0),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 12.0,
-                  offset: const Offset(0.0, 4.0),
-                ),
-              ],
-              borderRadius: BorderRadius.circular(12.0),
+              color: SwimUiTokens.surfaceCard,
+              border: Border.all(
+                color: SwimUiTokens.borderSubtle,
+                width: 1.0,
+              ),
+              boxShadow: SwimUiTokens.shadowCard,
+              borderRadius: BorderRadius.circular(SwimUiTokens.radiusCard),
             ),
             child: Padding(
               padding: const EdgeInsetsDirectional.fromSTEB(
-                  16.0, 20.0, 16.0, 30.0),
+                  16.0, 18.0, 16.0, 28.0),
               child: Column(
                 mainAxisSize: MainAxisSize.max,
                 children: [
@@ -260,7 +256,9 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                       Container(
                         height: 24.0,
                         decoration: BoxDecoration(
-                          color: FlutterFlowTheme.of(context).cerise,
+                          color: _isMeetType
+                              ? SwimUiTokens.accentBlue.withValues(alpha: 0.12)
+                              : const Color(0xFFF5EEF8),
                           borderRadius: BorderRadius.circular(12.0),
                         ),
                         child: Padding(
@@ -268,8 +266,8 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                               10.0, 5.0, 10.0, 5.0),
                           child: AutoSizeText(
                             valueOrDefault<String>(
-                              widget!.activityItem?.activityType,
-                              '[Activity Type]',
+                              widget.activityItem?.activityType,
+                              'Activity',
                             ),
                             style: FlutterFlowTheme.of(context)
                                 .displaySmall
@@ -280,9 +278,10 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                         .displaySmall
                                         .fontStyle,
                                   ),
-                                  color: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  fontSize: 20.0,
+                                  color: _isMeetType
+                                      ? SwimUiTokens.accentBlue
+                                      : const Color(0xFF7C3AED),
+                                  fontSize: 14.0,
                                   letterSpacing: 0.0,
                                   fontWeight: FontWeight.w600,
                                   fontStyle: FlutterFlowTheme.of(context)
@@ -295,7 +294,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                           animationsMap['containerOnPageLoadAnimation2']!),
                       Icon(
                         Icons.more_vert_rounded,
-                        color: _slateSecondary,
+                        color: SwimUiTokens.textMuted,
                         size: 20.0,
                       ),
                     ],
@@ -322,7 +321,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                     '[Location Name]',
                                   ),
                                   style: GoogleFonts.sora(
-                                    color: _slateTitle,
+                                    color: SwimUiTokens.textTitle,
                                     fontSize: 20.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.w700,
@@ -354,7 +353,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                                     .headlineSmall
                                                     .fontStyle,
                                           ),
-                                          color: _slateSecondary,
+                                          color: SwimUiTokens.textMuted,
                                           fontSize: 15.0,
                                           letterSpacing: 0.0,
                                           fontWeight: FontWeight.w500,
@@ -382,7 +381,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                                   .headlineSmall
                                                   .fontStyle,
                                         ),
-                                        color: _slateSecondary,
+                                        color: SwimUiTokens.textMuted,
                                         fontSize: 12.0,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
@@ -421,7 +420,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                       children: [
                         Icon(
                           Icons.people,
-                          color: _slateSecondary,
+                          color: SwimUiTokens.textMuted,
                           size: 18.0,
                         ),
                         Expanded(
@@ -440,7 +439,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                    color: _slateSecondary,
+                                    color: SwimUiTokens.textMuted,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.w500,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -592,7 +591,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                       children: [
                         Icon(
                           Icons.alarm_on_outlined,
-                          color: _slateSecondary,
+                          color: SwimUiTokens.textMuted,
                           size: 18.0,
                         ),
                         Expanded(
@@ -601,9 +600,9 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                             padding: EdgeInsetsDirectional.fromSTEB(
                                 10.0, 0.0, 0.0, 0.0),
                             child: Text(
-                              widget!.activityItem?.activityType == 'Meet'
+                              _isMeetType
                                   ? 'Warm Up'
-                                  : '[Start Time]',
+                                  : 'Start Time',
                               style: FlutterFlowTheme.of(context)
                                   .bodyMedium
                                   .override(
@@ -613,131 +612,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                    color: _slateSecondary,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w500,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ),
-                        ),
-                        Stack(
-                          children: [
-                            Container(
-                              width: 95.0,
-                              decoration: BoxDecoration(
-                                color: FlutterFlowTheme.of(context).lightGrey,
-                                borderRadius: BorderRadius.circular(12.0),
-                              ),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    15.0, 5.0, 15.0, 5.0),
-                                child: Text(
-                                  '3:00 pm',
-                                  textAlign: TextAlign.center,
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.sora(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .primaryText,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              width: 105.0,
-                              decoration: BoxDecoration(
-                                color: _electricBlue,
-                                borderRadius: BorderRadius.circular(12.0),
-                              ),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    15.0, 5.0, 15.0, 5.0),
-                                child: Text(
-                                  dateTimeFormat(
-                                      "jm", widget!.activityItem!.startTime!),
-                                  textAlign: TextAlign.center,
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.sora(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .primaryBtnText,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                ),
-                              ),
-                            ).animateOnPageLoad(animationsMap[
-                                'containerOnPageLoadAnimation4']!),
-                          ],
-                        ),
-                      ],
-                    ).animateOnPageLoad(
-                        animationsMap['rowOnPageLoadAnimation2']!),
-                  ),
-                  Padding(
-                    padding: EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        Icon(
-                          Icons.access_alarms_rounded,
-                          color: _slateSecondary,
-                          size: 18.0,
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                                10.0, 0.0, 0.0, 0.0),
-                            child: Text(
-                              widget!.activityItem?.activityType == 'Meet'
-                                  ? 'Meet Start'
-                                  : '[Meet Start]',
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.sora(
-                                      fontWeight: FontWeight.w500,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: _slateSecondary,
+                                    color: SwimUiTokens.textMuted,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.w500,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -750,8 +625,96 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                         Container(
                           width: 105.0,
                           decoration: BoxDecoration(
-                            color: _electricBlue,
+                            color: SwimUiTokens.surfaceMuted,
                             borderRadius: BorderRadius.circular(12.0),
+                            border: Border.all(
+                              color: SwimUiTokens.borderSubtle,
+                              width: 1.0,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsetsDirectional.fromSTEB(
+                                15.0, 5.0, 15.0, 5.0),
+                            child: Text(
+                              valueOrDefault<String>(
+                                dateTimeFormat(
+                                  "jm",
+                                  widget.activityItem?.startTime,
+                                ),
+                                'TBD',
+                              ),
+                              textAlign: TextAlign.center,
+                              style: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .override(
+                                    font: GoogleFonts.sora(
+                                      fontWeight: FontWeight.w600,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                    color: SwimUiTokens.textTitle,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w600,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                            ),
+                          ),
+                        ).animateOnPageLoad(
+                            animationsMap['containerOnPageLoadAnimation4']!),
+                      ],
+                    ).animateOnPageLoad(
+                        animationsMap['rowOnPageLoadAnimation2']!),
+                  ),
+                  Padding(
+                    padding: EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        Icon(
+                          Icons.access_alarms_rounded,
+                          color: SwimUiTokens.textMuted,
+                          size: 18.0,
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Padding(
+                            padding: EdgeInsetsDirectional.fromSTEB(
+                                10.0, 0.0, 0.0, 0.0),
+                            child: Text(
+                              _isMeetType
+                                  ? 'Meet Start'
+                                  : 'End Time',
+                              style: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .override(
+                                    font: GoogleFonts.sora(
+                                      fontWeight: FontWeight.w500,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                    color: SwimUiTokens.textMuted,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 105.0,
+                          decoration: BoxDecoration(
+                            color: SwimUiTokens.accentBlue.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12.0),
+                            border: Border.all(
+                              color: SwimUiTokens.accentBlue.withValues(alpha: 0.25),
+                              width: 1.0,
+                            ),
                           ),
                           child: Padding(
                             padding: EdgeInsetsDirectional.fromSTEB(
@@ -759,8 +722,8 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                             child: Text(
                               valueOrDefault<String>(
                                 dateTimeFormat("jm",
-                                    widget!.activityItem?.details?.endTime),
-                                '[Start]',
+                                    widget.activityItem?.details?.endTime),
+                                'TBD',
                               ),
                               textAlign: TextAlign.center,
                               style: FlutterFlowTheme.of(context)
@@ -774,8 +737,7 @@ class _M01ActivityCardWidgetState extends State<M01ActivityCardWidget>
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .primaryBtnText,
+                                    color: SwimUiTokens.accentBlue,
                                     letterSpacing: 0.0,
                                     fontWeight: FlutterFlowTheme.of(context)
                                         .bodyMedium

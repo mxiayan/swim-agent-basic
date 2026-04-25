@@ -108,7 +108,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Orinda aquatics',
+                              'Orinda Aquatics',
                               style: FlutterFlowTheme.of(context)
                                   .displaySmall
                                   .override(
