@@ -59,6 +59,24 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   String get timelineUrl => _timelineUrl ?? '';
   bool hasTimelineUrl() => _timelineUrl != null;
 
+  /// Full street address when known (scraper, user, or AI pipeline).
+  String? _locationAddress;
+  String get locationAddress => _locationAddress ?? '';
+  bool hasLocationAddress() => _locationAddress != null;
+
+  /// Slug document id under top-level `venues` collection.
+  String? _venueId;
+  String get venueId => _venueId ?? '';
+  bool hasVenueId() => _venueId != null;
+
+  /// One of: `scraper`, `user_verified`, `ai_matched`.
+  ///
+  /// Scraper / AI ingestion must treat `user_verified` as authoritative: do not
+  /// overwrite `location_address`, `venue_id`, or related location fields.
+  String? _locationSource;
+  String get locationSource => _locationSource ?? '';
+  bool hasLocationSource() => _locationSource != null;
+
   DateTime? _startTime;
   DateTime? get startTime => _startTime;
   bool hasStartTime() => _startTime != null;
@@ -191,6 +209,21 @@ class MonitoredMeetsRecord extends FirestoreRecord {
       'timelineUrl',
       'meet_timeline_url',
       'meetTimelineUrl',
+    ]);
+    _locationAddress = _firstNonEmptyString(snapshotData, const [
+      'location_address',
+      'locationAddress',
+      'LocationAddress',
+    ]);
+    _venueId = _firstNonEmptyString(snapshotData, const [
+      'venue_id',
+      'venueId',
+      'VenueId',
+    ]);
+    _locationSource = _firstNonEmptyString(snapshotData, const [
+      'location_source',
+      'locationSource',
+      'LocationSource',
     ]);
     _startTime = snapshotData['start_time'] as DateTime? ??
         snapshotData['startTime'] as DateTime? ??
@@ -373,6 +406,9 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
   String? description,
   DateTime? startTime,
   String? imageUrl,
+  String? locationAddress,
+  String? venueId,
+  String? locationSource,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -383,6 +419,9 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
       'description': description,
       'start_time': startTime,
       'image_url': imageUrl,
+      'location_address': locationAddress,
+      'venue_id': venueId,
+      'location_source': locationSource,
     }.withoutNulls,
   );
 
@@ -404,6 +443,9 @@ class MonitoredMeetsRecordDocumentEquality
         e1?.meetSheetUrl == e2?.meetSheetUrl &&
         e1?.startTime == e2?.startTime &&
         e1?.endTime == e2?.endTime &&
+        e1?.locationAddress == e2?.locationAddress &&
+        e1?.venueId == e2?.venueId &&
+        e1?.locationSource == e2?.locationSource &&
         const ListEquality<String>().equals(e1?.meetClasses, e2?.meetClasses) &&
         e1?.imageUrl == e2?.imageUrl &&
         const ListEquality<String>().equals(e1?.eligibleZones, e2?.eligibleZones);
@@ -420,6 +462,9 @@ class MonitoredMeetsRecordDocumentEquality
         e?.meetSheetUrl,
         e?.startTime,
         e?.endTime,
+        e?.locationAddress,
+        e?.venueId,
+        e?.locationSource,
         const ListEquality<String>().hash(e?.meetClasses ?? const <String>[]),
         e?.imageUrl,
         const ListEquality<String>().hash(e?.eligibleZones ?? const <String>[]),

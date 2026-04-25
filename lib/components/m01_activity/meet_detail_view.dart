@@ -6,9 +6,15 @@ import '/backend/schema/meet_preferences_record.dart';
 import '/backend/schema/personal_meet_resources.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:rxdart/rxdart.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 String? _trimUrl(String? s) {
   final t = (s ?? '').trim();
@@ -100,6 +106,13 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   bool _parentNoteExpanded = false;
   bool _parentNoteEditing = false;
 
+  /// After a successful user save, drives map preview until parent rebuilds.
+  String _mapAddressOverride = '';
+  bool _savingLocationAddress = false;
+  final Map<String, Future<_GeoPointLite?>> _previewGeocodeCache = {};
+
+  static const String _locationSourceUserVerified = 'user_verified';
+
   bool get _isEntered =>
       widget.preference?.status == MeetPreferenceStatus.entered;
 
@@ -141,6 +154,14 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     return '';
   }
 
+  String get _mapPreviewAddress {
+    final o = _mapAddressOverride.trim();
+    if (o.isNotEmpty) {
+      return o;
+    }
+    return _locationForMeetInfo;
+  }
+
   String get _signupUrl => widget.activity.details.signupUrl.trim();
 
   String get _noteSeed {
@@ -155,6 +176,367 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   void initState() {
     super.initState();
     _noteController = TextEditingController(text: _noteSeed);
+    _primeMapAddressOverrideFromMonitored();
+  }
+
+  /// Resolves `monitored_meets/{id}` when this detail was opened from a meet list row.
+  Future<DocumentReference?> _monitoredMeetRef() async {
+    final ref = widget.activity.reference;
+    if (ref.path.startsWith('monitored_meets/')) {
+      return ref;
+    }
+    final direct = FirebaseFirestore.instance
+        .collection('monitored_meets')
+        .doc(widget.meetId);
+    final directSnap = await direct.get();
+    if (directSnap.exists) {
+      return direct;
+    }
+    final q = await FirebaseFirestore.instance
+        .collection('monitored_meets')
+        .where('meet_id', isEqualTo: widget.meetId)
+        .limit(1)
+        .get();
+    if (q.docs.isNotEmpty) {
+      return q.docs.first.reference;
+    }
+    return null;
+  }
+
+  Future<void> _primeMapAddressOverrideFromMonitored() async {
+    try {
+      final mref = await _monitoredMeetRef();
+      if (mref == null) {
+        return;
+      }
+      final snap = await mref.get();
+      final data = snap.data() as Map<String, dynamic>?;
+      if (!mounted || data == null) {
+        return;
+      }
+      final addr = (data['location_address'] as String?)?.trim() ?? '';
+      if (addr.isNotEmpty) {
+        setState(() => _mapAddressOverride = addr);
+      }
+    } catch (_) {}
+  }
+
+  /// Tokens for keyword match (city, street, venue words). Max 10 for Firestore.
+  List<String> _venueQuerySearchTokens(String raw) {
+    return raw
+        .toLowerCase()
+        .split(RegExp(r'[^a-z0-9]+'))
+        .map((t) => t.trim())
+        .where((t) => t.length >= 3)
+        .take(10)
+        .toList();
+  }
+
+  List<QueryDocumentSnapshot> _mergeVenueSuggestionDocs(
+    List<QueryDocumentSnapshot> a,
+    List<QueryDocumentSnapshot> b,
+  ) {
+    final byId = <String, QueryDocumentSnapshot>{};
+    for (final d in [...a, ...b]) {
+      byId[d.id] = d;
+    }
+    final out = byId.values.toList();
+    out.sort((x, y) {
+      final mx = x.data() as Map<String, dynamic>?;
+      final my = y.data() as Map<String, dynamic>?;
+      final nx = (mx?['name'] as String? ?? '').toLowerCase();
+      final ny = (my?['name'] as String? ?? '').toLowerCase();
+      return nx.compareTo(ny);
+    });
+    return out.length > 8 ? out.sublist(0, 8) : out;
+  }
+
+  /// Prefix on [search_name] matches typed venue names; [keywords] matches city / address.
+  Stream<List<QueryDocumentSnapshot>> _venueSuggestionDocs(String rawQuery) {
+    final q = rawQuery.trim().toLowerCase();
+    final col = FirebaseFirestore.instance.collection('venues');
+    if (q.isEmpty) {
+      return col.orderBy('name').limit(8).snapshots().map((s) => s.docs);
+    }
+    final end = '$q\uf8ff';
+    final prefixStream = col
+        .where('search_name', isGreaterThanOrEqualTo: q)
+        .where('search_name', isLessThanOrEqualTo: end)
+        .orderBy('search_name')
+        .limit(8)
+        .snapshots();
+    final tokens = _venueQuerySearchTokens(rawQuery);
+    if (tokens.isEmpty) {
+      return prefixStream.map((s) => s.docs);
+    }
+    final kwStream = col
+        .where('keywords', arrayContainsAny: tokens)
+        .limit(24)
+        .snapshots();
+    return Rx.combineLatest2<QuerySnapshot, QuerySnapshot,
+        List<QueryDocumentSnapshot>>(
+      prefixStream,
+      kwStream,
+      (prefixSnap, kwSnap) =>
+          _mergeVenueSuggestionDocs(prefixSnap.docs, kwSnap.docs),
+    );
+  }
+
+  Future<void> _openLocationAddressEditor() async {
+    if (currentUserUid.isEmpty) {
+      return;
+    }
+    var draftAddress = _mapPreviewAddress.trim().isNotEmpty
+        ? _mapPreviewAddress.trim()
+        : _locationForMeetInfo;
+    var selectedVenueId = '';
+    final saved = await showModalBottomSheet<_VenueSelectionResult>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+      ),
+      builder: (sheetContext) {
+        var query = draftAddress;
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Edit venue address',
+                    style: GoogleFonts.sora(
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 8.0),
+                  TextFormField(
+                    initialValue: draftAddress,
+                    onChanged: (v) {
+                      setSheetState(() => query = v.trimLeft());
+                      draftAddress = v;
+                      selectedVenueId = '';
+                    },
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      hintText: 'Search venue or enter full address',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10.0),
+                  SizedBox(
+                    height: 180.0,
+                    child: StreamBuilder<List<QueryDocumentSnapshot>>(
+                      stream: _venueSuggestionDocs(query),
+                      builder: (context, snap) {
+                        if (snap.hasError) {
+                          return Text(
+                            'Could not load venue suggestions. Deploy Firestore '
+                            'rules for `venues` or check your connection.',
+                            style: GoogleFonts.sora(
+                              fontSize: 12.0,
+                              color: _slate500,
+                            ),
+                          );
+                        }
+                        if (snap.connectionState == ConnectionState.waiting &&
+                            !snap.hasData) {
+                          return const Center(
+                            child: SizedBox(
+                              width: 28.0,
+                              height: 28.0,
+                              child: CircularProgressIndicator(strokeWidth: 2.0),
+                            ),
+                          );
+                        }
+                        final docs = snap.data ?? const <QueryDocumentSnapshot>[];
+                        if (docs.isEmpty) {
+                          return Text(
+                            'No venue suggestions yet. Try the pool or street '
+                            'name, or save your typed address as-is.',
+                            style: GoogleFonts.sora(
+                              fontSize: 12.0,
+                              color: _slate500,
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          itemCount: docs.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1.0),
+                          itemBuilder: (context, index) {
+                            final doc = docs[index];
+                            final data = doc.data() as Map<String, dynamic>?;
+                            final name =
+                                (data?['name'] as String? ?? '').trim();
+                            final address =
+                                (data?['address'] as String? ?? '').trim();
+                            final zone =
+                                (data?['zone'] as String? ?? '').trim();
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                name,
+                                style: GoogleFonts.sora(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '$address${zone.isNotEmpty ? " · Zone $zone" : ""}',
+                                style: GoogleFonts.sora(
+                                  fontSize: 11.5,
+                                  color: _slate500,
+                                ),
+                              ),
+                              onTap: () {
+                                setSheetState(() {
+                                  draftAddress = address;
+                                  query = address;
+                                  selectedVenueId = doc.id;
+                                });
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  if (selectedVenueId.isNotEmpty) ...[
+                    const SizedBox(height: 8.0),
+                    Text(
+                      'Selected venue will lock this address for scraper updates.',
+                      style: GoogleFonts.sora(
+                        fontSize: 11.5,
+                        color: _slate500,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12.0),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(
+                        _VenueSelectionResult(
+                          address: draftAddress.trim(),
+                          venueId: selectedVenueId.trim(),
+                        ),
+                      ),
+                      child: const Text('Save Location'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (saved == null || saved.address.trim().isEmpty) {
+      return;
+    }
+
+    setState(() => _savingLocationAddress = true);
+    try {
+      final mref = await _monitoredMeetRef();
+      if (mref == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cloud Sync Error'),
+            ),
+          );
+        }
+        return;
+      }
+
+      try {
+        await mref.set(
+          <String, dynamic>{
+            'location_address': saved.address.trim(),
+            'venue_id': saved.venueId.isEmpty ? null : saved.venueId,
+            'location_source': _locationSourceUserVerified,
+          },
+          SetOptions(merge: true),
+        );
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cloud Sync Error'),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+      HapticFeedback.mediumImpact();
+      setState(() => _mapAddressOverride = saved.address.trim());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Venue location saved.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingLocationAddress = false);
+      }
+    }
+  }
+
+  Future<_GeoPointLite?> _resolvePreviewPoint(String address) {
+    final key = address.trim().toLowerCase();
+    if (key.isEmpty) {
+      return Future.value(null);
+    }
+    return _previewGeocodeCache.putIfAbsent(
+      key,
+      () async {
+        try {
+          final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+            'format': 'jsonv2',
+            'limit': '1',
+            'q': address,
+          });
+          final res = await http.get(
+            uri,
+            headers: const {'User-Agent': 'swim-agent-basic/1.0'},
+          );
+          if (res.statusCode != 200) {
+            return null;
+          }
+          final arr = jsonDecode(res.body);
+          if (arr is! List || arr.isEmpty) {
+            return null;
+          }
+          final first = arr.first;
+          if (first is! Map) {
+            return null;
+          }
+          final lat = double.tryParse((first['lat'] ?? '').toString());
+          final lon = double.tryParse((first['lon'] ?? '').toString());
+          if (lat == null || lon == null) {
+            return null;
+          }
+          return _GeoPointLite(lat: lat, lon: lon);
+        } catch (_) {
+          return null;
+        }
+      },
+    );
   }
 
   @override
@@ -263,9 +645,48 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     }
   }
 
-  void _openInMaps(String query) {
+  Future<void> _openInMaps(String query) async {
     final q = Uri.encodeComponent(query);
-    launchURL('https://www.google.com/maps/search/?api=1&query=$q');
+    final webUrl = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$q',
+    );
+    if (kIsWeb) {
+      launchURL(webUrl.toString());
+      return;
+    }
+
+    // iOS: prefer Google Maps app if installed, otherwise Apple Maps.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final googleMapsApp = Uri.parse('comgooglemaps://?q=$q');
+      final appleMaps = Uri.parse('http://maps.apple.com/?q=$q');
+      if (await canLaunchUrl(googleMapsApp)) {
+        await launchUrl(
+          googleMapsApp,
+          mode: LaunchMode.externalApplication,
+        );
+        return;
+      }
+      await launchUrl(
+        appleMaps,
+        mode: LaunchMode.externalApplication,
+      );
+      return;
+    }
+
+    // Android: open native map intent when possible.
+    final geo = Uri.parse('geo:0,0?q=$q');
+    if (await canLaunchUrl(geo)) {
+      await launchUrl(
+        geo,
+        mode: LaunchMode.externalApplication,
+      );
+      return;
+    }
+
+    await launchUrl(
+      webUrl,
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   String _urlHostPreview(String raw) {
@@ -684,8 +1105,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       widget.activity.details.endTime,
       start,
     );
-    final locShort = _locationForMeetInfo;
-    final metaLocation = (locShort.isNotEmpty ? locShort : '—');
 
     return Hero(
       tag: widget.heroTag,
@@ -758,19 +1177,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                           color: const Color(0xFF0F172A),
                         ),
                       ),
-                      if (_venueSubtitle != null) ...[
-                        const SizedBox(height: 6.0),
-                        Text(
-                          _venueSubtitle!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.sora(
-                            fontSize: 14.0,
-                            fontWeight: FontWeight.w500,
-                            color: _slate600,
-                          ),
-                        ),
-                      ],
                       const SizedBox(height: 12.0),
                       Wrap(
                         spacing: 14.0,
@@ -780,11 +1186,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                             icon: Icons.calendar_today_outlined,
                             label: _dateRangeLabel(start, end),
                           ),
-                          _metaChip(
-                            icon: Icons.place_outlined,
-                            label: metaLocation,
-                          ),
-                          if (deadlineLine != null)
+                          if (!entered && deadlineLine != null)
                             _metaChip(
                               icon: Icons.flag_outlined,
                               label: deadlineLine,
@@ -1011,6 +1413,10 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     required MeetDetailExtras? extras,
   }) {
     final loc = _locationForMeetInfo;
+    final fullAddress = _mapPreviewAddress.trim();
+    final venueLabel = loc.isNotEmpty ? loc : _displayTitle;
+    final showFullAddress =
+        fullAddress.isNotEmpty && fullAddress.toLowerCase() != venueLabel.toLowerCase();
     final host = extras?.hostTeam?.trim() ?? '';
     final warmupLabel = warmup != null
         ? dateTimeFormat('EEE, MMM d · h:mm a', warmup)
@@ -1112,14 +1518,120 @@ class _MeetDetailViewState extends State<MeetDetailView> {
               const SizedBox(height: 8.0),
               _meetDayRow(label: 'Warm-up', value: warmupLabel),
               _meetDayRow(label: 'Meet start', value: startLabel),
-              _meetDayRow(label: 'Facility', value: loc),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 108.0,
+                      child: Text(
+                        'Venue',
+                        style: GoogleFonts.sora(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: _slate500,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            venueLabel,
+                            style: GoogleFonts.sora(
+                              fontSize: 14.0,
+                              fontWeight: FontWeight.w600,
+                              color: _slate700,
+                              height: 1.3,
+                            ),
+                          ),
+                          if (showFullAddress) ...[
+                            const SizedBox(height: 2.0),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    fullAddress,
+                                    style: GoogleFonts.sora(
+                                      fontSize: 12.0,
+                                      fontWeight: FontWeight.w500,
+                                      color: _slate500,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Copy address',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 24.0,
+                                    height: 24.0,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () async {
+                                    await Clipboard.setData(
+                                      ClipboardData(text: fullAddress),
+                                    );
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Address copied'),
+                                        duration: Duration(milliseconds: 1200),
+                                      ),
+                                    );
+                                  },
+                                  icon: Icon(
+                                    Icons.copy_rounded,
+                                    size: 15.0,
+                                    color: FlutterFlowTheme.of(context).primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6.0),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 28.0,
+                          height: 28.0,
+                        ),
+                        alignment: Alignment.topCenter,
+                        tooltip: 'Edit venue address',
+                        onPressed:
+                            _savingLocationAddress ? null : _openLocationAddressEditor,
+                        icon: _savingLocationAddress
+                            ? const SizedBox(
+                                width: 16.0,
+                                height: 16.0,
+                                child: CircularProgressIndicator(strokeWidth: 2.0),
+                              )
+                            : Icon(
+                                Icons.edit_outlined,
+                                size: 18.0,
+                                color: FlutterFlowTheme.of(context).primary,
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               _meetDayRow(label: 'Host team', value: host),
-              if (loc.isNotEmpty) ...[
+              if (_mapPreviewAddress.isNotEmpty) ...[
                 const SizedBox(height: 4.0),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
-                    onPressed: () => _openInMaps(loc),
+                    onPressed: () => _openInMaps(_mapPreviewAddress),
                     icon: Icon(
                       Icons.map_outlined,
                       size: 18.0,
@@ -1153,7 +1665,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
 
   /// Short map strip when geocoding works; otherwise a single compact line.
   Widget _buildCompactMapPreview() {
-    final loc = _locationForMeetInfo;
+    final loc = _mapPreviewAddress;
     if (loc.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 4.0),
@@ -1167,104 +1679,106 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         ),
       );
     }
-    final q = Uri.encodeComponent(loc);
-    final staticMapUrl =
-        'https://staticmap.openstreetmap.de/staticmap.php?center=$q&zoom=13&size=640x200&markers=$q,red-pushpin';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Map preview',
-          style: GoogleFonts.sora(
-            fontSize: 12.0,
-            fontWeight: FontWeight.w600,
-            color: _slate500,
-          ),
-        ),
-        const SizedBox(height: 6.0),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10.0),
-          child: SizedBox(
-            height: 72.0,
-            width: double.infinity,
-            child: Image.network(
-              staticMapUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Align(
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12.0,
-                    vertical: 8.0,
-                  ),
-                  color: const Color(0xFFF8FAFC),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.map_outlined,
-                        size: 16.0,
-                        color: _slate500,
-                      ),
-                      const SizedBox(width: 8.0),
-                      Expanded(
-                        child: Text(
-                          'Map preview unavailable. Open in Maps for navigation.',
-                          style: GoogleFonts.sora(
-                            fontSize: 12.0,
-                            color: _slate500,
-                            height: 1.25,
+    return FutureBuilder<_GeoPointLite?>(
+      future: _resolvePreviewPoint(loc),
+      builder: (context, snap) {
+        final point = snap.data;
+        final staticMapUrl = point == null
+            ? null
+            : 'https://static-maps.yandex.ru/1.x/'
+                '?lang=en_US&ll=${point.lon},${point.lat}'
+                '&z=14&size=650,220&l=map&pt=${point.lon},${point.lat},pm2rdm';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Map preview',
+              style: GoogleFonts.sora(
+                fontSize: 12.0,
+                fontWeight: FontWeight.w600,
+                color: _slate500,
+              ),
+            ),
+            const SizedBox(height: 6.0),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10.0),
+              child: SizedBox(
+                height: 72.0,
+                width: double.infinity,
+                child: staticMapUrl == null
+                    ? Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0,
+                            vertical: 8.0,
+                          ),
+                          color: const Color(0xFFF8FAFC),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.map_outlined,
+                                size: 16.0,
+                                color: _slate500,
+                              ),
+                              const SizedBox(width: 8.0),
+                              Expanded(
+                                child: Text(
+                                  snap.connectionState == ConnectionState.waiting
+                                      ? 'Loading map preview...'
+                                      : 'Could not locate this address. Open in Maps for navigation.',
+                                  style: GoogleFonts.sora(
+                                    fontSize: 12.0,
+                                    color: _slate500,
+                                    height: 1.25,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Image.network(
+                        staticMapUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 8.0,
+                            ),
+                            color: const Color(0xFFF8FAFC),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.map_outlined,
+                                  size: 16.0,
+                                  color: _slate500,
+                                ),
+                                const SizedBox(width: 8.0),
+                                Expanded(
+                                  child: Text(
+                                    'Map preview unavailable. Open in Maps for navigation.',
+                                    style: GoogleFonts.sora(
+                                      fontSize: 12.0,
+                                      color: _slate500,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
               ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _normMeetBrowseUrl(String u) {
-    return u.trim().replaceAll(RegExp(r'/enter/?$'), '');
-  }
-
-  /// Team browse link (psych / heat / timeline live under My meet resources).
-  Widget _buildOfficialResourcesCard(MeetDetailExtras? extras) {
-    if (extras == null || !extras.hasOfficialBrowseLink) {
-      return const SizedBox.shrink();
-    }
-    final u = extras.viewOnFastSwimsUrl!.trim();
-    final signupNorm =
-        _signupUrl.isNotEmpty ? _normMeetBrowseUrl(_signupUrl) : '';
-    if (signupNorm.isNotEmpty && _normMeetBrowseUrl(u) == signupNorm) {
-      return const SizedBox.shrink();
-    }
-
-    return _softCard(
-      child: ListTile(
-        dense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-        leading: Icon(
-          Icons.open_in_new_rounded,
-          size: 20.0,
-          color: FlutterFlowTheme.of(context).primary,
-        ),
-        title: Text(
-          'View on FastSwims',
-          style: GoogleFonts.sora(
-            fontSize: 14.0,
-            fontWeight: FontWeight.w600,
-            color: _slate700,
-          ),
-        ),
-        trailing: Icon(Icons.chevron_right_rounded, color: _slate500),
-        onTap: () => launchURL(u),
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -1668,14 +2182,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       const SizedBox(height: 26.0),
                       _sectionHeading('My meet resources'),
                       _buildMyMeetResourcesSection(),
-                      if (widget.extras != null &&
-                          widget.extras!.hasOfficialBrowseLink) ...[
-                        const SizedBox(height: 26.0),
-                        _sectionHeading('Official resources'),
-                        _buildOfficialResourcesCard(widget.extras),
-                      ],
                       const SizedBox(height: 26.0),
-                      _sectionHeading('Parent note'),
                       _buildParentNoteSection(),
                     ],
                     // Space above sticky footer
@@ -2053,10 +2560,32 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
   }
 }
 
+class _VenueSelectionResult {
+  const _VenueSelectionResult({
+    required this.address,
+    required this.venueId,
+  });
+
+  final String address;
+  final String venueId;
+}
+
+class _GeoPointLite {
+  const _GeoPointLite({
+    required this.lat,
+    required this.lon,
+  });
+
+  final double lat;
+  final double lon;
+}
+
 /// Minimal [ActivitiesRecord] for [MeetDetailView] when only a [MonitoredMeetsRecord] exists.
 ActivitiesRecord activitiesRecordFromMonitoredMeet(MonitoredMeetsRecord m) {
   final title = m.name.trim();
-  final loc = m.location.trim();
+  final loc = m.locationAddress.trim().isNotEmpty
+      ? m.locationAddress.trim()
+      : m.location.trim();
   final locationLine = [title, loc].where((s) => s.isNotEmpty).join(' · ');
   final noteText = m.notes.trim().isNotEmpty ? m.notes : m.apiNotes;
   final details = ActivityDetailsStruct(

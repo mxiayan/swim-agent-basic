@@ -9,6 +9,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function monitoredMeetLocationOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'location_address',
+        'venue_id',
+        'location_source',
+        'last_updated',
+      ]);
+    }
+
     // Path for DocumentReference owner_id (FlutterFlow: users/{uid})
     function userDocumentPath() {
       return /databases/$(database)/documents/users/$(request.auth.uid);
@@ -72,6 +81,16 @@ service cloud.firestore {
     // Meets feed (read-only from client; backend/Admin for writes)
     match /monitored_meets/{docId} {
       allow read: if signedIn();
+      // Allow users to verify venue/address only; scraper/feed fields stay locked.
+      allow update: if signedIn()
+        && monitoredMeetLocationOnlyUpdate()
+        && request.resource.data.location_source in ['scraper', 'user_verified', 'ai_matched'];
+      allow create, delete: if false;
+    }
+
+    // Venue directory (meet detail picker; hydrate via Admin / tool)
+    match /venues/{venueId} {
+      allow read: if true;
       allow write: if false;
     }
 
