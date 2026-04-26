@@ -722,7 +722,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   }
 
   /// Expands long note previews in My meet resources rows.
-  final Set<String> _personalResourceNoteExpanded = {};
 
   Future<void> _openPersonalResourceEditor({
     PersonalMeetResourceEntry? initial,
@@ -1823,6 +1822,73 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     _persistEnteredEventOrder();
   }
 
+  Future<void> _deletePersonalResourceFromList(PersonalMeetResourceEntry entry) async {
+    if (entry.id.trim().isEmpty) {
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(
+          'Delete resource?',
+          style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'This will remove this resource from your meet resources.',
+          style: GoogleFonts.sora(fontSize: 14.0, color: _slate600),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.sora(
+                fontWeight: FontWeight.w600,
+                color: _slate600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.sora(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFFB91C1C),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) {
+      return;
+    }
+    try {
+      await deletePersonalMeetResource(
+        currentUserUid,
+        widget.meetId,
+        entry.id,
+      );
+      await LocalMeetMediaStore.clearPhotos(
+        currentUserUid,
+        widget.meetId,
+        entry.id,
+      );
+      if (!mounted) return;
+      setState(() => _resourceMediaRevision++);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Resource deleted.')),
+      );
+    } on FirebaseException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cloud Sync Error')),
+      );
+    }
+  }
+
   Widget _buildMyMeetResourcesSection() {
     if (currentUserUid.isEmpty) {
       return _softCard(
@@ -1855,7 +1921,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Personal links and notes for your family only — not from your team.',
+                        'Private links, photos, and notes for this meet.',
                         style: GoogleFonts.sora(
                           fontSize: 12.0,
                           height: 1.35,
@@ -1867,8 +1933,13 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                     TextButton.icon(
                       onPressed: () => _openPersonalResourceEditor(),
                       style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFFEFF6FF),
                         minimumSize: const Size(0.0, 32.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 10.0),
                         visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999.0),
+                        ),
                       ),
                       icon: Icon(
                         Icons.add_rounded,
@@ -1923,7 +1994,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                         ),
                         const SizedBox(height: 4.0),
                         Text(
-                          'Add links, volunteer jobs, reminders, or notes for this meet. Use Add Resource above.',
+                          'Add links, photos, volunteer jobs, reminders, or notes for this meet.',
                           style: GoogleFonts.sora(
                             fontSize: 12.0,
                             color: _slate500,
@@ -1934,7 +2005,26 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                     ),
                   )
                 else
-                  ...resources.map(_personalResourceRow),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAFCFF),
+                      borderRadius: BorderRadius.circular(12.0),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < resources.length; i++) ...[
+                          _personalResourceRow(resources[i]),
+                          if (i != resources.length - 1)
+                            const Divider(
+                              height: 1.0,
+                              thickness: 1.0,
+                              color: Color(0xFFE2E8F0),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1944,12 +2034,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   }
 
   Widget _personalResourceRow(PersonalMeetResourceEntry entry) {
-    final expanded = _personalResourceNoteExpanded.contains(entry.id);
-    final notePreview = entry.notes.trim();
-    final urlNorm = entry.normalizedUrl;
-    final title = entry.resourceLabel.trim().isEmpty
-        ? entry.kind.uiTitle
-        : entry.resourceLabel.trim();
     final photosFuture = LocalMeetMediaStore.listPhotos(
       currentUserUid,
       widget.meetId,
@@ -1959,258 +2043,346 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         entry.resourceLabel.trim().toLowerCase().replaceAll(' ', '_'),
       ],
     );
+    return FutureBuilder<List<LocalResourcePhoto>>(
+      future: photosFuture,
+      key: ValueKey('${entry.id}::$_resourceMediaRevision'),
+      builder: (context, snap) {
+        final photos = snap.data ?? const <LocalResourcePhoto>[];
+        final photoCount = photos.length;
+        final firstPhoto = photoCount > 0 ? photos.first : null;
+        final formatted = _formatPersonalResourceContent(entry);
+        final metadataParts = <String>[];
+        if (photoCount > 0) {
+          metadataParts.add(
+            '$photoCount photo${photoCount == 1 ? '' : 's'} attached',
+          );
+        }
+        if (entry.updatedAt != null) {
+          metadataParts.add(
+            'Updated ${dateTimeFormat('MMM d · h:mm a', entry.updatedAt)}',
+          );
+        }
+        final metadata = metadataParts.join(' · ');
 
-    final lines = <String>[];
-    switch (entry.kind) {
-      case PersonalResourceKind.psychSheet:
-      case PersonalResourceKind.timeline:
-      case PersonalResourceKind.heatSheet:
-        break;
-      case PersonalResourceKind.volunteerJob:
-        if (entry.title.trim().isNotEmpty) {
-          lines.add(entry.title.trim());
-        }
-        final when = [entry.date, entry.startTime, entry.endTime]
-            .where((s) => s.trim().isNotEmpty)
-            .join('  ');
-        if (when.isNotEmpty) {
-          lines.add(when);
-        }
-        if (entry.location.trim().isNotEmpty) {
-          lines.add(entry.location.trim());
-        }
-        break;
-      case PersonalResourceKind.warmupInfo:
-        final when = [entry.date, entry.time]
-            .where((s) => s.trim().isNotEmpty)
-            .join('  ');
-        if (when.isNotEmpty) {
-          lines.add(when);
-        }
-        if (entry.location.trim().isNotEmpty) {
-          lines.add(entry.location.trim());
-        }
-        break;
-      case PersonalResourceKind.parkingInfo:
-        if (entry.address.trim().isNotEmpty) {
-          lines.add(entry.address.trim());
-        }
-        break;
-      case PersonalResourceKind.reminder:
-      case PersonalResourceKind.otherNote:
-        if (entry.title.trim().isNotEmpty) {
-          lines.add(entry.title.trim());
-        }
-        final when = [entry.date, entry.time]
-            .where((s) => s.trim().isNotEmpty)
-            .join('  ');
-        if (when.isNotEmpty && entry.kind == PersonalResourceKind.reminder) {
-          lines.add(when);
-        }
-        break;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
-      child: Material(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12.0),
-        child: InkWell(
-          onTap: () => _openPersonalResourceEditor(initial: entry),
-          borderRadius: BorderRadius.circular(12.0),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12.0, 10.0, 10.0, 10.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FutureBuilder<List<LocalResourcePhoto>>(
-                      future: photosFuture,
-                      key: ValueKey('thumb_${entry.id}_$_resourceMediaRevision'),
-                      builder: (context, snap) {
-                        final photos = snap.data ?? const <LocalResourcePhoto>[];
-                        if (photos.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-                        final first = photos.first;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: GestureDetector(
-                            onTap: () => _openResourcePhotoFullscreen(first.path),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8.0),
-                              child: Image.file(
-                                File(first.path),
-                                width: 44.0,
-                                height: 44.0,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  width: 44.0,
-                                  height: 44.0,
-                                  color: const Color(0xFFE2E8F0),
-                                  alignment: Alignment.center,
-                                  child: const Icon(Icons.broken_image_outlined, size: 16.0),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: GoogleFonts.sora(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0F172A),
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => _openPersonalResourceEditor(initial: entry),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(0.0, 32.0),
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      child: Text(
-                        'Edit',
-                        style: GoogleFonts.sora(
-                          fontWeight: FontWeight.w700,
-                          color: FlutterFlowTheme.of(context).primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (lines.isNotEmpty) ...[
-                  const SizedBox(height: 6.0),
-                  ...lines.map(
-                    (line) => Padding(
-                      padding: const EdgeInsets.only(bottom: 3.0),
-                      child: Text(
-                        line,
-                        style: GoogleFonts.sora(
-                          fontSize: 12.5,
-                          height: 1.3,
-                          color: _slate700,
-                        ),
-                      ),
-                    ),
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _openPersonalResourceEditor(initial: entry),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12.0, 10.0, 8.0, 10.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _resourceLeadingPreview(
+                    kind: entry.kind,
+                    firstPhoto: firstPhoto,
+                    photoCount: photoCount,
                   ),
-                ],
-                if (urlNorm.isNotEmpty) ...[
-                    const SizedBox(height: 6.0),
-                    GestureDetector(
-                      onTap: () => launchURL(urlNorm),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.link_rounded,
-                            size: 16.0,
-                            color: FlutterFlowTheme.of(context).primary,
+                  const SizedBox(width: 10.0),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          formatted.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.sora(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A),
                           ),
-                          const SizedBox(width: 6.0),
-                          Expanded(
-                            child: Text(
-                              _urlHostPreview(urlNorm),
-                              style: GoogleFonts.sora(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: FlutterFlowTheme.of(context).primary,
-                                decoration: TextDecoration.underline,
-                                decorationColor: FlutterFlowTheme.of(context)
-                                    .primary
-                                    .withValues(alpha: 0.4),
-                              ),
+                        ),
+                        if (formatted.main.isNotEmpty) ...[
+                          const SizedBox(height: 2.0),
+                          _resourceDetailLine(formatted.main, isMain: true),
+                        ],
+                        if (formatted.secondary.isNotEmpty) ...[
+                          const SizedBox(height: 2.0),
+                          _resourceDetailLine(formatted.secondary),
+                        ],
+                        if (formatted.url.isNotEmpty) ...[
+                          const SizedBox(height: 3.0),
+                          _resourceLinkLine(formatted.url),
+                        ],
+                        if (metadata.isNotEmpty) ...[
+                          const SizedBox(height: 4.0),
+                          Text(
+                            metadata,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.sora(
+                              fontSize: 10.8,
+                              color: _slate500,
+                              height: 1.2,
                             ),
-                          ),
-                          Icon(
-                            Icons.open_in_new_rounded,
-                            size: 15.0,
-                            color: _slate500,
                           ),
                         ],
-                      ),
-                    ),
-                  ],
-                if (notePreview.isNotEmpty) ...[
-                  const SizedBox(height: 6.0),
-                  Text(
-                    notePreview,
-                    maxLines: expanded ? null : 2,
-                    overflow:
-                        expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-                    style: GoogleFonts.sora(
-                      fontSize: 12.5,
-                      height: 1.35,
-                      color: _slate700,
+                      ],
                     ),
                   ),
-                  if (notePreview.length > 90 || notePreview.contains('\n'))
-                    TextButton(
-                      onPressed: () => setState(() {
-                        if (expanded) {
-                          _personalResourceNoteExpanded.remove(entry.id);
-                        } else {
-                          _personalResourceNoteExpanded.add(entry.id);
-                        }
-                      }),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0.0, 28.0),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  PopupMenuButton<String>(
+                    tooltip: 'More actions',
+                    color: Colors.white,
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _openPersonalResourceEditor(initial: entry);
+                      } else if (value == 'delete') {
+                        _deletePersonalResourceFromList(entry);
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem<String>(
+                        value: 'edit',
+                        child: Text('Edit'),
                       ),
-                      child: Text(
-                        expanded ? 'Show less' : 'Show more',
-                        style: GoogleFonts.sora(
-                          fontSize: 12.0,
-                          fontWeight: FontWeight.w700,
-                          color: FlutterFlowTheme.of(context).primary,
-                        ),
+                      PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Text('Delete'),
                       ),
-                    ),
-                ],
-                if (entry.updatedAt != null) ...[
-                  const SizedBox(height: 2.0),
-                  Text(
-                    'Last updated ${dateTimeFormat('MMM d, y · h:mm a', entry.updatedAt)}',
-                    style: GoogleFonts.sora(
-                      fontSize: 11.0,
+                    ],
+                    icon: Icon(
+                      Icons.more_horiz_rounded,
+                      size: 20.0,
                       color: _slate500,
                     ),
                   ),
                 ],
-                FutureBuilder<List<LocalResourcePhoto>>(
-                  future: photosFuture,
-                  key: ValueKey('${entry.id}::$_resourceMediaRevision'),
-                  builder: (context, snap) {
-                    final photos = snap.data ?? const <LocalResourcePhoto>[];
-                    if (photos.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 6.0),
-                      child: Text(
-                        '${photos.length} photo${photos.length == 1 ? '' : 's'} attached',
-                        style: GoogleFonts.sora(
-                          fontSize: 11.5,
-                          color: _slate500,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
+              ),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  ({String title, String main, String secondary, String url}) _formatPersonalResourceContent(
+    PersonalMeetResourceEntry entry,
+  ) {
+    final notes = entry.notes.trim();
+    final url = entry.normalizedUrl;
+    switch (entry.kind) {
+      case PersonalResourceKind.psychSheet:
+      case PersonalResourceKind.timeline:
+        return (
+          title: entry.kind.uiTitle,
+          main: '',
+          secondary: notes,
+          url: url,
+        );
+      case PersonalResourceKind.heatSheet:
+        return (
+          title: entry.kind.uiTitle,
+          main: url.isEmpty ? notes : '',
+          secondary: url.isEmpty ? '' : notes,
+          url: url,
+        );
+      case PersonalResourceKind.volunteerJob:
+        final range = _formatTimeRange(entry.startTime, entry.endTime);
+        final secondary = [
+          if (range.isNotEmpty) range,
+          if (entry.location.trim().isNotEmpty) entry.location.trim(),
+        ].join(' · ');
+        return (
+          title: entry.kind.uiTitle,
+          main: entry.title.trim(),
+          secondary: secondary,
+          url: '',
+        );
+      case PersonalResourceKind.warmupInfo:
+        final dateTime = _formatDateTimeLine(entry.date, entry.time);
+        return (
+          title: entry.kind.uiTitle,
+          main: dateTime,
+          secondary: entry.location.trim().isNotEmpty ? entry.location.trim() : notes,
+          url: '',
+        );
+      case PersonalResourceKind.parkingInfo:
+        return (
+          title: entry.kind.uiTitle,
+          main: entry.address.trim(),
+          secondary: notes,
+          url: url,
+        );
+      case PersonalResourceKind.reminder:
+        return (
+          title: entry.kind.uiTitle,
+          main: entry.title.trim(),
+          secondary: _formatDateTimeLine(entry.date, entry.time),
+          url: '',
+        );
+      case PersonalResourceKind.otherNote:
+        final title = entry.title.trim();
+        return (
+          title: entry.kind.uiTitle,
+          main: title.isNotEmpty ? title : notes,
+          secondary: title.isNotEmpty ? notes : '',
+          url: url,
+        );
+    }
+  }
+
+  String _formatTimeRange(String start, String end) {
+    final s = start.trim();
+    final e = end.trim();
+    if (s.isNotEmpty && e.isNotEmpty) {
+      return '$s-$e'.replaceFirst('-', '–');
+    }
+    return s.isNotEmpty ? s : e;
+  }
+
+  String _formatDateTimeLine(String date, String time) {
+    final d = date.trim();
+    final t = time.trim();
+    if (d.isNotEmpty && t.isNotEmpty) {
+      return '$d · $t';
+    }
+    if (t.isNotEmpty) {
+      return 'Warmup at $t';
+    }
+    return d;
+  }
+
+  Widget _resourceDetailLine(String text, {bool isMain = false}) {
+    return Text(
+      text,
+      maxLines: isMain ? 2 : 2,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.sora(
+        fontSize: isMain ? 12.6 : 12.2,
+        height: 1.3,
+        color: isMain ? _slate700 : _slate600,
+        fontWeight: isMain ? FontWeight.w600 : FontWeight.w500,
+      ),
+    );
+  }
+
+  Widget _resourceLeadingPreview({
+    required PersonalResourceKind kind,
+    required LocalResourcePhoto? firstPhoto,
+    required int photoCount,
+  }) {
+    final size = 48.0;
+    if (firstPhoto == null) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(10.0),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          _resourceTypeIcon(kind),
+          size: 18.0,
+          color: _slate500,
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: () => _openResourcePhotoFullscreen(firstPhoto.path),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10.0),
+                child: Image.file(
+                  File(firstPhoto.path),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: const Color(0xFFE2E8F0),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.broken_image_outlined, size: 16.0),
+                  ),
+                ),
+              ),
+            ),
+            if (photoCount > 1)
+              Positioned(
+                right: 3.0,
+                bottom: 3.0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 1.0),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(999.0),
+                  ),
+                  child: Text(
+                    '+${photoCount - 1}',
+                    style: GoogleFonts.sora(
+                      fontSize: 9.0,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
+  }
+
+  Widget _resourceLinkLine(String normalizedUrl) {
+    return InkWell(
+      onTap: () => launchURL(normalizedUrl),
+      borderRadius: BorderRadius.circular(6.0),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                _urlHostPreview(normalizedUrl),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.sora(
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.w600,
+                  color: FlutterFlowTheme.of(context).primary,
+                  decoration: TextDecoration.underline,
+                  decorationColor: FlutterFlowTheme.of(context)
+                      .primary
+                      .withValues(alpha: 0.35),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4.0),
+            Icon(
+              Icons.open_in_new_rounded,
+              size: 13.0,
+              color: FlutterFlowTheme.of(context).primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _resourceTypeIcon(PersonalResourceKind kind) {
+    switch (kind) {
+      case PersonalResourceKind.psychSheet:
+        return Icons.fact_check_outlined;
+      case PersonalResourceKind.timeline:
+        return Icons.timeline_rounded;
+      case PersonalResourceKind.heatSheet:
+        return Icons.grid_view_rounded;
+      case PersonalResourceKind.volunteerJob:
+        return Icons.badge_outlined;
+      case PersonalResourceKind.warmupInfo:
+        return Icons.timer_outlined;
+      case PersonalResourceKind.parkingInfo:
+        return Icons.local_parking_outlined;
+      case PersonalResourceKind.reminder:
+        return Icons.notifications_none_rounded;
+      case PersonalResourceKind.otherNote:
+        return Icons.sticky_note_2_outlined;
+    }
   }
 
   Widget _buildSwimVideosSection() {
@@ -2764,6 +2936,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     required MeetPreferencesRecord? pref,
   }) {
     Widget body(DateTime? submittedAt) {
+      final canOpenSignup = _signupUrl.isNotEmpty;
       final lastUpdated = pref?.statusUpdatedAt;
       String? timeCaption;
       String? timeDetail;
@@ -2783,62 +2956,57 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10.0),
+                padding: const EdgeInsets.all(8.0),
                 decoration: BoxDecoration(
                   color: _enteredBg,
-                  borderRadius: BorderRadius.circular(14.0),
+                  borderRadius: BorderRadius.circular(12.0),
                   border: Border.all(
                     color: _enteredBorder.withValues(alpha: 0.7),
                   ),
                 ),
-                child:
-                    Icon(Icons.verified_rounded, color: _enteredFg, size: 22.0),
+                child: Icon(Icons.assignment_turned_in_rounded, color: _enteredFg, size: 18.0),
               ),
-              const SizedBox(width: 14.0),
+              const SizedBox(width: 10.0),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Your entry',
+                      'Entry Summary',
                       style: GoogleFonts.sora(
                         fontSize: 12.0,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: _slate500,
                         letterSpacing: 0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 2.0),
-                    Text(
-                      'Summary',
-                      style: GoogleFonts.sora(
-                        fontSize: 17.0,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
                       ),
                     ),
                   ],
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                decoration: BoxDecoration(
+                  color: _enteredBg,
+                  borderRadius: BorderRadius.circular(999.0),
+                  border: Border.all(color: _enteredBorder, width: 0.7),
+                ),
+                child: Text(
+                  'Entered',
+                  style: GoogleFonts.sora(
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w700,
+                    color: _enteredFg,
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 20.0),
-          Text(
-            'Entered',
-            style: GoogleFonts.sora(
-              fontSize: 26.0,
-              fontWeight: FontWeight.w800,
-              height: 1.05,
-              color: _enteredFg,
-              letterSpacing: -0.5,
-            ),
-          ),
+          const SizedBox(height: 12.0),
           if (swimmerName.isNotEmpty) ...[
-            const SizedBox(height: 10.0),
             Text(
               swimmerName,
               style: GoogleFonts.sora(
-                fontSize: 18.0,
+                fontSize: 20.0,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF0F172A),
                 height: 1.2,
@@ -2879,11 +3047,61 @@ class _MeetDetailViewState extends State<MeetDetailView> {
           ],
           const SizedBox(height: 14.0),
           Text(
-            'You are all set. Use View Entries below to open the meet site if you want to double-check events or warmups.',
+            'You are all set. Use View Entries to open the meet site if you want to double-check events or warmups.',
             style: GoogleFonts.sora(
               fontSize: 12.0,
               height: 1.4,
               color: _slate500,
+            ),
+          ),
+          const SizedBox(height: 16.0),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: canOpenSignup ? () => launchURL(_signupUrl) : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: canOpenSignup
+                    ? FlutterFlowTheme.of(context).primary
+                    : const Color(0xFF94A3B8),
+                disabledBackgroundColor: const Color(0xFFE2E8F0),
+                disabledForegroundColor: _slate500,
+                padding: const EdgeInsets.symmetric(vertical: 14.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                elevation: 0.0,
+              ),
+              child: Text(
+                canOpenSignup ? 'View Entries' : 'Entries On File',
+                style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10.0),
+          TextButton(
+            onPressed: _savingNotGoing ? null : _confirmWithdraw,
+            style: TextButton.styleFrom(
+              foregroundColor: _slate500,
+              padding: const EdgeInsets.symmetric(vertical: 6.0),
+              minimumSize: const Size(0.0, 36.0),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              _savingNotGoing ? 'Updating…' : 'Withdraw From Meet',
+              style: GoogleFonts.sora(
+                fontSize: 13.0,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            canOpenSignup
+                ? 'Opens the meet site in your browser.'
+                : 'No entry link on file for this meet.',
+            style: GoogleFonts.sora(
+              fontSize: 11.0,
+              color: _slate500,
+              height: 1.25,
             ),
           ),
         ],
@@ -3574,121 +3792,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     );
   }
 
-  Widget _buildBottomBar({
-    required bool entered,
-    required bool canOpenSignup,
-  }) {
-    if (entered) {
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18.0, 10.0, 18.0, 10.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed:
-                      canOpenSignup ? () => launchURL(_signupUrl) : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: canOpenSignup
-                        ? FlutterFlowTheme.of(context).primary
-                        : const Color(0xFF94A3B8),
-                    disabledBackgroundColor: const Color(0xFFE2E8F0),
-                    disabledForegroundColor: _slate500,
-                    padding: const EdgeInsets.symmetric(vertical: 14.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    elevation: 0.0,
-                  ),
-                  child: Text(
-                    canOpenSignup ? 'View Entries' : 'Entries On File',
-                    style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6.0),
-              TextButton(
-                onPressed: _savingNotGoing ? null : _confirmWithdraw,
-                style: TextButton.styleFrom(
-                  foregroundColor: _slate500,
-                  padding: const EdgeInsets.symmetric(vertical: 6.0),
-                  minimumSize: const Size(0.0, 36.0),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  _savingNotGoing ? 'Updating…' : 'Withdraw From Meet',
-                  style: GoogleFonts.sora(
-                    fontSize: 13.0,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Text(
-                canOpenSignup
-                    ? 'Opens the meet site in your browser.'
-                    : 'No entry link on file for this meet.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.sora(
-                  fontSize: 11.0,
-                  color: _slate500,
-                  height: 1.25,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18.0, 10.0, 18.0, 12.0),
-        child: Row(
-          children: [
-            Expanded(
-              child: FilledButton(
-                onPressed: canOpenSignup ? () => launchURL(_signupUrl) : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: FlutterFlowTheme.of(context).primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14.0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  elevation: 0.0,
-                ),
-                child: Text(
-                  'Submit entries',
-                  style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10.0),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _savingNotGoing ? null : _markNotGoing,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14.0),
-                  side: const BorderSide(color: _cardBorder),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                ),
-                child: Text(
-                  _savingNotGoing ? 'Saving…' : 'Not going',
-                  style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
@@ -3697,7 +3800,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     final start = widget.activity.startTime;
     final end = details.endTime;
     final entered = _isEntered;
-    final canOpenSignup = _signupUrl.isNotEmpty;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
@@ -3713,7 +3815,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   18.0,
                   20.0,
                   18.0,
-                  16.0 + bottomInset,
+                  16.0,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3743,38 +3845,12 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       const SizedBox(height: 26.0),
                       _buildParentNoteSection(),
                     ],
-                    // Space above sticky footer
-                    SizedBox(height: entered ? 100.0 : 88.0),
+                    SizedBox(height: 20.0 + bottomInset),
                   ],
                 ),
               ),
             ),
           ],
-        ),
-      ),
-      bottomNavigationBar: Material(
-        elevation: 0.0,
-        color: Colors.white,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              top: BorderSide(
-                color: _cardBorder.withValues(alpha: 0.85),
-              ),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10.0,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: _buildBottomBar(
-            entered: entered,
-            canOpenSignup: canOpenSignup,
-          ),
         ),
       ),
     );
