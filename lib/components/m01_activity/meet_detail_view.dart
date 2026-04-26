@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
@@ -126,6 +125,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   List<LocalSwimVideoEntry> _swimVideos = const <LocalSwimVideoEntry>[];
   List<String> _strokePresets = const <String>[];
   List<_MeetEventOption> _meetEventOptions = const <_MeetEventOption>[];
+  List<String> _enteredEventOrderKeys = <String>[];
   final Map<String, Future<String?>> _videoThumbCache = {};
 
   static const String _locationSourceUserVerified = 'user_verified';
@@ -776,6 +776,10 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       final swimmerName = FFAppState().currentSwimmerName.trim();
       final videos =
           await LocalMeetMediaStore.listVideos(currentUserUid, widget.meetId);
+      final orderKeys = await LocalMeetMediaStore.getEnteredEventOrder(
+        currentUserUid,
+        widget.meetId,
+      );
       final strokes = await LocalMeetMediaStore.getStrokePresets(
         currentUserUid,
         swimmerName,
@@ -786,6 +790,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       }
       setState(() {
         _swimVideos = videos;
+        _enteredEventOrderKeys = orderKeys;
         _strokePresets = strokes;
         _meetEventOptions = eventOptions;
       });
@@ -843,6 +848,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
               distance: (m['distance'] as num?)?.toInt() ?? 0,
               unit: (m['unit'] ?? 'Y').toString().trim().toUpperCase(),
               isLongCourse: m['is_long_course'] as bool? ?? false,
+              heat: (m['heat'] ?? '').toString().trim(),
+              lane: (m['lane'] ?? '').toString().trim(),
             ),
           );
         }
@@ -851,85 +858,6 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     } catch (_) {
       return const <_MeetEventOption>[];
     }
-  }
-
-  Future<void> _editStrokePresets() async {
-    final seed = _strokePresets.join(', ');
-    final c = TextEditingController(text: seed);
-    final updated = await showModalBottomSheet<List<String>>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          16.0,
-          12.0,
-          16.0,
-          16.0 + MediaQuery.viewInsetsOf(ctx).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Preferred strokes',
-              style: GoogleFonts.sora(
-                fontSize: 16.0,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 8.0),
-            Text(
-              'Comma separated, e.g. Freestyle, Backstroke, Butterfly, IM',
-              style: GoogleFonts.sora(
-                fontSize: 12.0,
-                color: _slate500,
-              ),
-            ),
-            const SizedBox(height: 8.0),
-            TextField(
-              controller: c,
-              minLines: 2,
-              maxLines: 4,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFFFAFAFA),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12.0),
-            FilledButton(
-              onPressed: () {
-                final out = c.text
-                    .split(',')
-                    .map((e) => e.trim())
-                    .where((e) => e.isNotEmpty)
-                    .toList();
-                Navigator.pop(ctx, out);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (updated == null || updated.isEmpty || !mounted) {
-      return;
-    }
-    final swimmerName = FFAppState().currentSwimmerName.trim();
-    await LocalMeetMediaStore.saveStrokePresets(
-      currentUserUid,
-      swimmerName,
-      updated,
-    );
-    setState(() => _strokePresets = updated);
   }
 
   Future<void> _addSwimVideo() async {
@@ -972,31 +900,33 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     return stroke.trim().isEmpty ? 'Race' : stroke.trim();
   }
 
-  String _strokeGlyph(String stroke) {
-    final s = stroke.trim().toLowerCase();
-    if (s.startsWith('free')) return 'F';
-    if (s.startsWith('back')) return 'B';
-    if (s.startsWith('breast')) return 'Br';
-    if (s.startsWith('butter')) return 'Fl';
-    if (s == 'im') return 'IM';
-    final t = stroke.trim();
-    return t.isEmpty ? '?' : t.substring(0, 1).toUpperCase();
-  }
-
   Future<void> _openAddSwimVideoSheet({
+    LocalSwimVideoEntry? existingEntry,
     String? initialStroke,
+    int initialDistance = 0,
+    String initialUnit = 'Y',
+    bool initialIsLongCourse = false,
+    String initialHeat = '',
+    String initialLane = '',
     String initialEventLabel = '',
     String initialNote = '',
     bool quickRecordFirst = false,
   }) async {
-    final eventController = TextEditingController(text: initialEventLabel);
-    final noteController = TextEditingController(text: initialNote);
+    final seed = existingEntry;
+    final eventController = TextEditingController(
+      text: seed?.eventLabel.trim().isNotEmpty == true ? seed!.eventLabel : initialEventLabel,
+    );
+    final noteController = TextEditingController(
+      text: seed?.note ?? initialNote,
+    );
     _MeetEventOption? selectedEvent;
-    int selectedDistance = 0;
-    String selectedUnit = 'Y';
-    bool selectedLongCourse = false;
-    var selectedStroke = (initialStroke ?? '').trim().isNotEmpty
-        ? initialStroke!.trim()
+    int selectedDistance = seed?.distance ?? initialDistance;
+    String selectedUnit = (seed?.unit ?? initialUnit).trim().toUpperCase();
+    bool selectedLongCourse = seed?.isLongCourse ?? initialIsLongCourse;
+    String selectedHeat = (seed?.heat ?? initialHeat).trim();
+    String selectedLane = (seed?.lane ?? initialLane).trim();
+    var selectedStroke = (seed?.stroke ?? initialStroke ?? '').trim().isNotEmpty
+        ? (seed?.stroke ?? initialStroke!).trim()
         : (_strokePresets.isNotEmpty ? _strokePresets.first : 'Freestyle');
     XFile? picked;
     var capturedFromCamera = false;
@@ -1039,7 +969,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Add swim video',
+                seed == null ? 'Add Event' : 'Edit Event',
                 style: GoogleFonts.sora(
                   fontSize: 16.0,
                   fontWeight: FontWeight.w700,
@@ -1081,6 +1011,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                               selectedUnit = e.unit.trim();
                             }
                             selectedLongCourse = e.isLongCourse;
+                            selectedHeat = e.heat.trim();
+                            selectedLane = e.lane.trim();
                             eventController.text = e.label;
                           });
                         },
@@ -1104,6 +1036,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                           selectedDistance = custom.distance;
                           selectedUnit = custom.unit;
                           selectedLongCourse = custom.isLongCourse;
+                          selectedHeat = custom.heat.trim();
+                          selectedLane = custom.lane.trim();
                           selectedEvent = custom;
                           eventController.text = custom.label;
                         });
@@ -1142,6 +1076,124 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 },
               ),
               const SizedBox(height: 8.0),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      keyboardType: TextInputType.number,
+                      controller: TextEditingController(
+                        text: selectedDistance <= 0 ? '' : selectedDistance.toString(),
+                      ),
+                      onChanged: (v) {
+                        final parsed = int.tryParse(v.trim()) ?? 0;
+                        selectedDistance = parsed;
+                      },
+                      style: GoogleFonts.sora(
+                        fontSize: 14.0,
+                        color: const Color(0xFF0F172A),
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Distance',
+                        labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                        filled: true,
+                        fillColor: const Color(0xFFFAFAFA),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8.0),
+                  SizedBox(
+                    width: 96.0,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: selectedUnit,
+                      style: GoogleFonts.sora(
+                        fontSize: 14.0,
+                        color: const Color(0xFF0F172A),
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Unit',
+                        labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                        filled: true,
+                        fillColor: const Color(0xFFFAFAFA),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                        ),
+                      ),
+                      items: const ['Y', 'M']
+                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          setSheetState(() => selectedUnit = v);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8.0),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: selectedHeat.isEmpty ? null : selectedHeat,
+                      style: GoogleFonts.sora(
+                        fontSize: 14.0,
+                        color: const Color(0xFF0F172A),
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Heat',
+                        labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                        filled: true,
+                        fillColor: const Color(0xFFFAFAFA),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                        ),
+                      ),
+                      items: List<String>.generate(20, (i) => '${i + 1}')
+                          .map(
+                            (v) => DropdownMenuItem(
+                              value: v,
+                              child: Text(v, style: GoogleFonts.sora()),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setSheetState(() => selectedHeat = v ?? ''),
+                    ),
+                  ),
+                  const SizedBox(width: 8.0),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: selectedLane.isEmpty ? null : selectedLane,
+                      style: GoogleFonts.sora(
+                        fontSize: 14.0,
+                        color: const Color(0xFF0F172A),
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Lane',
+                        labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                        filled: true,
+                        fillColor: const Color(0xFFFAFAFA),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                        ),
+                      ),
+                      items: List<String>.generate(10, (i) => '${i + 1}')
+                          .map(
+                            (v) => DropdownMenuItem(
+                              value: v,
+                              child: Text(v, style: GoogleFonts.sora()),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setSheetState(() => selectedLane = v ?? ''),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8.0),
               TextField(
                 controller: eventController,
                 style: GoogleFonts.sora(
@@ -1149,7 +1201,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   color: const Color(0xFF0F172A),
                 ),
                 decoration: InputDecoration(
-                  labelText: 'Event / Heat (optional)',
+                  labelText: 'Event label (optional)',
                   labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
                   filled: true,
                   fillColor: const Color(0xFFFAFAFA),
@@ -1163,6 +1215,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 controller: noteController,
                 minLines: 2,
                 maxLines: 4,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
                 style: GoogleFonts.sora(
                   fontSize: 14.0,
                   color: const Color(0xFF0F172A),
@@ -1229,8 +1283,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   const SizedBox(width: 8.0),
                   Expanded(
                     child: FilledButton(
-                      onPressed: picked == null ? null : () => Navigator.pop(ctx, true),
-                      child: const Text('Save Video'),
+                      onPressed: _savingSwimVideo ? null : () => Navigator.pop(ctx, true),
+                      child: Text(seed == null ? 'Save Event' : 'Save Changes'),
                     ),
                   ),
                 ],
@@ -1241,39 +1295,86 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       ),
     );
 
-    if (result != true || picked == null) {
+    if (result != true) {
       return;
     }
     setState(() => _savingSwimVideo = true);
     try {
-      final copied = await LocalMeetMediaStore.copyIntoLocalMedia(
-        picked!.path,
-        'videos',
-      );
-      if (capturedFromCamera) {
-        try {
-          await GallerySaver.saveVideo(copied, albumName: 'Swim Agent');
-        } catch (_) {}
+      final normalizedEventLabel = eventController.text.trim().isNotEmpty
+          ? eventController.text.trim()
+          : (selectedDistance > 0
+              ? '$selectedDistance${selectedUnit.trim().toUpperCase()} ${_shortStroke(selectedStroke)}'
+              : (_shortStroke(selectedStroke).trim().isEmpty
+                  ? 'Race'
+                  : _shortStroke(selectedStroke)));
+      var copied = seed?.path ?? '';
+      var thumb = seed?.thumbnailPath ?? '';
+      if (picked != null) {
+        copied = await LocalMeetMediaStore.copyIntoLocalMedia(
+          picked!.path,
+          'videos',
+        );
+        if (capturedFromCamera) {
+          try {
+            await GallerySaver.saveVideo(copied, albumName: 'Swim Agent');
+          } catch (_) {}
+        }
+        thumb = await _ensureVideoThumbnail(copied) ?? '';
       }
-      final thumb = await _ensureVideoThumbnail(copied);
       final item = LocalSwimVideoEntry(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        id: seed?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
         path: copied,
-        thumbnailPath: thumb ?? '',
+        thumbnailPath: thumb,
         stroke: selectedStroke,
         distance: selectedDistance,
         unit: selectedUnit,
         isLongCourse: selectedLongCourse,
         createdAt: DateTime.now(),
-        eventLabel: eventController.text.trim(),
+        eventLabel: normalizedEventLabel,
+        heat: selectedHeat,
+        lane: selectedLane,
         note: noteController.text.trim(),
       );
-      final next = <LocalSwimVideoEntry>[item, ..._swimVideos];
+      final next = <LocalSwimVideoEntry>[
+        ..._swimVideos.where((e) => e.id != item.id),
+        item,
+      ];
       await LocalMeetMediaStore.saveVideos(currentUserUid, widget.meetId, next);
       if (!mounted) return;
-      setState(() => _swimVideos = next);
+      final oldKey = seed == null
+          ? ''
+          : _enteredEventKeyFromFields(
+              label: seed.eventLabel,
+              heat: seed.heat,
+              lane: seed.lane,
+            );
+      final newKey = _enteredEventKeyFromFields(
+        label: item.eventLabel,
+        heat: item.heat,
+        lane: item.lane,
+      );
+      setState(() {
+        _swimVideos = next;
+        final order = _enteredEventOrderKeys.toList();
+        final oldIndex = oldKey.isEmpty ? -1 : order.indexOf(oldKey);
+        if (oldIndex >= 0) {
+          order[oldIndex] = newKey;
+        } else if (!order.contains(newKey)) {
+          order.add(newKey);
+        }
+        _enteredEventOrderKeys = order;
+      });
+      _persistEnteredEventOrder();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Swim video saved on this device.')),
+        SnackBar(
+          content: Text(
+            copied.isEmpty
+                ? 'Event saved. You can record video later from this row.'
+                : (seed == null
+                    ? 'Event and video saved on this device.'
+                    : 'Event updated.'),
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -1285,12 +1386,283 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     }
   }
 
-  Future<void> _quickRecordForStroke(String stroke) async {
-    await _openAddSwimVideoSheet(
-      initialStroke: stroke,
-      initialEventLabel: 'Started ${dateTimeFormat('h:mm a', DateTime.now())}',
-      quickRecordFirst: true,
+  String _normalizedEventKey(String text) =>
+      text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+  String _enteredEventKeyFromFields({
+    required String label,
+    String heat = '',
+    String lane = '',
+  }) {
+    return '${_normalizedEventKey(label)}|${heat.trim()}|${lane.trim()}';
+  }
+
+  String _enteredEventKey(_MeetEventOption event) {
+    return _enteredEventKeyFromFields(
+      label: event.label,
+      heat: event.heat,
+      lane: event.lane,
     );
+  }
+
+  Future<void> _persistEnteredEventOrder() async {
+    if (currentUserUid.isEmpty) {
+      return;
+    }
+    await LocalMeetMediaStore.saveEnteredEventOrder(
+      currentUserUid,
+      widget.meetId,
+      _enteredEventOrderKeys,
+    );
+  }
+
+  LocalSwimVideoEntry? _videoForMeetEvent(_MeetEventOption event) {
+    final eventKey = _normalizedEventKey(event.label);
+    LocalSwimVideoEntry? matchedWithoutVideo;
+    for (final video in _swimVideos) {
+      if (_normalizedEventKey(video.eventLabel) == eventKey) {
+        if (video.path.trim().isNotEmpty) {
+          return video;
+        }
+        matchedWithoutVideo ??= video;
+      }
+    }
+    if (matchedWithoutVideo != null) {
+      return matchedWithoutVideo;
+    }
+    final stroke = event.stroke.trim().toLowerCase();
+    if (stroke.isEmpty) {
+      return null;
+    }
+    LocalSwimVideoEntry? strokeMatchedWithoutVideo;
+    for (final video in _swimVideos) {
+      if (video.stroke.trim().toLowerCase() != stroke) {
+        continue;
+      }
+      if (event.distance > 0 && video.distance > 0 && video.distance != event.distance) {
+        continue;
+      }
+      final unit = event.unit.trim().toUpperCase();
+      if (event.distance > 0 &&
+          video.unit.trim().toUpperCase().isNotEmpty &&
+          unit.isNotEmpty &&
+          video.unit.trim().toUpperCase() != unit) {
+        continue;
+      }
+      if (video.path.trim().isNotEmpty) {
+        return video;
+      }
+      strokeMatchedWithoutVideo ??= video;
+    }
+    return strokeMatchedWithoutVideo;
+  }
+
+  Future<void> _editEvent(_MeetEventOption event) async {
+    await _openAddSwimVideoSheet(
+      existingEntry: _videoForMeetEvent(event),
+      initialStroke: event.stroke.trim().isNotEmpty ? event.stroke.trim() : null,
+      initialDistance: event.distance,
+      initialUnit: event.unit.trim().isEmpty ? 'Y' : event.unit.trim().toUpperCase(),
+      initialIsLongCourse: event.isLongCourse,
+      initialHeat: event.heat.trim(),
+      initialLane: event.lane.trim(),
+      initialEventLabel: event.label,
+      quickRecordFirst: false,
+    );
+  }
+
+  Future<void> _openQuickVideoSourcePicker(_MeetEventOption event) async {
+    if (_savingSwimVideo) {
+      return;
+    }
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(10.0, 8.0, 10.0, 12.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Add video',
+              style: GoogleFonts.sora(
+                fontSize: 16.0,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 6.0),
+            Text(
+              event.label,
+              style: GoogleFonts.sora(
+                fontSize: 12.5,
+                color: _slate500,
+              ),
+            ),
+            const SizedBox(height: 8.0),
+            ListTile(
+              leading: const Icon(Icons.videocam_rounded),
+              title: const Text('Record now'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.video_library_rounded),
+              title: const Text('Choose from library'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) {
+      return;
+    }
+    await _quickAttachVideoForEvent(event, source);
+  }
+
+  Future<void> _quickAttachVideoForEvent(
+    _MeetEventOption event,
+    ImageSource source,
+  ) async {
+    final picked = await _mediaPicker.pickVideo(
+      source: source,
+      maxDuration: const Duration(minutes: 5),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => _savingSwimVideo = true);
+    try {
+      final existing = _videoForMeetEvent(event);
+      final copied = await LocalMeetMediaStore.copyIntoLocalMedia(
+        picked.path,
+        'videos',
+      );
+      if (source == ImageSource.camera) {
+        try {
+          await GallerySaver.saveVideo(copied, albumName: 'Swim Agent');
+        } catch (_) {}
+      }
+      final thumb = await _ensureVideoThumbnail(copied) ?? '';
+      final item = LocalSwimVideoEntry(
+        id: existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+        path: copied,
+        thumbnailPath: thumb,
+        stroke: event.stroke.trim(),
+        distance: event.distance,
+        unit: event.unit.trim().isEmpty ? 'Y' : event.unit.trim().toUpperCase(),
+        isLongCourse: event.isLongCourse,
+        createdAt: existing?.createdAt ?? DateTime.now(),
+        eventLabel: event.label.trim(),
+        heat: event.heat.trim(),
+        lane: event.lane.trim(),
+        note: existing?.note ?? '',
+      );
+      final next = <LocalSwimVideoEntry>[
+        ..._swimVideos.where((e) => e.id != item.id),
+        item,
+      ];
+      await LocalMeetMediaStore.saveVideos(currentUserUid, widget.meetId, next);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _swimVideos = next;
+        final key = _enteredEventKey(event);
+        if (!_enteredEventOrderKeys.contains(key)) {
+          _enteredEventOrderKeys = [..._enteredEventOrderKeys, key];
+        }
+      });
+      _persistEnteredEventOrder();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video added to event.')),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not add video. Please try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingSwimVideo = false);
+      }
+    }
+  }
+
+  List<_MeetEventOption> _enteredEventsForDisplay() {
+    final out = <_MeetEventOption>[];
+    final seen = <String>{};
+    for (final event in _meetEventOptions) {
+      final key = _normalizedEventKey(event.label);
+      if (key.isEmpty || seen.contains(key)) {
+        continue;
+      }
+      seen.add(key);
+      out.add(event);
+    }
+    for (final video in _swimVideos) {
+      var label = video.eventLabel.trim();
+      var heat = video.heat.trim();
+      var lane = video.lane.trim();
+      if (heat.isEmpty || lane.isEmpty) {
+        final m = RegExp(r'^\s*(\d{1,2})\s*[/-]\s*(\d{1,2})\s*$').firstMatch(label);
+        if (m != null) {
+          heat = heat.isEmpty ? (m.group(1) ?? '').trim() : heat;
+          lane = lane.isEmpty ? (m.group(2) ?? '').trim() : lane;
+          if (video.distance > 0 || video.stroke.trim().isNotEmpty) {
+            final stroke = _shortStroke(video.stroke).trim();
+            label = video.distance > 0
+                ? '${video.distance}${video.unit.trim().toUpperCase()} ${stroke.isEmpty ? 'Race' : stroke}'
+                : (stroke.isEmpty ? 'Race' : stroke);
+          }
+        }
+      }
+      if (label.isEmpty) {
+        final stroke = _shortStroke(video.stroke).trim();
+        if (video.distance > 0) {
+          final unit = video.unit.trim().isEmpty ? 'Y' : video.unit.trim().toUpperCase();
+          label = '${video.distance}$unit ${stroke.isEmpty ? 'Race' : stroke}';
+        } else {
+          label = stroke.isEmpty ? 'Race' : stroke;
+        }
+      }
+      final key = _normalizedEventKey(label);
+      if (key.isEmpty || seen.contains(key)) {
+        continue;
+      }
+      seen.add(key);
+      out.add(
+        _MeetEventOption(
+          label: label,
+          stroke: video.stroke,
+          distance: video.distance,
+          unit: video.unit,
+          isLongCourse: video.isLongCourse,
+          heat: heat,
+          lane: lane,
+        ),
+      );
+    }
+    final rank = <String, int>{};
+    for (var i = 0; i < _enteredEventOrderKeys.length; i++) {
+      rank[_enteredEventOrderKeys[i]] = i;
+    }
+    out.sort((a, b) {
+      final ar = rank[_enteredEventKey(a)] ?? 1 << 20;
+      final br = rank[_enteredEventKey(b)] ?? 1 << 20;
+      if (ar != br) {
+        return ar.compareTo(br);
+      }
+      return 0;
+    });
+    return out;
   }
 
   Future<_MeetEventOption?> _openCustomEventBuilder({
@@ -1420,6 +1792,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         title: Text('Delete video?', style: GoogleFonts.sora(fontWeight: FontWeight.w700)),
         content: Text(
           'This removes the local video reference from this meet.',
@@ -1441,7 +1814,13 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       }
     } catch (_) {}
     if (!mounted) return;
-    setState(() => _swimVideos = next);
+    setState(() {
+      _swimVideos = next;
+      final active = _enteredEventsForDisplay().map(_enteredEventKey).toSet();
+      _enteredEventOrderKeys =
+          _enteredEventOrderKeys.where((k) => active.contains(k)).toList();
+    });
+    _persistEnteredEventOrder();
   }
 
   Widget _buildMyMeetResourcesSection() {
@@ -1544,31 +1923,11 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                         ),
                         const SizedBox(height: 4.0),
                         Text(
-                          'Add links, volunteer jobs, reminders, or notes for this meet.',
+                          'Add links, volunteer jobs, reminders, or notes for this meet. Use Add Resource above.',
                           style: GoogleFonts.sora(
                             fontSize: 12.0,
                             color: _slate500,
                             height: 1.3,
-                          ),
-                        ),
-                        const SizedBox(height: 8.0),
-                        TextButton.icon(
-                          onPressed: () => _openPersonalResourceEditor(),
-                          icon: Icon(
-                            Icons.add_rounded,
-                            size: 16.0,
-                            color: FlutterFlowTheme.of(context).primary,
-                          ),
-                          label: Text(
-                            'Add Resource',
-                            style: GoogleFonts.sora(
-                              fontWeight: FontWeight.w700,
-                              color: FlutterFlowTheme.of(context).primary,
-                            ),
-                          ),
-                          style: TextButton.styleFrom(
-                            minimumSize: const Size(0.0, 32.0),
-                            padding: const EdgeInsets.symmetric(horizontal: 2.0),
                           ),
                         ),
                       ],
@@ -1595,6 +1954,10 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       currentUserUid,
       widget.meetId,
       entry.id,
+      fallbackResourceIds: <String>[
+        entry.kind.firestoreValue,
+        entry.resourceLabel.trim().toLowerCase().replaceAll(' ', '_'),
+      ],
     );
 
     final lines = <String>[];
@@ -1663,6 +2026,39 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    FutureBuilder<List<LocalResourcePhoto>>(
+                      future: photosFuture,
+                      key: ValueKey('thumb_${entry.id}_$_resourceMediaRevision'),
+                      builder: (context, snap) {
+                        final photos = snap.data ?? const <LocalResourcePhoto>[];
+                        if (photos.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        final first = photos.first;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: GestureDetector(
+                            onTap: () => _openResourcePhotoFullscreen(first.path),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8.0),
+                              child: Image.file(
+                                File(first.path),
+                                width: 44.0,
+                                height: 44.0,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 44.0,
+                                  height: 44.0,
+                                  color: const Color(0xFFE2E8F0),
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.broken_image_outlined, size: 16.0),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     Expanded(
                       child: Text(
                         title,
@@ -1818,6 +2214,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   }
 
   Widget _buildSwimVideosSection() {
+    final displayEvents = _enteredEventsForDisplay();
+    final hasEvents = displayEvents.isNotEmpty;
     return _softCard(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16.0, 14.0, 16.0, 8.0),
@@ -1828,7 +2226,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
               children: [
                 Expanded(
                   child: Text(
-                    'Store meet videos on this device and tag by stroke.',
+                    'Each entered event can have one quick race clip on this device.',
                     style: GoogleFonts.sora(
                       fontSize: 12.0,
                       height: 1.35,
@@ -1838,13 +2236,17 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 ),
                 TextButton.icon(
                   onPressed: _savingSwimVideo ? null : _addSwimVideo,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0.0, 32.0),
+                    visualDensity: VisualDensity.compact,
+                  ),
                   icon: Icon(
                     Icons.add_rounded,
                     size: 16.0,
                     color: FlutterFlowTheme.of(context).primary,
                   ),
                   label: Text(
-                    'Add Video',
+                    'Add Event',
                     style: GoogleFonts.sora(
                       fontWeight: FontWeight.w700,
                       color: FlutterFlowTheme.of(context).primary,
@@ -1853,90 +2255,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 ),
               ],
             ),
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: _editStrokePresets,
-                  icon: const Icon(Icons.tune_rounded, size: 15.0),
-                  label: const Text('Stroke presets'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    minimumSize: const Size(0, 30),
-                  ),
-                ),
-                const SizedBox(width: 6.0),
-                Expanded(
-                  child: Text(
-                    _strokePresets.join(' · '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.sora(fontSize: 11.5, color: _slate500),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8.0),
-            if (_strokePresets.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14.0),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(10.0, 10.0, 10.0, 10.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(14.0),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
-                    ),
-                    child: Wrap(
-                      spacing: 8.0,
-                      runSpacing: 8.0,
-                      children: _strokePresets
-                          .map(
-                            (stroke) => InkWell(
-                              borderRadius: BorderRadius.circular(999.0),
-                              onTap: _savingSwimVideo
-                                  ? null
-                                  : () => _quickRecordForStroke(stroke),
-                              child: Container(
-                                width: 56.0,
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xCCFFFFFF),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(0x66FFFFFF),
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.videocam_rounded,
-                                      size: 14.0,
-                                      color: FlutterFlowTheme.of(context).primary,
-                                    ),
-                                    const SizedBox(height: 2.0),
-                                    Text(
-                                      _strokeGlyph(stroke),
-                                      style: GoogleFonts.sora(
-                                        fontSize: 11.0,
-                                        fontWeight: FontWeight.w800,
-                                        color: const Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10.0),
-            ],
+            const SizedBox(height: 10.0),
             if (_loadingSwimVideos)
               const Center(
                 child: Padding(
@@ -1944,139 +2263,272 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   child: CircularProgressIndicator(strokeWidth: 2.0),
                 ),
               )
-            else if (_swimVideos.isEmpty)
+            else if (!hasEvents)
               SizedBox(
-                height: 154.0,
+                height: 132.0,
                 child: _DashedPlaceholderCard(
-                  text: 'Record your first race.',
-                  subtitle: 'Capture race clips for stroke-by-stroke analysis.',
+                  text: 'No entered events yet.',
+                  subtitle: 'Once entries sync, each event will get a row for quick recording.',
                   onTap: _addSwimVideo,
                 ),
               )
             else
-              SizedBox(
-                height: 176.0,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _swimVideos.length,
-                  itemBuilder: (context, index) {
-                    final v = _swimVideos[index];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        right: index == _swimVideos.length - 1 ? 0 : 10.0,
-                      ),
-                      child: GestureDetector(
-                        onTap: () => _playVideoInApp(v),
-                        child: SizedBox(
-                          width: 230.0,
-                          child: Stack(
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                buildDefaultDragHandles: false,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: displayEvents.length,
+                onReorder: (oldIndex, newIndex) {
+                  final orderedKeys = displayEvents.map(_enteredEventKey).toList();
+                  if (newIndex > oldIndex) {
+                    newIndex -= 1;
+                  }
+                  final moved = orderedKeys.removeAt(oldIndex);
+                  orderedKeys.insert(newIndex, moved);
+                  final remaining = _enteredEventOrderKeys
+                      .where((k) => !orderedKeys.contains(k))
+                      .toList();
+                  setState(() => _enteredEventOrderKeys = [...orderedKeys, ...remaining]);
+                  _persistEnteredEventOrder();
+                },
+                itemBuilder: (context, index) {
+                  final event = displayEvents[index];
+                  final video = _videoForMeetEvent(event);
+                  final hasHeatLane =
+                      event.heat.trim().isNotEmpty || event.lane.trim().isNotEmpty;
+                  final heatLaneLine = [
+                    if (event.heat.trim().isNotEmpty) 'Heat ${event.heat.trim()}',
+                    if (event.lane.trim().isNotEmpty) 'Lane ${event.lane.trim()}',
+                  ].join(' · ');
+                  final hasVideo = video != null && video.path.trim().isNotEmpty;
+                  return Container(
+                    key: ValueKey('entered_event_${_enteredEventKey(event)}'),
+                    margin: EdgeInsets.only(
+                      bottom: index == displayEvents.length - 1 ? 0.0 : 10.0,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12.0),
+                      border: Border.all(color: _cardBorder),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(12.0, 12.0, 12.0, 10.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    event.label,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.sora(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3.0),
+                                  Text(
+                                    hasHeatLane ? heatLaneLine : 'Heat and lane not set',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.sora(
+                                      fontSize: 11.0,
+                                      color: _slate500,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10.0),
+                            _videoStatusBadge(hasVideo: hasVideo),
+                            const SizedBox(width: 4.0),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: Icon(
+                                Icons.drag_indicator_rounded,
+                                size: 18.0,
+                                color: _slate500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10.0),
+                        const Divider(height: 1.0, thickness: 1.0, color: Color(0xFFE2E8F0)),
+                        const SizedBox(height: 2.0),
+                        SizedBox(
+                          height: 36.0,
+                          child: Row(
                             children: [
-                              Positioned.fill(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(14.0),
-                                  child: FutureBuilder<String?>(
-                                    future: v.thumbnailPath.trim().isNotEmpty
-                                        ? Future.value(v.thumbnailPath)
-                                        : _ensureVideoThumbnail(v.path),
-                                    builder: (context, snap) {
-                                      final thumb = snap.data ?? '';
-                                      if (thumb.isEmpty) {
-                                        return Container(
-                                          color: const Color(0xFFE2E8F0),
-                                          alignment: Alignment.center,
-                                          child: const Icon(
-                                            Icons.videocam_rounded,
-                                            size: 28.0,
-                                          ),
-                                        );
-                                      }
-                                      return Image.file(
-                                        File(thumb),
-                                        fit: BoxFit.cover,
-                                      );
-                                    },
+                              if (hasVideo)
+                                TextButton.icon(
+                                  onPressed: () => _playVideoInApp(video),
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    minimumSize: const Size(0.0, 30.0),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6.0),
                                   ),
+                                  icon: const Icon(
+                                    Icons.play_circle_fill_rounded,
+                                    size: 16.0,
+                                  ),
+                                  label: const Text('View video'),
+                                )
+                              else
+                                TextButton.icon(
+                                  onPressed: _savingSwimVideo
+                                      ? null
+                                      : () => _openQuickVideoSourcePicker(event),
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    minimumSize: const Size(0.0, 30.0),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.videocam_rounded,
+                                    size: 16.0,
+                                  ),
+                                  label: const Text('Add video'),
                                 ),
+                              const Spacer(),
+                              TextButton(
+                                onPressed: _savingSwimVideo ? null : () => _editEvent(event),
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  minimumSize: const Size(0.0, 30.0),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                ),
+                                child: const Text('Edit'),
                               ),
-                              Positioned.fill(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(14.0),
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Color(0x11000000),
-                                        Color(0x66000000),
-                                      ],
+                              if (hasVideo)
+                                PopupMenuButton<String>(
+                                  tooltip: 'More actions',
+                                  onSelected: (value) {
+                                    if (value == 'delete') {
+                                      _deleteSwimVideo(video);
+                                    }
+                                  },
+                                  itemBuilder: (context) => const [
+                                    PopupMenuItem<String>(
+                                      value: 'delete',
+                                      child: Text('Delete video'),
                                     ),
-                                  ),
+                                  ],
+                                  icon: const Icon(Icons.more_horiz_rounded, size: 18.0),
+                                  color: Colors.white,
                                 ),
-                              ),
-                              Positioned(
-                                left: 8.0,
-                                bottom: 8.0,
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(999.0),
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8.0,
-                                        vertical: 4.0,
-                                      ),
-                                      color: const Color(0x66FFFFFF),
-                                      child: Text(
-                                        _strokeGlyph(v.stroke),
-                                        style: GoogleFonts.sora(
-                                          fontSize: 11.0,
-                                          fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                right: 8.0,
-                                bottom: 8.0,
-                                child: Text(
-                                  dateTimeFormat('h:mm a', v.createdAt),
-                                  style: GoogleFonts.sora(
-                                    fontSize: 11.0,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                top: 8.0,
-                                right: 8.0,
-                                child: InkWell(
-                                  onTap: () => _deleteSwimVideo(v),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(5.0),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xAA0F172A),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      color: Colors.white,
-                                      size: 15.0,
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 10.0),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10.0),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 14.0, color: _slate500),
+                  const SizedBox(width: 6.0),
+                  Expanded(
+                    child: Text(
+                      'Videos are stored only on this device and won’t be shared.',
+                      style: GoogleFonts.sora(
+                        fontSize: 11.0,
+                        color: _slate500,
                       ),
-                    );
-                  },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _videoStatusBadge({required bool hasVideo}) {
+    final bg = hasVideo ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9);
+    final fg = hasVideo ? const Color(0xFF047857) : const Color(0xFF64748B);
+    return Container(
+      height: 24.0,
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999.0),
+        border: Border.all(
+          color: hasVideo ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hasVideo ? Icons.check_circle_rounded : Icons.videocam_off_rounded,
+            size: 12.0,
+            color: fg,
+          ),
+          const SizedBox(width: 4.0),
+          Text(
+            hasVideo ? 'Video added' : 'No video yet',
+            style: GoogleFonts.sora(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openResourcePhotoFullscreen(String path) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.file(
+                    File(path),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Text(
+                      'Could not load photo.',
+                      style: GoogleFonts.sora(color: Colors.white70),
+                    ),
+                  ),
                 ),
               ),
+            ),
+            Positioned(
+              top: 44.0,
+              right: 12.0,
+              child: IconButton(
+                onPressed: () => Navigator.pop(ctx),
+                icon: const Icon(Icons.close_rounded),
+                color: Colors.white,
+              ),
+            ),
           ],
         ),
       ),
@@ -3286,7 +3738,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       _sectionHeading('My meet resources'),
                       _buildMyMeetResourcesSection(),
                       const SizedBox(height: 26.0),
-                      _sectionHeading('Swim videos'),
+                      _sectionHeading('Entered events'),
                       _buildSwimVideosSection(),
                       const SizedBox(height: 26.0),
                       _buildParentNoteSection(),
@@ -3349,6 +3801,7 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
   late PersonalResourceKind _kind;
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, String?> _errors = {};
+  final Set<String> _activeFields = <String>{};
   final ImagePicker _picker = ImagePicker();
   bool _saving = false;
   bool _loadingPhotos = false;
@@ -3363,6 +3816,19 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
       _controllers[key] = TextEditingController(
         text: _initialValueFor(key),
       );
+    }
+    if (widget.initial != null) {
+      final base = _defaultFieldsByType[_kind] ?? const <String>['notes'];
+      _activeFields
+        ..clear()
+        ..addAll(base);
+      for (final key in _allFormKeys) {
+        if ((_controllers[key]?.text ?? '').trim().isNotEmpty) {
+          _activeFields.add(key);
+        }
+      }
+    } else {
+      _activeFields.clear();
     }
     _loadPhotos();
   }
@@ -3446,27 +3912,23 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
     PersonalResourceKind.otherNote: ['title', 'url', 'notes'],
   };
 
-  bool _hasRequiredRuleForSelectedType() {
-    String v(String key) => (_controllers[key]?.text ?? '').trim();
-    switch (_kind) {
-      case PersonalResourceKind.psychSheet:
-      case PersonalResourceKind.timeline:
-      case PersonalResourceKind.heatSheet:
-        return v('url').isNotEmpty || v('notes').isNotEmpty;
-      case PersonalResourceKind.volunteerJob:
-        return v('title').isNotEmpty || v('notes').isNotEmpty;
-      case PersonalResourceKind.warmupInfo:
-        return v('date').isNotEmpty ||
-            v('time').isNotEmpty ||
-            v('location').isNotEmpty ||
-            v('notes').isNotEmpty;
-      case PersonalResourceKind.parkingInfo:
-        return v('url').isNotEmpty || v('address').isNotEmpty || v('notes').isNotEmpty;
-      case PersonalResourceKind.reminder:
-        return v('title').isNotEmpty && v('date').isNotEmpty;
-      case PersonalResourceKind.otherNote:
-        return v('title').isNotEmpty || v('notes').isNotEmpty;
-    }
+  static const Map<PersonalResourceKind, List<String>> _defaultFieldsByType =
+      <PersonalResourceKind, List<String>>{
+    PersonalResourceKind.psychSheet: ['url', 'notes'],
+    PersonalResourceKind.timeline: ['url', 'notes'],
+    PersonalResourceKind.heatSheet: ['url', 'notes'],
+    PersonalResourceKind.volunteerJob: ['title', 'date', 'start_time'],
+    PersonalResourceKind.warmupInfo: ['date', 'time', 'location'],
+    PersonalResourceKind.parkingInfo: ['address', 'url'],
+    PersonalResourceKind.reminder: ['title', 'date'],
+    PersonalResourceKind.otherNote: ['title', 'notes'],
+  };
+
+  bool _hasAnySavableContent() {
+    final hasText = _allFormKeys
+        .map((k) => (_controllers[k]?.text ?? '').trim())
+        .any((v) => v.isNotEmpty);
+    return hasText || _photos.isNotEmpty;
   }
 
   bool _validateUrlField() {
@@ -3501,6 +3963,10 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
         currentUserUid,
         widget.meetId,
         resourceId,
+        fallbackResourceIds: <String>[
+          (widget.initial?.kind.firestoreValue ?? ''),
+          (widget.initial?.resourceLabel ?? '').trim().toLowerCase().replaceAll(' ', '_'),
+        ],
       );
       if (!mounted) return;
       setState(() => _photos = photos);
@@ -3614,9 +4080,13 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
     if (!_validateUrlField()) {
       return;
     }
-    if (!_hasRequiredRuleForSelectedType()) {
+    if (!_hasAnySavableContent()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill required fields for this type.')),
+        const SnackBar(
+          content: Text(
+            'Add a property (plus), enter text, or attach a photo before saving.',
+          ),
+        ),
       );
       return;
     }
@@ -3680,6 +4150,7 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         title: Text(
           'Delete resource?',
           style: GoogleFonts.sora(fontWeight: FontWeight.w700),
@@ -3776,7 +4247,9 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
   Widget _buildField(String key) {
     final c = _controllers[key]!;
     final multiline = key == 'notes';
-    final keyboard = key == 'url' ? TextInputType.url : TextInputType.text;
+    final keyboard = key == 'url'
+        ? TextInputType.url
+        : (multiline ? TextInputType.multiline : TextInputType.text);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3795,6 +4268,7 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
           autocorrect: !multiline,
           minLines: multiline ? 3 : 1,
           maxLines: multiline ? 8 : 1,
+          textInputAction: multiline ? TextInputAction.newline : TextInputAction.done,
           onChanged: (_) {
             if (key == 'url' && _errors['url'] != null) {
               setState(() => _errors['url'] = null);
@@ -3830,7 +4304,7 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
     final bottom = MediaQuery.paddingOf(context).bottom;
     final editing = widget.initial != null;
     final fields = _fieldsByType[_kind] ?? const <String>['url', 'notes'];
-    final canSave = !_saving && _hasRequiredRuleForSelectedType();
+    final canSave = !_saving && _hasAnySavableContent();
     return Padding(
       padding: EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 16.0 + bottom),
       child: SingleChildScrollView(
@@ -3899,11 +4373,84 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
                       if (v == null) {
                         return;
                       }
-                      setState(() => _kind = v);
+                      setState(() {
+                        _kind = v;
+                        if (widget.initial == null) {
+                          _activeFields.clear();
+                        } else {
+                          _activeFields
+                            ..clear()
+                            ..addAll(
+                              _defaultFieldsByType[_kind] ?? const <String>['notes'],
+                            );
+                          for (final key in _allFormKeys) {
+                            if ((_controllers[key]?.text ?? '').trim().isNotEmpty) {
+                              _activeFields.add(key);
+                            }
+                          }
+                        }
+                      });
                     },
             ),
             const SizedBox(height: 14.0),
-            ...fields.expand((k) => [ _buildField(k), const SizedBox(height: 14.0)]),
+            ...fields
+                .where((k) => _activeFields.contains(k))
+                .expand((k) => [_buildField(k), const SizedBox(height: 14.0)]),
+            Row(
+              children: [
+                PopupMenuButton<String>(
+                  onSelected: (k) {
+                    if (k == '__none__') {
+                      return;
+                    }
+                    setState(() => _activeFields.add(k));
+                  },
+                  itemBuilder: (context) {
+                    final candidates = fields
+                        .where((k) => !_activeFields.contains(k))
+                        .toList();
+                    if (candidates.isEmpty) {
+                      return <PopupMenuEntry<String>>[
+                        const PopupMenuItem<String>(
+                          enabled: false,
+                          value: '__none__',
+                          child: Text('All properties already added'),
+                        ),
+                      ];
+                    }
+                    return candidates
+                        .map(
+                          (k) => PopupMenuItem<String>(
+                            value: k,
+                            child: Text(_fieldLabel(k)),
+                          ),
+                        )
+                        .toList();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline_rounded,
+                          size: 18.0,
+                          color: FlutterFlowTheme.of(context).primary,
+                        ),
+                        const SizedBox(width: 8.0),
+                        Text(
+                          'Add property',
+                          style: GoogleFonts.sora(
+                            fontWeight: FontWeight.w700,
+                            color: FlutterFlowTheme.of(context).primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
             ...[
               Text(
                 'Photos (local only)',
@@ -4062,6 +4609,8 @@ class _MeetEventOption {
     this.distance = 0,
     this.unit = 'Y',
     this.isLongCourse = false,
+    this.heat = '',
+    this.lane = '',
   });
 
   final String label;
@@ -4069,6 +4618,8 @@ class _MeetEventOption {
   final int distance;
   final String unit;
   final bool isLongCourse;
+  final String heat;
+  final String lane;
 }
 
 class _DashedPlaceholderCard extends StatelessWidget {
@@ -4189,6 +4740,7 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
   VideoPlayerController? _controller;
   bool _loading = true;
   bool _slowMotion = false;
+  bool _immersiveUiApplied = false;
   static const Duration _frameStep = Duration(milliseconds: 33);
 
   @override
@@ -4211,6 +4763,8 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
         await c.dispose();
         return;
       }
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      _immersiveUiApplied = true;
       setState(() {
         _controller = c;
         _loading = false;
@@ -4223,6 +4777,12 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
 
   @override
   void dispose() {
+    if (_immersiveUiApplied) {
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
+    }
     _controller?.dispose();
     super.dispose();
   }
@@ -4260,8 +4820,12 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
     ].where((e) => e.isNotEmpty).join('\n');
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.black.withValues(alpha: 0.35),
+        elevation: 0,
+        scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           widget.video.stroke,
@@ -4280,96 +4844,125 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                     style: GoogleFonts.sora(color: Colors.white70),
                   )
                 : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: Center(
-                          child: Stack(
-                            children: [
-                              AspectRatio(
-                                aspectRatio: c.value.aspectRatio,
-                                child: VideoPlayer(c),
-                              ),
-                              if (caption.isNotEmpty)
-                                Positioned(
-                                  left: 8.0,
-                                  right: 8.0,
-                                  bottom: 8.0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8.0),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.45),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    child: Text(
-                                      caption,
-                                      style: GoogleFonts.sora(
-                                        color: Colors.white,
-                                        fontSize: 12.0,
-                                        height: 1.3,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final vs = c.value.size;
+                            if (vs.width == 0 || vs.height == 0) {
+                              return const Center(
+                                child: CircularProgressIndicator(color: Colors.white54),
+                              );
+                            }
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                ClipRect(
+                                  child: SizedBox(
+                                    width: constraints.maxWidth,
+                                    height: constraints.maxHeight,
+                                    child: FittedBox(
+                                      fit: BoxFit.cover,
+                                      alignment: Alignment.center,
+                                      child: SizedBox(
+                                        width: vs.width,
+                                        height: vs.height,
+                                        child: VideoPlayer(c),
                                       ),
                                     ),
                                   ),
                                 ),
-                            ],
-                          ),
+                                if (caption.isNotEmpty)
+                                  Positioned(
+                                    left: 8.0,
+                                    right: 8.0,
+                                    bottom: 8.0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8.0),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.45),
+                                        borderRadius: BorderRadius.circular(8.0),
+                                      ),
+                                      child: Text(
+                                        caption,
+                                        style: GoogleFonts.sora(
+                                          color: Colors.white,
+                                          fontSize: 12.0,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                       ),
-                      Slider(
-                        value: c.value.position.inMilliseconds
-                            .clamp(0, c.value.duration.inMilliseconds)
-                            .toDouble(),
-                        max: c.value.duration.inMilliseconds.toDouble().clamp(1, double.infinity),
-                        min: 0,
-                        onChanged: (v) async {
-                          await c.seekTo(Duration(milliseconds: v.toInt()));
-                        },
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 14.0),
-                        child: Row(
+                      SafeArea(
+                        top: false,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              color: Colors.white,
-                              onPressed: () => _stepFrame(-1),
-                              icon: const Icon(Icons.skip_previous_rounded),
-                              tooltip: 'Previous frame',
-                            ),
-                            IconButton(
-                              iconSize: 42.0,
-                              color: Colors.white,
-                              onPressed: () {
-                                if (c.value.isPlaying) {
-                                  c.pause();
-                                } else {
-                                  c.play();
-                                }
+                            Slider(
+                              value: c.value.position.inMilliseconds
+                                  .clamp(0, c.value.duration.inMilliseconds)
+                                  .toDouble(),
+                              max: c.value.duration.inMilliseconds
+                                  .toDouble()
+                                  .clamp(1, double.infinity),
+                              min: 0,
+                              onChanged: (v) async {
+                                await c.seekTo(Duration(milliseconds: v.toInt()));
                               },
-                              icon: Icon(
-                                c.value.isPlaying
-                                    ? Icons.pause_circle_filled_rounded
-                                    : Icons.play_circle_fill_rounded,
-                              ),
                             ),
-                            IconButton(
-                              color: Colors.white,
-                              onPressed: () => _stepFrame(1),
-                              icon: const Icon(Icons.skip_next_rounded),
-                              tooltip: 'Next frame',
-                            ),
-                            const Spacer(),
-                            FilterChip(
-                              label: Text(
-                                'Slow Motion 0.5x',
-                                style: GoogleFonts.sora(
-                                  color: _slowMotion ? Colors.white : Colors.white70,
-                                  fontSize: 11.5,
-                                ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 14.0),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    color: Colors.white,
+                                    onPressed: () => _stepFrame(-1),
+                                    icon: const Icon(Icons.skip_previous_rounded),
+                                    tooltip: 'Previous frame',
+                                  ),
+                                  IconButton(
+                                    iconSize: 42.0,
+                                    color: Colors.white,
+                                    onPressed: () {
+                                      if (c.value.isPlaying) {
+                                        c.pause();
+                                      } else {
+                                        c.play();
+                                      }
+                                    },
+                                    icon: Icon(
+                                      c.value.isPlaying
+                                          ? Icons.pause_circle_filled_rounded
+                                          : Icons.play_circle_fill_rounded,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    color: Colors.white,
+                                    onPressed: () => _stepFrame(1),
+                                    icon: const Icon(Icons.skip_next_rounded),
+                                    tooltip: 'Next frame',
+                                  ),
+                                  const Spacer(),
+                                  FilterChip(
+                                    label: Text(
+                                      'Slow Motion 0.5x',
+                                      style: GoogleFonts.sora(
+                                        color: _slowMotion ? Colors.white : Colors.white70,
+                                        fontSize: 11.5,
+                                      ),
+                                    ),
+                                    selected: _slowMotion,
+                                    selectedColor: const Color(0xFF1D4ED8),
+                                    backgroundColor: const Color(0x331E293B),
+                                    onSelected: (_) => _toggleSlowMotion(),
+                                  ),
+                                ],
                               ),
-                              selected: _slowMotion,
-                              selectedColor: const Color(0xFF1D4ED8),
-                              backgroundColor: const Color(0x331E293B),
-                              onSelected: (_) => _toggleSlowMotion(),
                             ),
                           ],
                         ),

@@ -42,6 +42,8 @@ class LocalSwimVideoEntry {
     this.isLongCourse = false,
     required this.createdAt,
     this.eventLabel = '',
+    this.heat = '',
+    this.lane = '',
     this.note = '',
   });
 
@@ -54,6 +56,8 @@ class LocalSwimVideoEntry {
   final bool isLongCourse;
   final DateTime createdAt;
   final String eventLabel;
+  final String heat;
+  final String lane;
   final String note;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -66,6 +70,8 @@ class LocalSwimVideoEntry {
         'is_long_course': isLongCourse,
         'created_at': createdAt.toIso8601String(),
         'event_label': eventLabel,
+        'heat': heat,
+        'lane': lane,
         'note': note,
       };
 
@@ -81,6 +87,8 @@ class LocalSwimVideoEntry {
       createdAt: DateTime.tryParse((json['created_at'] as String?) ?? '') ??
           DateTime.now(),
       eventLabel: (json['event_label'] as String?) ?? '',
+      heat: (json['heat'] as String?) ?? '',
+      lane: (json['lane'] as String?) ?? '',
       note: (json['note'] as String?) ?? '',
     );
   }
@@ -92,6 +100,9 @@ class LocalMeetMediaStore {
 
   static String _videosKey(String uid, String meetId) =>
       'local_videos_v1::$uid::$meetId';
+
+  static String _enteredEventOrderKey(String uid, String meetId) =>
+      'local_entered_event_order_v1::$uid::$meetId';
 
   static String _strokePresetKey(String uid, String swimmerName) =>
       'local_stroke_presets_v1::$uid::${swimmerName.trim().toLowerCase()}';
@@ -117,14 +128,23 @@ class LocalMeetMediaStore {
   static Future<List<LocalResourcePhoto>> listPhotos(
     String uid,
     String meetId,
-    String resourceId,
-  ) async {
+    String resourceId, {
+    List<String> fallbackResourceIds = const <String>[],
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_photosKey(uid, meetId, resourceId)) ?? '';
-    final items = _decodeList(raw)
-        .map(LocalResourcePhoto.fromJson)
-        .where((e) => e.path.trim().isNotEmpty)
-        .toList();
+    final ids = <String>{resourceId.trim(), ...fallbackResourceIds.map((e) => e.trim())}
+      ..removeWhere((e) => e.isEmpty);
+    final merged = <String, LocalResourcePhoto>{};
+    for (final id in ids) {
+      final raw = prefs.getString(_photosKey(uid, meetId, id)) ?? '';
+      final items = _decodeList(raw)
+          .map(LocalResourcePhoto.fromJson)
+          .where((e) => e.path.trim().isNotEmpty);
+      for (final photo in items) {
+        merged[photo.id] = photo;
+      }
+    }
+    final items = merged.values.toList();
     items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return items;
   }
@@ -179,7 +199,6 @@ class LocalMeetMediaStore {
     final raw = prefs.getString(_videosKey(uid, meetId)) ?? '';
     final items = _decodeList(raw)
         .map(LocalSwimVideoEntry.fromJson)
-        .where((e) => e.path.trim().isNotEmpty)
         .toList();
     items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return items;
@@ -194,6 +213,46 @@ class LocalMeetMediaStore {
     await prefs.setString(
       _videosKey(uid, meetId),
       jsonEncode(videos.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  static Future<List<String>> getEnteredEventOrder(
+    String uid,
+    String meetId,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_enteredEventOrderKey(uid, meetId)) ?? '';
+    if (raw.trim().isEmpty) {
+      return const <String>[];
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return const <String>[];
+      }
+      return decoded
+          .whereType<String>()
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+
+  static Future<void> saveEnteredEventOrder(
+    String uid,
+    String meetId,
+    List<String> orderKeys,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cleaned = orderKeys
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    await prefs.setString(
+      _enteredEventOrderKey(uid, meetId),
+      jsonEncode(cleaned),
     );
   }
 
