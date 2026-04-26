@@ -2080,45 +2080,63 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   ),
                   const SizedBox(width: 10.0),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          formatted.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.sora(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                        if (formatted.main.isNotEmpty) ...[
-                          const SizedBox(height: 2.0),
-                          _resourceDetailLine(formatted.main, isMain: true),
-                        ],
-                        if (formatted.secondary.isNotEmpty) ...[
-                          const SizedBox(height: 2.0),
-                          _resourceDetailLine(formatted.secondary),
-                        ],
-                        if (formatted.url.isNotEmpty) ...[
-                          const SizedBox(height: 3.0),
-                          _resourceLinkLine(formatted.url),
-                        ],
-                        if (metadata.isNotEmpty) ...[
-                          const SizedBox(height: 4.0),
-                          Text(
-                            metadata,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.sora(
-                              fontSize: 10.8,
-                              color: _slate500,
-                              height: 1.2,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 230.0;
+                        final titleLines = isNarrow ? 1 : 1;
+                        final mainLines = isNarrow ? 1 : 2;
+                        final secondaryLines = isNarrow ? 1 : 2;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              formatted.title,
+                              maxLines: titleLines,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.sora(
+                                fontSize: isNarrow ? 13.0 : 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF0F172A),
+                              ),
                             ),
-                          ),
-                        ],
-                      ],
+                            if (formatted.main.isNotEmpty) ...[
+                              const SizedBox(height: 2.0),
+                              _resourceDetailLine(
+                                formatted.main,
+                                isMain: true,
+                                maxLines: mainLines,
+                              ),
+                            ],
+                            if (formatted.secondary.isNotEmpty) ...[
+                              const SizedBox(height: 2.0),
+                              _resourceDetailLine(
+                                formatted.secondary,
+                                maxLines: secondaryLines,
+                              ),
+                            ],
+                            if (formatted.url.isNotEmpty) ...[
+                              const SizedBox(height: 3.0),
+                              _resourceLinkLine(
+                                formatted.url,
+                                maxLines: isNarrow ? 1 : 2,
+                              ),
+                            ],
+                            if (metadata.isNotEmpty) ...[
+                              const SizedBox(height: 4.0),
+                              Text(
+                                metadata,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.sora(
+                                  fontSize: isNarrow ? 10.5 : 10.8,
+                                  color: _slate500,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ),
                   PopupMenuButton<String>(
@@ -2243,10 +2261,14 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     return d;
   }
 
-  Widget _resourceDetailLine(String text, {bool isMain = false}) {
+  Widget _resourceDetailLine(
+    String text, {
+    bool isMain = false,
+    int maxLines = 2,
+  }) {
     return Text(
       text,
-      maxLines: isMain ? 2 : 2,
+      maxLines: maxLines,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.sora(
         fontSize: isMain ? 12.6 : 12.2,
@@ -2327,7 +2349,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     );
   }
 
-  Widget _resourceLinkLine(String normalizedUrl) {
+  Widget _resourceLinkLine(String normalizedUrl, {int maxLines = 1}) {
     return InkWell(
       onTap: () => launchURL(normalizedUrl),
       borderRadius: BorderRadius.circular(6.0),
@@ -2339,7 +2361,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             Flexible(
               child: Text(
                 _urlHostPreview(normalizedUrl),
-                maxLines: 1,
+                maxLines: maxLines,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.sora(
                   fontSize: 12.0,
@@ -2367,21 +2389,21 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   IconData _resourceTypeIcon(PersonalResourceKind kind) {
     switch (kind) {
       case PersonalResourceKind.psychSheet:
-        return Icons.fact_check_outlined;
+        return Icons.psychology_alt_outlined;
       case PersonalResourceKind.timeline:
-        return Icons.timeline_rounded;
+        return Icons.schedule_rounded;
       case PersonalResourceKind.heatSheet:
-        return Icons.grid_view_rounded;
+        return Icons.table_chart_outlined;
       case PersonalResourceKind.volunteerJob:
-        return Icons.badge_outlined;
+        return Icons.volunteer_activism_outlined;
       case PersonalResourceKind.warmupInfo:
-        return Icons.timer_outlined;
+        return Icons.directions_run_rounded;
       case PersonalResourceKind.parkingInfo:
         return Icons.local_parking_outlined;
       case PersonalResourceKind.reminder:
-        return Icons.notifications_none_rounded;
+        return Icons.notifications_active_outlined;
       case PersonalResourceKind.otherNote:
-        return Icons.sticky_note_2_outlined;
+        return Icons.notes_rounded;
     }
   }
 
