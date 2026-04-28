@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '/backend/schema/meet_preferences_record.dart';
+import '/backend/schema/monitored_meets_record.dart';
 import '/backend/schema/personal_meet_resources.dart';
 
 CollectionReference<Map<String, dynamic>> _meetPreferencesCol(String uid) =>
@@ -55,6 +57,174 @@ Future<void> mergeMeetPreference(
       );
 }
 
+Future<MeetPreferencesRecord?> getMeetPreferenceOnce(
+    String uid, String meetId) async {
+  final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (authUid.isEmpty || meetId.isEmpty) {
+    return null;
+  }
+  if (uid.isNotEmpty && uid != authUid) {
+    return null;
+  }
+  final snap = await _meetPreferencesCol(authUid).doc(meetId).get();
+  if (!snap.exists) {
+    return null;
+  }
+  return MeetPreferencesRecord.fromSnapshot(snap);
+}
+
+Future<void> setMeetStatus(
+  String uid,
+  String meetId, {
+  required MeetPreferenceStatus status,
+  bool? skipSelected,
+  bool? hasAlert,
+  bool? isHidden,
+  bool? pendingEntryConfirmation,
+  String? notes,
+  Map<String, dynamic> extra = const <String, dynamic>{},
+}) async {
+  final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (authUid.isEmpty || meetId.isEmpty) {
+    return;
+  }
+  if (uid.isNotEmpty && uid != authUid) {
+    return;
+  }
+  final data = <String, dynamic>{
+    ...MeetPreferencesRecord.mergeData(
+      status: status,
+      hasAlert: hasAlert,
+      isHidden: isHidden,
+      skipSelected: skipSelected,
+      notes: notes,
+      statusUpdatedBy: authUid,
+    ),
+    'status_updated_at': FieldValue.serverTimestamp(),
+    if (pendingEntryConfirmation != null)
+      'pending_entry_confirmation': pendingEntryConfirmation,
+    ...extra,
+  };
+  await _meetPreferencesCol(authUid).doc(meetId).set(
+        data,
+        SetOptions(merge: true),
+      );
+}
+
+Future<void> startEntry(
+  String uid,
+  String meetId, {
+  String? notes,
+}) async {
+  await setMeetStatus(
+    uid,
+    meetId,
+    status: MeetPreferenceStatus.needEntry,
+    skipSelected: false,
+    hasAlert: false,
+    isHidden: false,
+    pendingEntryConfirmation: false,
+    notes: notes,
+    extra: <String, dynamic>{
+      'entry_started_at': FieldValue.serverTimestamp(),
+      'entry_started_from_app': true,
+    },
+  );
+}
+
+String buildEntryUrl(MonitoredMeetsRecord meet) => meet.entryUrl.trim();
+
+Future<bool> startEntryInBrowser(
+  String uid,
+  MonitoredMeetsRecord meet, {
+  String? notes,
+}) async {
+  final meetId = meet.reference.id;
+  final url = buildEntryUrl(meet);
+  if (url.isEmpty) {
+    return false;
+  }
+  final existing = await getMeetPreferenceOnce(uid, meetId);
+  await setMeetStatus(
+    uid,
+    meetId,
+    status: MeetPreferenceStatus.needEntry,
+    skipSelected: false,
+    hasAlert: false,
+    isHidden: false,
+    pendingEntryConfirmation: true,
+    notes: notes,
+    extra: <String, dynamic>{
+      if (existing == null) 'entry_started_at': FieldValue.serverTimestamp(),
+      'entry_started_from_app': true,
+      'last_opened_entry_url_at': FieldValue.serverTimestamp(),
+    },
+  );
+  await launchUrl(
+    Uri.parse(url),
+    mode: LaunchMode.externalApplication,
+  );
+  return true;
+}
+
+Future<void> markEntrySubmitted(
+  String uid,
+  String meetId, {
+  String? notes,
+}) async {
+  final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (authUid.isEmpty || meetId.isEmpty) {
+    return;
+  }
+  if (uid.isNotEmpty && uid != authUid) {
+    return;
+  }
+  await setMeetStatus(
+    authUid,
+    meetId,
+    status: MeetPreferenceStatus.entered,
+    skipSelected: false,
+    hasAlert: false,
+    isHidden: false,
+    pendingEntryConfirmation: false,
+    notes: notes,
+    extra: <String, dynamic>{
+      'submitted_at': FieldValue.serverTimestamp(),
+    },
+  );
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(authUid)
+      .collection('entered_meets')
+      .doc(meetId)
+      .set(
+    <String, dynamic>{
+      'meet_id': meetId,
+      'entered_at': FieldValue.serverTimestamp(),
+    },
+    SetOptions(merge: true),
+  );
+}
+
+Future<void> clearPendingEntryConfirmation(
+  String uid,
+  String meetId,
+) async {
+  final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  if (authUid.isEmpty || meetId.isEmpty) {
+    return;
+  }
+  if (uid.isNotEmpty && uid != authUid) {
+    return;
+  }
+  await _meetPreferencesCol(authUid).doc(meetId).set(
+    <String, dynamic>{
+      'pending_entry_confirmation': false,
+      'updated_time': FieldValue.serverTimestamp(),
+    },
+    SetOptions(merge: true),
+  );
+}
 
 Future<void> deleteMeetPreference(String uid, String meetId) async {
   final authUid = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -84,9 +254,8 @@ Stream<List<PersonalMeetResourceEntry>> streamPersonalMeetResources(
     final out = snap.docs
         .map((d) => PersonalMeetResourceEntry.fromSnapshot(d))
         .toList();
-    final order = PersonalResourceKind.values
-        .asMap()
-        .map((i, v) => MapEntry(v, i));
+    final order =
+        PersonalResourceKind.values.asMap().map((i, v) => MapEntry(v, i));
     out.sort((a, b) {
       final pa = order[a.kind] ?? 999;
       final pb = order[b.kind] ?? 999;
@@ -118,7 +287,8 @@ Future<String> upsertPersonalMeetResource(
   }
 
   final col = _personalResourcesCol(authUid, meetId);
-  final doc = resourceId.trim().isEmpty ? col.doc() : col.doc(resourceId.trim());
+  final doc =
+      resourceId.trim().isEmpty ? col.doc() : col.doc(resourceId.trim());
   await doc.set({
     'resource_type': kind.firestoreValue,
     'resource_label': kind.uiTitle,

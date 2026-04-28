@@ -20,6 +20,8 @@ String normalizeMeetStatus(String? rawValue) {
     case 'going':
       return 'entered';
     case 'need_entry':
+    case 'needentry':
+    case 'needs_entry':
     case 'pending':
     case 'pending_entry':
     case 'need action':
@@ -28,6 +30,7 @@ String normalizeMeetStatus(String? rawValue) {
     case 'interested':
       return 'need_entry';
     case 'not_going':
+    case 'notgoing':
     case 'not_attending':
     case 'skipped':
     case 'declined':
@@ -37,6 +40,66 @@ String normalizeMeetStatus(String? rawValue) {
     case '':
     default:
       return 'new';
+  }
+}
+
+class MeetStatusDisplayConfig {
+  const MeetStatusDisplayConfig({
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.foregroundColor,
+    required this.backgroundColor,
+    required this.borderColor,
+  });
+
+  final String label;
+  final String description;
+  final String icon;
+  final int foregroundColor;
+  final int backgroundColor;
+  final int borderColor;
+}
+
+MeetStatusDisplayConfig getMeetStatusDisplayConfig(
+    MeetPreferenceStatus status) {
+  switch (status) {
+    case MeetPreferenceStatus.newStatus:
+      return const MeetStatusDisplayConfig(
+        label: 'Not decided',
+        description: 'Choose if you are attending this meet.',
+        icon: 'help_outline',
+        foregroundColor: 0xFF475569,
+        backgroundColor: 0xFFF1F5F9,
+        borderColor: 0xFFE2E8F0,
+      );
+    case MeetPreferenceStatus.needEntry:
+      return const MeetStatusDisplayConfig(
+        label: 'Entry needed',
+        description: 'Submit your entries on FastSwim, then confirm here.',
+        icon: 'schedule',
+        foregroundColor: 0xFFB45309,
+        backgroundColor: 0xFFFFF7ED,
+        borderColor: 0xFFFED7AA,
+      );
+    case MeetPreferenceStatus.entered:
+      return const MeetStatusDisplayConfig(
+        label: 'Entered',
+        description: 'You marked this meet as submitted.',
+        icon: 'check_circle',
+        foregroundColor: 0xFF15803D,
+        backgroundColor: 0xFFF0FDF4,
+        borderColor: 0xFFBBF7D0,
+      );
+    case MeetPreferenceStatus.notGoing:
+      return const MeetStatusDisplayConfig(
+        label: 'Not going',
+        description: 'You are not attending this meet.',
+        icon: 'close',
+        foregroundColor: 0xFFB91C1C,
+        backgroundColor: 0xFFFEF2F2,
+        borderColor: 0xFFFECACA,
+      );
   }
 }
 
@@ -172,6 +235,7 @@ class MeetPreferencesRecord {
     };
     if (status != null) {
       m['status'] = meetPreferenceStatusToFirestore(status);
+      m['status_updated_at'] = FieldValue.serverTimestamp();
       m['statusUpdatedAt'] = FieldValue.serverTimestamp();
       if ((statusUpdatedBy ?? '').trim().isNotEmpty) {
         m['statusUpdatedBy'] = statusUpdatedBy!.trim();

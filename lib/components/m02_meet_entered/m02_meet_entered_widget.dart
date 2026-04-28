@@ -71,14 +71,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _softRedGlow = Color(0xFFFECACA);
 
   /// Slightly stronger fills so pills read clearly on tinted section shells.
-  static const Color _badgeNewBg = Color(0xFFDCEBFF);
-  static const Color _badgeNewText = Color(0xFF2F6FED);
+  static const Color _badgeNewBg = Color(0xFFF1F5F9);
+  static const Color _badgeNewText = Color(0xFF475569);
   static const Color _badgeNeedEntryBg = Color(0xFFFFE4C2);
   static const Color _badgeNeedEntryText = Color(0xFFB45309);
-  static const Color _badgeEnteredBg = Color(0xFFDCEBFF);
-  static const Color _badgeEnteredText = Color(0xFF1D4ED8);
-  static const Color _badgeNotGoingBg = Color(0xFFE4E8ED);
-  static const Color _badgeNotGoingText = Color(0xFF6B7280);
+  static const Color _badgeEnteredBg = Color(0xFFF0FDF4);
+  static const Color _badgeEnteredText = Color(0xFF15803D);
+  static const Color _badgeNotGoingBg = Color(0xFFFEF2F2);
+  static const Color _badgeNotGoingText = Color(0xFFB91C1C);
 
   /// Aligns calendar / clock / pin / sheet icons across logistics rows.
   static const double _logisticsIconColWidth = 22.0;
@@ -1102,6 +1102,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _buildMeetDateBlock(doc),
+                      const SizedBox(width: 10.0),
                       Padding(
                         padding: const EdgeInsets.only(top: 2.0),
                         child: _buildMeetStatusTagPill(
@@ -1182,6 +1184,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                _buildMeetDateBlock(doc),
+                                const SizedBox(width: 10.0),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -1936,21 +1940,18 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required bool skipSelected,
   }) {
     if (!hasPreference) {
-      return 'New';
+      return 'Not decided';
     }
     if (entered) {
       return 'Entered';
     }
-    if (status == MeetPreferenceStatus.needEntry && hasAlert) {
-      return 'Remind me';
-    }
     if (status == MeetPreferenceStatus.needEntry) {
-      return 'Need Entry';
+      return 'Entry needed';
     }
     if (status == MeetPreferenceStatus.notGoing) {
-      return 'Not Going';
+      return 'Not going';
     }
-    return 'New';
+    return 'Not decided';
   }
 
   /// Small pill beside the corner disk; sits in the card [Stack] (outside [ClipRRect]).
@@ -1965,6 +1966,12 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final fontSize = compact ? 9.0 : 10.0;
     final fill = _badgeBackgroundColor(status);
     final textColor = _badgeTextColor(status);
+    final icon = switch (status) {
+      MeetPreferenceStatus.newStatus => Icons.help_outline_rounded,
+      MeetPreferenceStatus.needEntry => Icons.schedule_rounded,
+      MeetPreferenceStatus.entered => Icons.check_circle_rounded,
+      MeetPreferenceStatus.notGoing => Icons.close_rounded,
+    };
     return DecoratedBox(
       decoration: BoxDecoration(
         color: fill,
@@ -1976,18 +1983,63 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       ),
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.sora(
-            fontSize: fontSize,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.1,
-            height: 1.0,
-            color: textColor,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: compact ? 11.0 : 12.0, color: textColor),
+            const SizedBox(width: 4.0),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.sora(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.1,
+                height: 1.0,
+                color: textColor,
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMeetDateBlock(MonitoredMeetsRecord doc) {
+    final d = doc.startDate ?? doc.endDate;
+    final month = d != null ? dateTimeFormat('MMM', d).toUpperCase() : '--';
+    final day = d != null ? dateTimeFormat('d', d) : '--';
+    return Container(
+      width: 46.0,
+      padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10.0),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            month,
+            style: GoogleFonts.sora(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              color: SwimUiTokens.textMuted,
+              letterSpacing: 0.2,
+            ),
+          ),
+          Text(
+            day,
+            style: GoogleFonts.sora(
+              fontSize: 17.0,
+              fontWeight: FontWeight.w700,
+              color: SwimUiTokens.textTitle,
+              height: 1.1,
+            ),
+          ),
+        ],
       ),
     );
   }

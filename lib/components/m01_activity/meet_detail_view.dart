@@ -97,7 +97,8 @@ class MeetDetailView extends StatefulWidget {
   State<MeetDetailView> createState() => _MeetDetailViewState();
 }
 
-class _MeetDetailViewState extends State<MeetDetailView> {
+class _MeetDetailViewState extends State<MeetDetailView>
+    with WidgetsBindingObserver {
   static const Color _bg = Color(0xFFF1F5F9);
   static const Color _cardBorder = Color(0xFFE2E8F0);
   static const Color _slate700 = Color(0xFF334155);
@@ -113,6 +114,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   bool _savingNotGoing = false;
   bool _savingDecision = false;
   MeetPreferenceStatus? _statusOverride;
+  MonitoredMeetsRecord? _monitoredMeet;
+  String? _pendingEntryPromptMeetId;
+  bool _showingReturnPrompt = false;
   bool _parentNoteExpanded = false;
   bool _parentNoteEditing = false;
 
@@ -185,6 +189,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   }
 
   String get _signupUrl => widget.activity.details.signupUrl.trim();
+  String get _entryUrl =>
+      _monitoredMeet != null ? buildEntryUrl(_monitoredMeet!) : _signupUrl;
 
   String get _noteSeed {
     final prefNotes = widget.preference?.notes.trim() ?? '';
@@ -197,9 +203,18 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _noteController = TextEditingController(text: _noteSeed);
     _primeMapAddressOverrideFromMonitored();
+    _loadMonitoredMeet();
     _loadLocalSwimMedia();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPendingEntryConfirmationPrompt();
+    }
   }
 
   /// Resolves `monitored_meets/{id}` when this detail was opened from a meet list row.
@@ -564,8 +579,25 @@ class _MeetDetailViewState extends State<MeetDetailView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _noteController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMonitoredMeet() async {
+    try {
+      final mref = await _monitoredMeetRef();
+      if (mref == null) {
+        return;
+      }
+      final snap = await mref.get();
+      if (!mounted || !snap.exists) {
+        return;
+      }
+      setState(() {
+        _monitoredMeet = MonitoredMeetsRecord.fromSnapshot(snap);
+      });
+    } catch (_) {}
   }
 
   Future<void> _saveParentNote() async {
@@ -600,13 +632,14 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     }
     setState(() => _savingNotGoing = true);
     try {
-      await mergeMeetPreference(
+      await setMeetStatus(
         currentUserUid,
         widget.meetId,
         status: MeetPreferenceStatus.notGoing,
         skipSelected: true,
         hasAlert: false,
         isHidden: false,
+        pendingEntryConfirmation: false,
         notes: _noteController.text.trim(),
       );
       if (!mounted) {
@@ -676,15 +709,24 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     final nextStatus =
         going ? MeetPreferenceStatus.needEntry : MeetPreferenceStatus.notGoing;
     try {
-      await mergeMeetPreference(
-        currentUserUid,
-        widget.meetId,
-        status: nextStatus,
-        skipSelected: !going,
-        hasAlert: false,
-        isHidden: false,
-        notes: _noteController.text.trim(),
-      );
+      if (going) {
+        await startEntry(
+          currentUserUid,
+          widget.meetId,
+          notes: _noteController.text.trim(),
+        );
+      } else {
+        await setMeetStatus(
+          currentUserUid,
+          widget.meetId,
+          status: MeetPreferenceStatus.notGoing,
+          skipSelected: true,
+          hasAlert: false,
+          isHidden: false,
+          pendingEntryConfirmation: false,
+          notes: _noteController.text.trim(),
+        );
+      }
       if (!mounted) {
         return;
       }
@@ -712,13 +754,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     }
     setState(() => _savingDecision = true);
     try {
-      await mergeMeetPreference(
+      await markEntrySubmitted(
         currentUserUid,
         widget.meetId,
-        status: MeetPreferenceStatus.entered,
-        skipSelected: false,
-        hasAlert: false,
-        isHidden: false,
         notes: _noteController.text.trim(),
       );
       if (!mounted) {
@@ -738,13 +776,228 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     }
   }
 
+  Future<void> _openFastSwimEntry() async {
+    if (_savingDecision || currentUserUid.isEmpty) {
+      return;
+    }
+    setState(() => _savingDecision = true);
+    try {
+      if (_monitoredMeet != null) {
+        final opened = await startEntryInBrowser(
+          currentUserUid,
+          _monitoredMeet!,
+          notes: _noteController.text.trim(),
+        );
+        if (opened) {
+          _pendingEntryPromptMeetId = widget.meetId;
+          setState(() => _statusOverride = MeetPreferenceStatus.needEntry);
+          return;
+        }
+      }
+      if (_entryUrl.isNotEmpty) {
+        await setMeetStatus(
+          currentUserUid,
+          widget.meetId,
+          status: MeetPreferenceStatus.needEntry,
+          skipSelected: false,
+          hasAlert: false,
+          isHidden: false,
+          pendingEntryConfirmation: true,
+          notes: _noteController.text.trim(),
+          extra: <String, dynamic>{
+            'entry_started_at': FieldValue.serverTimestamp(),
+            'entry_started_from_app': true,
+            'last_opened_entry_url_at': FieldValue.serverTimestamp(),
+          },
+        );
+        _pendingEntryPromptMeetId = widget.meetId;
+        await launchURL(_entryUrl);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingDecision = false);
+      }
+    }
+  }
+
+  Future<void> _checkPendingEntryConfirmationPrompt() async {
+    if (!mounted || _showingReturnPrompt) {
+      return;
+    }
+    final pendingMeetId = _pendingEntryPromptMeetId;
+    if (pendingMeetId == null || pendingMeetId != widget.meetId) {
+      return;
+    }
+    final pref = await getMeetPreferenceOnce(currentUserUid, pendingMeetId);
+    if (!mounted || pref == null) {
+      return;
+    }
+    final refSnap = await pref.reference.get();
+    if (!mounted || !refSnap.exists) {
+      return;
+    }
+    final data = mapFromFirestore(refSnap.data() as Map<String, dynamic>);
+    final pending = data['pending_entry_confirmation'] as bool? ?? false;
+    if (!(pending && pref.status == MeetPreferenceStatus.needEntry)) {
+      return;
+    }
+    _showingReturnPrompt = true;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18.0)),
+      ),
+      builder: (ctx) {
+        final title = _monitoredMeet?.title.trim().isNotEmpty == true
+            ? _monitoredMeet!.title
+            : _displayTitle;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.help_outline_rounded,
+                      color: Color(0xFF334155)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Did you finish submitting entries?',
+                    style: GoogleFonts.sora(
+                        fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'For $title',
+                style: GoogleFonts.sora(fontSize: 13, color: _slate500),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () async {
+                    await _markEntriesSubmitted();
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                    }
+                  },
+                  child: const Text('Yes, mark as entered'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () async {
+                    await clearPendingEntryConfirmation(
+                        currentUserUid, widget.meetId);
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                    }
+                  },
+                  child: const Text('Not yet'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    _showingReturnPrompt = false;
+    _pendingEntryPromptMeetId = null;
+  }
+
+  Future<void> _openChangeStatusSheet() async {
+    final current = _effectiveStatus;
+    final choice = await showModalBottomSheet<MeetPreferenceStatus>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18.0)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Text('Change meet status',
+                style: GoogleFonts.sora(
+                    fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            ListTile(
+              title: const Text('Entry needed'),
+              selected: current == MeetPreferenceStatus.needEntry,
+              onTap: () => Navigator.pop(ctx, MeetPreferenceStatus.needEntry),
+            ),
+            ListTile(
+              title: const Text('Mark as entered'),
+              selected: current == MeetPreferenceStatus.entered,
+              onTap: () => Navigator.pop(ctx, MeetPreferenceStatus.entered),
+            ),
+            ListTile(
+              title: const Text('Not going'),
+              selected: current == MeetPreferenceStatus.notGoing,
+              onTap: () => Navigator.pop(ctx, MeetPreferenceStatus.notGoing),
+            ),
+            ListTile(
+              title: const Text('Not decided'),
+              selected: current == MeetPreferenceStatus.newStatus,
+              onTap: () => Navigator.pop(ctx, MeetPreferenceStatus.newStatus),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+    if (choice == null) {
+      return;
+    }
+    if (choice == MeetPreferenceStatus.entered) {
+      await _markEntriesSubmitted();
+      return;
+    }
+    if (choice == MeetPreferenceStatus.needEntry) {
+      await startEntry(currentUserUid, widget.meetId,
+          notes: _noteController.text.trim());
+    } else if (choice == MeetPreferenceStatus.notGoing) {
+      await setMeetStatus(
+        currentUserUid,
+        widget.meetId,
+        status: MeetPreferenceStatus.notGoing,
+        skipSelected: true,
+        hasAlert: false,
+        isHidden: false,
+        pendingEntryConfirmation: false,
+        notes: _noteController.text.trim(),
+      );
+    } else {
+      await setMeetStatus(
+        currentUserUid,
+        widget.meetId,
+        status: MeetPreferenceStatus.newStatus,
+        skipSelected: false,
+        hasAlert: false,
+        isHidden: false,
+        pendingEntryConfirmation: false,
+        notes: _noteController.text.trim(),
+      );
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _statusOverride = choice);
+  }
+
   Widget _buildMeetDecisionCard() {
     final status = _effectiveStatus;
     final isGoing = status == MeetPreferenceStatus.needEntry ||
         status == MeetPreferenceStatus.entered;
     final isNotGoing = status == MeetPreferenceStatus.notGoing;
-    final canOpenSignup = _signupUrl.isNotEmpty;
-
     ButtonStyle decisionStyle({
       required bool selected,
       required bool primary,
@@ -779,7 +1032,13 @@ class _MeetDetailViewState extends State<MeetDetailView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Entry decision',
+              status == MeetPreferenceStatus.newStatus
+                  ? 'Are you attending this meet?'
+                  : status == MeetPreferenceStatus.needEntry
+                      ? 'Entry needed'
+                      : status == MeetPreferenceStatus.entered
+                          ? 'Entered'
+                          : 'Not going',
               style: GoogleFonts.sora(
                 fontSize: 14.0,
                 fontWeight: FontWeight.w700,
@@ -788,69 +1047,59 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             ),
             const SizedBox(height: 6.0),
             Text(
-              'Tell SwimAgent if your swimmer is planning to attend this meet.',
+              status == MeetPreferenceStatus.newStatus
+                  ? 'This helps us show the right next steps.'
+                  : status == MeetPreferenceStatus.needEntry
+                      ? 'Submit your entries on FastSwim, then come back here.'
+                      : status == MeetPreferenceStatus.entered
+                          ? 'You marked this meet as submitted. We’ll keep tracking updates for you.'
+                          : 'You’re not attending this meet.',
               style: GoogleFonts.sora(
                 fontSize: 12.0,
                 height: 1.35,
                 color: _slate500,
               ),
             ),
-            const SizedBox(height: 12.0),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _savingDecision
-                        ? null
-                        : () => _setMeetDecision(going: true),
-                    style: decisionStyle(selected: isGoing, primary: true),
-                    child: Text(
-                      _savingDecision && !isNotGoing
-                          ? 'Updating…'
-                          : "I'm Going",
-                      style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10.0),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _savingDecision
-                        ? null
-                        : () => _setMeetDecision(going: false),
-                    style: decisionStyle(selected: isNotGoing, primary: false),
-                    child: Text(
-                      _savingDecision && !isGoing ? 'Updating…' : 'Not Going',
-                      style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (isGoing) ...[
-              const SizedBox(height: 10.0),
+            if (status == MeetPreferenceStatus.newStatus) ...[
+              const SizedBox(height: 12.0),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: canOpenSignup ? () => launchURL(_signupUrl) : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: canOpenSignup
-                        ? FlutterFlowTheme.of(context).primary
-                        : const Color(0xFF94A3B8),
-                    disabledBackgroundColor: const Color(0xFFE2E8F0),
-                    disabledForegroundColor: _slate500,
-                    padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(11.0),
-                    ),
-                    elevation: 0.0,
-                  ),
+                  onPressed: _savingDecision
+                      ? null
+                      : () => _setMeetDecision(going: true),
+                  style: decisionStyle(selected: isGoing, primary: true),
                   child: Text(
-                    canOpenSignup
-                        ? 'Open FastSwim Signup'
-                        : 'Signup Link Unavailable',
+                    _savingDecision ? 'Updating…' : 'Yes, start entry',
                     style: GoogleFonts.sora(fontWeight: FontWeight.w700),
                   ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _savingDecision
+                      ? null
+                      : () => _setMeetDecision(going: false),
+                  style: decisionStyle(selected: isNotGoing, primary: false),
+                  child: const Text('No, skip this meet'),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed: _savingDecision ? null : _markEntriesSubmitted,
+                child: const Text('Already submitted? I submitted my entries'),
+              ),
+            ] else if (status == MeetPreferenceStatus.needEntry) ...[
+              const SizedBox(height: 12.0),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _savingDecision ? null : _openFastSwimEntry,
+                  style: decisionStyle(selected: true, primary: true),
+                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                  label: const Text('Open FastSwim'),
                 ),
               ),
               const SizedBox(height: 8.0),
@@ -867,10 +1116,17 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       borderRadius: BorderRadius.circular(11.0),
                     ),
                   ),
-                  child: Text(
-                    _savingDecision ? 'Updating…' : 'I Submitted Entries',
-                    style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-                  ),
+                  child:
+                      const Text('Already submitted? I submitted my entries'),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _openChangeStatusSheet,
+                  child: const Text('Change status'),
                 ),
               ),
             ],
