@@ -114,6 +114,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
   bool _savingNotGoing = false;
   bool _savingDecision = false;
   MeetPreferenceStatus? _statusOverride;
+  bool? _hasAlertOverride;
   MonitoredMeetsRecord? _monitoredMeet;
   String? _pendingEntryPromptMeetId;
   bool _showingReturnPrompt = false;
@@ -142,6 +143,8 @@ class _MeetDetailViewState extends State<MeetDetailView>
       _statusOverride ??
       widget.preference?.status ??
       MeetPreferenceStatus.newStatus;
+  bool get _effectiveHasAlert =>
+      _hasAlertOverride ?? widget.preference?.hasAlert ?? false;
 
   String get _rawLocationLine => widget.activity.details.locationName.trim();
 
@@ -191,6 +194,14 @@ class _MeetDetailViewState extends State<MeetDetailView>
   String get _signupUrl => widget.activity.details.signupUrl.trim();
   String get _entryUrl =>
       _monitoredMeet != null ? buildEntryUrl(_monitoredMeet!) : _signupUrl;
+  bool get _fastSwimSignupNotOpen {
+    final meet = _monitoredMeet;
+    if (meet != null) {
+      final status = meet.status.trim().toLowerCase();
+      return status == 'pending' || meet.entryUrl.trim().isEmpty;
+    }
+    return _signupUrl.isEmpty;
+  }
 
   String get _noteSeed {
     final prefNotes = widget.preference?.notes.trim() ?? '';
@@ -730,13 +741,56 @@ class _MeetDetailViewState extends State<MeetDetailView>
       if (!mounted) {
         return;
       }
-      setState(() => _statusOverride = nextStatus);
+      setState(() {
+        _statusOverride = nextStatus;
+        _hasAlertOverride = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             going
                 ? 'Marked as going. You can update entries next.'
                 : 'Marked as not going. You can change this anytime.',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingDecision = false);
+      }
+    }
+  }
+
+  Future<void> _setSignupOpenReminder({required bool enabled}) async {
+    if (currentUserUid.isEmpty || _savingDecision) {
+      return;
+    }
+    setState(() => _savingDecision = true);
+    try {
+      await setMeetStatus(
+        currentUserUid,
+        widget.meetId,
+        status: MeetPreferenceStatus.needEntry,
+        skipSelected: false,
+        hasAlert: enabled,
+        isHidden: false,
+        pendingEntryConfirmation: false,
+        notes: _noteController.text.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _statusOverride = MeetPreferenceStatus.needEntry;
+        _hasAlertOverride = enabled;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            enabled
+                ? 'Reminder set. We’ll let you know when FastSwim opens for this meet.'
+                : 'Reminder removed.',
           ),
           duration: const Duration(seconds: 2),
         ),
@@ -995,6 +1049,10 @@ class _MeetDetailViewState extends State<MeetDetailView>
 
   Widget _buildMeetDecisionCard() {
     final status = _effectiveStatus;
+    final signupNotOpen = _fastSwimSignupNotOpen;
+    final reminderOn = signupNotOpen &&
+        status == MeetPreferenceStatus.needEntry &&
+        _effectiveHasAlert;
     final isGoing = status == MeetPreferenceStatus.needEntry ||
         status == MeetPreferenceStatus.entered;
     final isNotGoing = status == MeetPreferenceStatus.notGoing;
@@ -1025,6 +1083,32 @@ class _MeetDetailViewState extends State<MeetDetailView>
       );
     }
 
+    Widget reminderActionButton() {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _savingDecision
+              ? null
+              : () => _setSignupOpenReminder(enabled: !reminderOn),
+          style: decisionStyle(selected: reminderOn, primary: true),
+          icon: Icon(
+            reminderOn
+                ? Icons.notifications_active_rounded
+                : Icons.notifications_none_rounded,
+            size: 18.0,
+          ),
+          label: Text(
+            _savingDecision
+                ? 'Updating…'
+                : reminderOn
+                    ? 'Reminder on'
+                    : 'Remind me when FastSwim opens',
+            style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    }
+
     return _softCard(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14.0, 14.0, 14.0, 12.0),
@@ -1032,13 +1116,17 @@ class _MeetDetailViewState extends State<MeetDetailView>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              status == MeetPreferenceStatus.newStatus
-                  ? 'Are you attending this meet?'
-                  : status == MeetPreferenceStatus.needEntry
-                      ? 'Entry needed'
-                      : status == MeetPreferenceStatus.entered
-                          ? 'Entered'
-                          : 'Not going',
+              signupNotOpen &&
+                      (status == MeetPreferenceStatus.newStatus ||
+                          status == MeetPreferenceStatus.needEntry)
+                  ? 'FastSwim is not open yet'
+                  : status == MeetPreferenceStatus.newStatus
+                      ? 'Are you attending this meet?'
+                      : status == MeetPreferenceStatus.needEntry
+                          ? 'Entry needed'
+                          : status == MeetPreferenceStatus.entered
+                              ? 'Entered'
+                              : 'Not going',
               style: GoogleFonts.sora(
                 fontSize: 14.0,
                 fontWeight: FontWeight.w700,
@@ -1047,13 +1135,17 @@ class _MeetDetailViewState extends State<MeetDetailView>
             ),
             const SizedBox(height: 6.0),
             Text(
-              status == MeetPreferenceStatus.newStatus
-                  ? 'This helps us show the right next steps.'
-                  : status == MeetPreferenceStatus.needEntry
-                      ? 'Submit your entries on FastSwim, then come back here.'
-                      : status == MeetPreferenceStatus.entered
-                          ? 'You marked this meet as submitted. We’ll keep tracking updates for you.'
-                          : 'You’re not attending this meet.',
+              signupNotOpen &&
+                      (status == MeetPreferenceStatus.newStatus ||
+                          status == MeetPreferenceStatus.needEntry)
+                  ? 'This meet is not open for sign-up on FastSwim yet. Set a reminder and we’ll notify you when entries open.'
+                  : status == MeetPreferenceStatus.newStatus
+                      ? 'This helps us show the right next steps.'
+                      : status == MeetPreferenceStatus.needEntry
+                          ? 'Submit your entries on FastSwim, then come back here.'
+                          : status == MeetPreferenceStatus.entered
+                              ? 'You marked this meet as submitted. We’ll keep tracking updates for you.'
+                              : 'You’re not attending this meet.',
               style: GoogleFonts.sora(
                 fontSize: 12.0,
                 height: 1.35,
@@ -1062,19 +1154,22 @@ class _MeetDetailViewState extends State<MeetDetailView>
             ),
             if (status == MeetPreferenceStatus.newStatus) ...[
               const SizedBox(height: 12.0),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _savingDecision
-                      ? null
-                      : () => _setMeetDecision(going: true),
-                  style: decisionStyle(selected: isGoing, primary: true),
-                  child: Text(
-                    _savingDecision ? 'Updating…' : 'Yes, start entry',
-                    style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+              if (signupNotOpen)
+                reminderActionButton()
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _savingDecision
+                        ? null
+                        : () => _setMeetDecision(going: true),
+                    style: decisionStyle(selected: isGoing, primary: true),
+                    child: Text(
+                      _savingDecision ? 'Updating…' : 'Yes, start entry',
+                      style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
-              ),
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
@@ -1087,39 +1182,56 @@ class _MeetDetailViewState extends State<MeetDetailView>
                 ),
               ),
               const SizedBox(height: 6),
-              TextButton(
-                onPressed: _savingDecision ? null : _markEntriesSubmitted,
-                child: const Text('Already submitted? I submitted my entries'),
-              ),
-            ] else if (status == MeetPreferenceStatus.needEntry) ...[
-              const SizedBox(height: 12.0),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _savingDecision ? null : _openFastSwimEntry,
-                  style: decisionStyle(selected: true, primary: true),
-                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                  label: const Text('Open FastSwim'),
-                ),
-              ),
-              const SizedBox(height: 8.0),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed:
-                      _savingDecision ? null : () => _markEntriesSubmitted(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _slate700,
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    padding: const EdgeInsets.symmetric(vertical: 11.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(11.0),
-                    ),
-                  ),
+              if (!signupNotOpen)
+                TextButton(
+                  onPressed: _savingDecision ? null : _markEntriesSubmitted,
                   child:
                       const Text('Already submitted? I submitted my entries'),
                 ),
-              ),
+            ] else if (status == MeetPreferenceStatus.needEntry) ...[
+              const SizedBox(height: 12.0),
+              if (signupNotOpen) ...[
+                reminderActionButton(),
+                const SizedBox(height: 8.0),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _savingDecision
+                        ? null
+                        : () => _setMeetDecision(going: false),
+                    style: decisionStyle(selected: isNotGoing, primary: false),
+                    child: const Text('No, skip this meet'),
+                  ),
+                ),
+              ] else ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _savingDecision ? null : _openFastSwimEntry,
+                    style: decisionStyle(selected: true, primary: true),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                    label: const Text('Open FastSwim'),
+                  ),
+                ),
+                const SizedBox(height: 8.0),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed:
+                        _savingDecision ? null : () => _markEntriesSubmitted(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _slate700,
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      padding: const EdgeInsets.symmetric(vertical: 11.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(11.0),
+                      ),
+                    ),
+                    child:
+                        const Text('Already submitted? I submitted my entries'),
+                  ),
+                ),
+              ],
             ] else ...[
               const SizedBox(height: 12),
               SizedBox(

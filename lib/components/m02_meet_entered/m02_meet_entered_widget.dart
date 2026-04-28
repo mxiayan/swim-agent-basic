@@ -128,19 +128,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         _entryDeadlineHasPassed(m);
   }
 
-  /// Same rule as [MonitoredMeetsRecord.entryUrl]: numeric id gets a default OME URL.
-  bool _meetIdIsNumericFastswim(MonitoredMeetsRecord m) {
-    return RegExp(r'^\d+$').hasMatch(m.meetId.trim());
-  }
-
   /// Firestore `status` is `pending` — host has not opened registration yet.
   bool _meetStatusIsPending(MonitoredMeetsRecord m) {
     return m.status.trim().toLowerCase() == 'pending';
   }
 
-  /// Registration not open yet: `status: pending`, or placeholder meet id (e.g. `pac_…`) without a numeric FastSwim id.
+  /// Registration not open yet: `status: pending`, or no FastSwim entry URL.
   bool _meetSignupPendingContext(MonitoredMeetsRecord m) {
-    return _meetStatusIsPending(m) || !_meetIdIsNumericFastswim(m);
+    return _meetStatusIsPending(m) || m.entryUrl.trim().isEmpty;
   }
 
   /// End of calendar day for deadline comparisons.
@@ -2991,7 +2986,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             ),
             const SizedBox(width: 8.0),
             Text(
-              'Enter Meet',
+              'FastSwim not open yet',
               style: _meetPrimaryButtonTextStyle(theme.secondaryText),
             ),
           ],

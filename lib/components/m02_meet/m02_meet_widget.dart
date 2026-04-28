@@ -157,6 +157,17 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     return name.contains(q) || location.contains(q) || zone.contains(q);
   }
 
+  bool _matchesNotGoingVisibility(
+    MonitoredMeetsRecord m,
+    Map<String, MeetPreferencesRecord> prefs,
+    FFAppState app,
+  ) {
+    if (app.meetShowNotGoingInList || app.meetFilterNotGoing) {
+      return true;
+    }
+    return !MeetListQuickFilter.isNotGoingCategory(prefs[m.reference.id]);
+  }
+
   /// Optional my-list filters from the tune menu (pending / entered / not going / remind).
   /// When several are on, a meet passes if it matches any selected category.
   bool _matchesMyMeetListFilters(
@@ -175,7 +186,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     final pendingEntries =
         hasPreference && status == MeetPreferenceStatus.needEntry;
     final entered = hasPreference && status == MeetPreferenceStatus.entered;
-    final notGoing = hasPreference && status == MeetPreferenceStatus.notGoing;
+    final notGoing = MeetListQuickFilter.isNotGoingCategory(pref);
     final remindMe =
         hasPreference && status == MeetPreferenceStatus.needEntry && hasAlert;
 
@@ -237,9 +248,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
               color: selected ? SwimUiTokens.surfaceCard : Colors.transparent,
               borderRadius: BorderRadius.circular(SwimUiTokens.radiusSm),
               border: Border.all(
-                color: selected
-                    ? SwimUiTokens.borderSubtle
-                    : Colors.transparent,
+                color:
+                    selected ? SwimUiTokens.borderSubtle : Colors.transparent,
                 width: 1.0,
               ),
               boxShadow: selected ? SwimUiTokens.shadowSegmentPill : null,
@@ -250,7 +260,9 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
               style: GoogleFonts.sora(
                 fontSize: 13.0,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                color: selected ? SwimUiTokens.textBannerTitle : SwimUiTokens.textMuted,
+                color: selected
+                    ? SwimUiTokens.textBannerTitle
+                    : SwimUiTokens.textMuted,
               ),
             ),
           ),
@@ -313,38 +325,61 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                 ),
         ),
         const SizedBox(width: 8.0),
-        OutlinedButton.icon(
-          onPressed: () => _openMeetRefineSheet(context),
-          icon: Icon(
-            Icons.tune_rounded,
-            size: 16.0,
-            color: SwimUiTokens.accentBlue,
-          ),
-          label: Text(
-            'Filters',
-            style: GoogleFonts.sora(
-              fontSize: 12.0,
-              fontWeight: FontWeight.w600,
-              color: SwimUiTokens.accentBlue,
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => _openMeetRefineSheet(context),
+              icon: Icon(
+                Icons.tune_rounded,
+                size: 16.0,
+                color: SwimUiTokens.accentBlue,
+              ),
+              label: Text(
+                filtersOn ? 'Filters on' : 'Filters',
+                style: GoogleFonts.sora(
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.w600,
+                  color: SwimUiTokens.accentBlue,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: filtersOn
+                      ? SwimUiTokens.accentBlue
+                      : SwimUiTokens.borderSubtle,
+                  width: 1.0,
+                ),
+                backgroundColor: filtersOn
+                    ? SwimUiTokens.accentBlue.withValues(alpha: 0.06)
+                    : SwimUiTokens.surfaceCard,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(SwimUiTokens.radiusSm),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10.0, vertical: 7.0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
             ),
-          ),
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(
-              color: filtersOn
-                  ? SwimUiTokens.accentBlue
-                  : SwimUiTokens.borderSubtle,
-              width: 1.0,
-            ),
-            backgroundColor: filtersOn
-                ? SwimUiTokens.accentBlue.withValues(alpha: 0.06)
-                : SwimUiTokens.surfaceCard,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(SwimUiTokens.radiusSm),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 7.0),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ),
+            if (filtersOn)
+              Positioned(
+                top: -3.0,
+                right: -3.0,
+                child: Container(
+                  width: 9.0,
+                  height: 9.0,
+                  decoration: BoxDecoration(
+                    color: SwimUiTokens.accentBlue,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: SwimUiTokens.surfaceCanvas,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );
@@ -372,11 +407,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
             fontSize: 12.5,
             color: SwimUiTokens.textMuted,
           ),
-          prefixIcon: Icon(Icons.search_rounded, color: SwimUiTokens.textMuted, size: 18.0),
+          prefixIcon: Icon(Icons.search_rounded,
+              color: SwimUiTokens.textMuted, size: 18.0),
           suffixIcon: _allMeetsSearchController.text.isEmpty
               ? null
               : IconButton(
-                  icon: Icon(Icons.close_rounded, color: SwimUiTokens.textMuted, size: 18.0),
+                  icon: Icon(Icons.close_rounded,
+                      color: SwimUiTokens.textMuted, size: 18.0),
                   onPressed: () {
                     _allMeetsSearchController.clear();
                     setState(() {});
@@ -436,9 +473,9 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   ) {
     int weekRank(MonitoredMeetsRecord m) {
       return MeetListQuickFilter.entryDeadlineThisCalendarWeek(
-            m,
-            prefs[m.reference.id],
-          )
+        m,
+        prefs[m.reference.id],
+      )
           ? 0
           : 1;
     }
@@ -753,6 +790,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                     final filtered = snapshot.data!
                         .where(_matchesClassFilters)
                         .where((m) => _matchesSearch(m))
+                        .where((m) => _matchesNotGoingVisibility(m, prefs, app))
                         .where((m) => _matchesMyMeetListFilters(m, prefs, app))
                         .toList()
                       ..sort((a, b) => _sortDate(a).compareTo(_sortDate(b)));
@@ -763,8 +801,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 2.0),
+                              padding: const EdgeInsets.fromLTRB(
+                                  20.0, 10.0, 20.0, 2.0),
                               child: _buildAllMeetsSearchRow(),
                             ),
                             const SizedBox(height: 10.0),
@@ -815,8 +853,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 2.0),
+                            padding: const EdgeInsets.fromLTRB(
+                                20.0, 10.0, 20.0, 2.0),
                             child: _buildAllMeetsSearchRow(),
                           ),
                           const SizedBox(height: 6.0),
@@ -832,7 +870,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                               itemBuilder: (context, index) {
                                 final meet = filtered[index];
                                 return M02MeetEnteredWidget(
-                                  key: Key('all_meet_${meet.reference.id}_$index'),
+                                  key: Key(
+                                      'all_meet_${meet.reference.id}_$index'),
                                   meetDoc: meet,
                                   preference: prefs[meet.reference.id],
                                 );
@@ -847,8 +886,10 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         .where((m) => _isMyMeet(m, prefs[m.reference.id]))
                         .toList()
                       ..sort((a, b) {
-                        final rankA = _myMeetUrgencyRank(a, prefs[a.reference.id]);
-                        final rankB = _myMeetUrgencyRank(b, prefs[b.reference.id]);
+                        final rankA =
+                            _myMeetUrgencyRank(a, prefs[a.reference.id]);
+                        final rankB =
+                            _myMeetUrgencyRank(b, prefs[b.reference.id]);
                         if (rankA != rankB) {
                           return rankA.compareTo(rankB);
                         }
@@ -856,8 +897,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                       });
 
                     final needsAction = myMeets
-                        .where((m) =>
-                            MeetListQuickFilter.meetNeedsAction(
+                        .where((m) => MeetListQuickFilter.meetNeedsAction(
                               m,
                               prefs[m.reference.id],
                             ))
@@ -956,8 +996,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                               children: [
                                 if (needsAction.isNotEmpty)
                                   _myMeetsSummaryChip(
-                                    label:
-                                        '${needsAction.length} Need Action',
+                                    label: '${needsAction.length} Need Action',
                                     background: const Color(0xFFF1F5F9),
                                     border: const Color(0xFFE2E8F0),
                                     foreground: SwimUiTokens.textBannerTitle,
@@ -1012,7 +1051,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                           meetRows: newToReview.asMap().entries.map((entry) {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
-                              key: Key('my_new_${meet.reference.id}_${entry.key}'),
+                              key: Key(
+                                  'my_new_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
                               groupedInSection: true,
@@ -1026,7 +1066,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                           meetRows: needsAction.asMap().entries.map((entry) {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
-                              key: Key('my_need_${meet.reference.id}_${entry.key}'),
+                              key: Key(
+                                  'my_need_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
                               groupedInSection: true,
@@ -1040,7 +1081,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                           meetRows: entered.asMap().entries.map((entry) {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
-                              key: Key('my_entered_${meet.reference.id}_${entry.key}'),
+                              key: Key(
+                                  'my_entered_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
                               groupedInSection: true,
@@ -1054,7 +1096,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                           meetRows: other.asMap().entries.map((entry) {
                             final meet = entry.value;
                             return M02MeetEnteredWidget(
-                              key: Key('my_other_${meet.reference.id}_${entry.key}'),
+                              key: Key(
+                                  'my_other_${meet.reference.id}_${entry.key}'),
                               meetDoc: meet,
                               preference: prefs[meet.reference.id],
                               groupedInSection: true,
@@ -1116,7 +1159,9 @@ class _MeetRefineSheetContent extends StatelessWidget {
           children: [
             Icon(
               selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-              color: selected ? SwimUiTokens.accentBlueSheet : SwimUiTokens.borderSubtle,
+              color: selected
+                  ? SwimUiTokens.accentBlueSheet
+                  : SwimUiTokens.borderSubtle,
               size: 22.0,
             ),
             const SizedBox(width: 12.0),
@@ -1131,7 +1176,8 @@ class _MeetRefineSheetContent extends StatelessWidget {
               ),
             ),
             if (selected)
-              Icon(Icons.check_rounded, color: SwimUiTokens.accentBlueSheet, size: 22.0),
+              Icon(Icons.check_rounded,
+                  color: SwimUiTokens.accentBlueSheet, size: 22.0),
           ],
         ),
       ),
@@ -1157,7 +1203,9 @@ class _MeetRefineSheetContent extends StatelessWidget {
               color: selected ? SwimUiTokens.accentBlueSheet : Colors.white,
               borderRadius: BorderRadius.circular(999.0),
               border: Border.all(
-                color: selected ? SwimUiTokens.accentBlueSheet : SwimUiTokens.borderSubtle,
+                color: selected
+                    ? SwimUiTokens.accentBlueSheet
+                    : SwimUiTokens.borderSubtle,
                 width: 1.0,
               ),
             ),
@@ -1320,7 +1368,8 @@ class _MeetRefineSheetContent extends StatelessWidget {
             Theme(
               data: Theme.of(context).copyWith(
                 dividerColor: Colors.transparent,
-                splashColor: SwimUiTokens.accentBlueSheet.withValues(alpha: 0.08),
+                splashColor:
+                    SwimUiTokens.accentBlueSheet.withValues(alpha: 0.08),
               ),
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
@@ -1375,8 +1424,8 @@ class _MeetRefineSheetContent extends StatelessWidget {
                         selected: app.meetFilterRemindMe,
                         onTap: () {
                           app.update(
-                            () =>
-                                app.meetFilterRemindMe = !app.meetFilterRemindMe,
+                            () => app.meetFilterRemindMe =
+                                !app.meetFilterRemindMe,
                           );
                           persist();
                         },
