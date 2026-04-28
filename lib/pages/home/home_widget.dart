@@ -5,6 +5,7 @@ import '/components/m02_meet/m02_meet_widget.dart';
 import '/components/m03_job/m03_job_widget.dart';
 import '/components/m04_swimmer/m04_swimmer_widget.dart';
 import '/components/m05_activity_dashboard/m05_activity_dashboard_widget.dart';
+import '/pages/agent_home/agent_home_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
@@ -33,12 +34,7 @@ class _HomeWidgetState extends State<HomeWidget> {
   void initState() {
     super.initState();
     _model = createModel(context, () => HomeModel());
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (FFAppState().activeTab != 2) {
-        FFAppState().update(() => FFAppState().activeTab = 2);
-      }
-      safeSetState(() {});
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => safeSetState(() {}));
   }
 
   @override
@@ -96,89 +92,133 @@ class _HomeWidgetState extends State<HomeWidget> {
                 mainAxisSize: MainAxisSize.max,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 14.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Column(
-                          mainAxisSize: MainAxisSize.max,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Orinda Aquatics',
-                              style: FlutterFlowTheme.of(context)
-                                  .displaySmall
-                                  .override(
-                                    font: GoogleFonts.sora(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .displaySmall
-                                          .fontWeight,
+                  if (FFAppState().activeTab == 0)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 6.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Orinda Aquatics',
+                            style: GoogleFonts.sora(
+                              fontSize: 15.0,
+                              fontWeight: FontWeight.w600,
+                              color: FlutterFlowTheme.of(context).secondaryText,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          Container(
+                            width: 38.0,
+                            height: 38.0,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: FlutterFlowTheme.of(context).primary,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2.5),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/mcroskey-headshot.jpg',
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding:
+                          const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 14.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.max,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Column(
+                            mainAxisSize: MainAxisSize.max,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Orinda Aquatics',
+                                style: FlutterFlowTheme.of(context)
+                                    .displaySmall
+                                    .override(
+                                      font: GoogleFonts.sora(
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .displaySmall
+                                            .fontWeight,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .displaySmall
+                                            .fontStyle,
+                                      ),
+                                      fontSize: 28.0,
+                                      letterSpacing: 0.0,
+                                      fontWeight: FontWeight.w700,
                                       fontStyle: FlutterFlowTheme.of(context)
                                           .displaySmall
                                           .fontStyle,
                                     ),
-                                    fontSize: 28.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w700,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .displaySmall
-                                        .fontStyle,
-                                  ),
-                            ),
-                            Text(
-                              'Swim Season 2025 - 2026',
-                              style: FlutterFlowTheme.of(context)
-                                  .titleMedium
-                                  .override(
-                                    font: GoogleFonts.sora(
+                              ),
+                              Text(
+                                'Swim Season 2025 - 2026',
+                                style: FlutterFlowTheme.of(context)
+                                    .titleMedium
+                                    .override(
+                                      font: GoogleFonts.sora(
+                                        fontWeight: FontWeight.w400,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .titleMedium
+                                            .fontStyle,
+                                      ),
+                                      color: FlutterFlowTheme.of(context)
+                                          .secondaryText,
+                                      fontSize: 16.0,
+                                      letterSpacing: 0.0,
                                       fontWeight: FontWeight.w400,
                                       fontStyle: FlutterFlowTheme.of(context)
                                           .titleMedium
                                           .fontStyle,
                                     ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryText,
-                                    fontSize: 16.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w400,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleMedium
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          width: 40.0,
-                          height: 40.0,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: FlutterFlowTheme.of(context).primary,
-                              width: 1.5,
-                            ),
+                              ),
+                            ],
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(2.5),
-                            child: ClipOval(
-                              child: Image.asset(
-                                'assets/images/mcroskey-headshot.jpg',
-                                fit: BoxFit.cover,
+                          Container(
+                            width: 40.0,
+                            height: 40.0,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: FlutterFlowTheme.of(context).primary,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2.5),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/mcroskey-headshot.jpg',
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
                   Expanded(
                     child: Stack(
                       alignment: AlignmentDirectional(0.0, -1.0),
                       children: [
                         if (FFAppState().activeTab == 0)
+                          AgentHomeWidget(
+                            userDisplayName: snapshot.data!.displayName,
+                          ),
+                        if (FFAppState().activeTab == 1)
                           Padding(
                             padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 4.0, 0.0, 0.0),
@@ -208,7 +248,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                               child: M03JobWidget(),
                             ),
                           ),
-                        if (FFAppState().activeTab == 1)
+                        if (FFAppState().activeTab == 4)
                           Padding(
                             padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 4.0, 0.0, 0.0),
@@ -218,7 +258,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                               child: M04SwimmerWidget(),
                             ),
                           ),
-                        if (FFAppState().activeTab == 4)
+                        if (FFAppState().activeTab == 5)
                           wrapWithModel(
                             model: _model.m05ActivityDashboardModel,
                             updateCallback: () => safeSetState(() {}),
@@ -264,9 +304,16 @@ class _HomeWidgetState extends State<HomeWidget> {
         child: Row(
           children: [
             _buildBottomNavItem(
+              label: 'Agent',
+              icon: Icons.auto_awesome_rounded,
+              tabIndex: 0,
+              primaryBlue: primaryBlue,
+              muted: muted,
+            ),
+            _buildBottomNavItem(
               label: 'Schedule',
               icon: Icons.calendar_today_rounded,
-              tabIndex: 0,
+              tabIndex: 1,
               primaryBlue: primaryBlue,
               muted: muted,
             ),
@@ -287,14 +334,14 @@ class _HomeWidgetState extends State<HomeWidget> {
             _buildBottomNavItem(
               label: 'Swimmer',
               icon: Icons.person_outline_rounded,
-              tabIndex: 1,
+              tabIndex: 4,
               primaryBlue: primaryBlue,
               muted: muted,
             ),
             _buildBottomNavItem(
               label: 'Admin',
               icon: Icons.shield_outlined,
-              tabIndex: 4,
+              tabIndex: 5,
               primaryBlue: primaryBlue,
               muted: muted,
             ),

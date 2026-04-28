@@ -111,6 +111,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   late final TextEditingController _noteController;
   bool _savingNote = false;
   bool _savingNotGoing = false;
+  bool _savingDecision = false;
+  MeetPreferenceStatus? _statusOverride;
   bool _parentNoteExpanded = false;
   bool _parentNoteEditing = false;
 
@@ -130,11 +132,14 @@ class _MeetDetailViewState extends State<MeetDetailView> {
 
   static const String _locationSourceUserVerified = 'user_verified';
 
-  bool get _isEntered =>
-      widget.preference?.status == MeetPreferenceStatus.entered;
+  bool get _isEntered => _effectiveStatus == MeetPreferenceStatus.entered;
 
-  String get _rawLocationLine =>
-      widget.activity.details.locationName.trim();
+  MeetPreferenceStatus get _effectiveStatus =>
+      _statusOverride ??
+      widget.preference?.status ??
+      MeetPreferenceStatus.newStatus;
+
+  String get _rawLocationLine => widget.activity.details.locationName.trim();
 
   String get _displayTitle {
     final raw = _rawLocationLine;
@@ -287,10 +292,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     if (tokens.isEmpty) {
       return prefixStream.map((s) => s.docs);
     }
-    final kwStream = col
-        .where('keywords', arrayContainsAny: tokens)
-        .limit(24)
-        .snapshots();
+    final kwStream =
+        col.where('keywords', arrayContainsAny: tokens).limit(24).snapshots();
     return Rx.combineLatest2<QuerySnapshot, QuerySnapshot,
         List<QueryDocumentSnapshot>>(
       prefixStream,
@@ -375,11 +378,13 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                             child: SizedBox(
                               width: 28.0,
                               height: 28.0,
-                              child: CircularProgressIndicator(strokeWidth: 2.0),
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2.0),
                             ),
                           );
                         }
-                        final docs = snap.data ?? const <QueryDocumentSnapshot>[];
+                        final docs =
+                            snap.data ?? const <QueryDocumentSnapshot>[];
                         if (docs.isEmpty) {
                           return Text(
                             'No venue suggestions yet. Try the pool or street '
@@ -663,6 +668,218 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     }
   }
 
+  Future<void> _setMeetDecision({required bool going}) async {
+    if (currentUserUid.isEmpty || _savingDecision) {
+      return;
+    }
+    setState(() => _savingDecision = true);
+    final nextStatus =
+        going ? MeetPreferenceStatus.needEntry : MeetPreferenceStatus.notGoing;
+    try {
+      await mergeMeetPreference(
+        currentUserUid,
+        widget.meetId,
+        status: nextStatus,
+        skipSelected: !going,
+        hasAlert: false,
+        isHidden: false,
+        notes: _noteController.text.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _statusOverride = nextStatus);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            going
+                ? 'Marked as going. You can update entries next.'
+                : 'Marked as not going. You can change this anytime.',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingDecision = false);
+      }
+    }
+  }
+
+  Future<void> _markEntriesSubmitted() async {
+    if (currentUserUid.isEmpty || _savingDecision) {
+      return;
+    }
+    setState(() => _savingDecision = true);
+    try {
+      await mergeMeetPreference(
+        currentUserUid,
+        widget.meetId,
+        status: MeetPreferenceStatus.entered,
+        skipSelected: false,
+        hasAlert: false,
+        isHidden: false,
+        notes: _noteController.text.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _statusOverride = MeetPreferenceStatus.entered);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Great. Marked as entered.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingDecision = false);
+      }
+    }
+  }
+
+  Widget _buildMeetDecisionCard() {
+    final status = _effectiveStatus;
+    final isGoing = status == MeetPreferenceStatus.needEntry ||
+        status == MeetPreferenceStatus.entered;
+    final isNotGoing = status == MeetPreferenceStatus.notGoing;
+    final canOpenSignup = _signupUrl.isNotEmpty;
+
+    ButtonStyle decisionStyle({
+      required bool selected,
+      required bool primary,
+    }) {
+      if (primary) {
+        return FilledButton.styleFrom(
+          backgroundColor: selected
+              ? FlutterFlowTheme.of(context).primary
+              : FlutterFlowTheme.of(context).primary.withValues(alpha: 0.88),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(11.0)),
+          elevation: selected ? 1.0 : 0.0,
+        );
+      }
+      return OutlinedButton.styleFrom(
+        foregroundColor: selected ? const Color(0xFF0F172A) : _slate600,
+        side: BorderSide(
+          color: selected ? const Color(0xFF94A3B8) : const Color(0xFFE2E8F0),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(11.0)),
+      );
+    }
+
+    return _softCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14.0, 14.0, 14.0, 12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Entry decision',
+              style: GoogleFonts.sora(
+                fontSize: 14.0,
+                fontWeight: FontWeight.w700,
+                color: _slate700,
+              ),
+            ),
+            const SizedBox(height: 6.0),
+            Text(
+              'Tell SwimAgent if your swimmer is planning to attend this meet.',
+              style: GoogleFonts.sora(
+                fontSize: 12.0,
+                height: 1.35,
+                color: _slate500,
+              ),
+            ),
+            const SizedBox(height: 12.0),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _savingDecision
+                        ? null
+                        : () => _setMeetDecision(going: true),
+                    style: decisionStyle(selected: isGoing, primary: true),
+                    child: Text(
+                      _savingDecision && !isNotGoing
+                          ? 'Updating…'
+                          : "I'm Going",
+                      style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10.0),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _savingDecision
+                        ? null
+                        : () => _setMeetDecision(going: false),
+                    style: decisionStyle(selected: isNotGoing, primary: false),
+                    child: Text(
+                      _savingDecision && !isGoing ? 'Updating…' : 'Not Going',
+                      style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (isGoing) ...[
+              const SizedBox(height: 10.0),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: canOpenSignup ? () => launchURL(_signupUrl) : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: canOpenSignup
+                        ? FlutterFlowTheme.of(context).primary
+                        : const Color(0xFF94A3B8),
+                    disabledBackgroundColor: const Color(0xFFE2E8F0),
+                    disabledForegroundColor: _slate500,
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(11.0),
+                    ),
+                    elevation: 0.0,
+                  ),
+                  child: Text(
+                    canOpenSignup
+                        ? 'Open FastSwim Signup'
+                        : 'Signup Link Unavailable',
+                    style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8.0),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed:
+                      _savingDecision ? null : () => _markEntriesSubmitted(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _slate700,
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    padding: const EdgeInsets.symmetric(vertical: 11.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(11.0),
+                    ),
+                  ),
+                  child: Text(
+                    _savingDecision ? 'Updating…' : 'I Submitted Entries',
+                    style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _openInMaps(String query) async {
     final q = Uri.encodeComponent(query);
     final webUrl = Uri.parse(
@@ -836,7 +1053,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         }
         if (item is Map) {
           final m = item.cast<String, dynamic>();
-          final label = (m['label'] ?? m['event'] ?? m['name'] ?? '').toString().trim();
+          final label =
+              (m['label'] ?? m['event'] ?? m['name'] ?? '').toString().trim();
           if (label.isEmpty) {
             continue;
           }
@@ -913,7 +1131,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   }) async {
     final seed = existingEntry;
     final eventController = TextEditingController(
-      text: seed?.eventLabel.trim().isNotEmpty == true ? seed!.eventLabel : initialEventLabel,
+      text: seed?.eventLabel.trim().isNotEmpty == true
+          ? seed!.eventLabel
+          : initialEventLabel,
     );
     final noteController = TextEditingController(
       text: seed?.note ?? initialNote,
@@ -940,7 +1160,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         return;
       }
       if (eventController.text.trim().isEmpty) {
-        eventController.text = 'Started ${dateTimeFormat('h:mm a', DateTime.now())}';
+        eventController.text =
+            'Started ${dateTimeFormat('h:mm a', DateTime.now())}';
       }
     }
     if (!mounted) {
@@ -1025,7 +1246,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       onPressed: () async {
                         final custom = await _openCustomEventBuilder(
                           stroke: selectedStroke,
-                          distance: selectedDistance == 0 ? 50 : selectedDistance,
+                          distance:
+                              selectedDistance == 0 ? 50 : selectedDistance,
                           unit: selectedUnit,
                           isLongCourse: selectedLongCourse,
                         );
@@ -1081,7 +1303,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                     child: TextField(
                       keyboardType: TextInputType.number,
                       controller: TextEditingController(
-                        text: selectedDistance <= 0 ? '' : selectedDistance.toString(),
+                        text: selectedDistance <= 0
+                            ? ''
+                            : selectedDistance.toString(),
                       ),
                       onChanged: (v) {
                         final parsed = int.tryParse(v.trim()) ?? 0;
@@ -1093,7 +1317,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       ),
                       decoration: InputDecoration(
                         labelText: 'Distance',
-                        labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                        labelStyle:
+                            GoogleFonts.sora(color: const Color(0xFF64748B)),
                         filled: true,
                         fillColor: const Color(0xFFFAFAFA),
                         border: OutlineInputBorder(
@@ -1113,7 +1338,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       ),
                       decoration: InputDecoration(
                         labelText: 'Unit',
-                        labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                        labelStyle:
+                            GoogleFonts.sora(color: const Color(0xFF64748B)),
                         filled: true,
                         fillColor: const Color(0xFFFAFAFA),
                         border: OutlineInputBorder(
@@ -1121,7 +1347,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                         ),
                       ),
                       items: const ['Y', 'M']
-                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                          .map(
+                              (u) => DropdownMenuItem(value: u, child: Text(u)))
                           .toList(),
                       onChanged: (v) {
                         if (v != null) {
@@ -1144,7 +1371,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       ),
                       decoration: InputDecoration(
                         labelText: 'Heat',
-                        labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                        labelStyle:
+                            GoogleFonts.sora(color: const Color(0xFF64748B)),
                         filled: true,
                         fillColor: const Color(0xFFFAFAFA),
                         border: OutlineInputBorder(
@@ -1159,7 +1387,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                             ),
                           )
                           .toList(),
-                      onChanged: (v) => setSheetState(() => selectedHeat = v ?? ''),
+                      onChanged: (v) =>
+                          setSheetState(() => selectedHeat = v ?? ''),
                     ),
                   ),
                   const SizedBox(width: 8.0),
@@ -1172,7 +1401,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       ),
                       decoration: InputDecoration(
                         labelText: 'Lane',
-                        labelStyle: GoogleFonts.sora(color: const Color(0xFF64748B)),
+                        labelStyle:
+                            GoogleFonts.sora(color: const Color(0xFF64748B)),
                         filled: true,
                         fillColor: const Color(0xFFFAFAFA),
                         border: OutlineInputBorder(
@@ -1187,7 +1417,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                             ),
                           )
                           .toList(),
-                      onChanged: (v) => setSheetState(() => selectedLane = v ?? ''),
+                      onChanged: (v) =>
+                          setSheetState(() => selectedLane = v ?? ''),
                     ),
                   ),
                 ],
@@ -1282,7 +1513,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   const SizedBox(width: 8.0),
                   Expanded(
                     child: FilledButton(
-                      onPressed: _savingSwimVideo ? null : () => Navigator.pop(ctx, true),
+                      onPressed: _savingSwimVideo
+                          ? null
+                          : () => Navigator.pop(ctx, true),
                       child: Text(seed == null ? 'Save Event' : 'Save Changes'),
                     ),
                   ),
@@ -1438,7 +1671,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       if (video.stroke.trim().toLowerCase() != stroke) {
         continue;
       }
-      if (event.distance > 0 && video.distance > 0 && video.distance != event.distance) {
+      if (event.distance > 0 &&
+          video.distance > 0 &&
+          video.distance != event.distance) {
         continue;
       }
       final unit = event.unit.trim().toUpperCase();
@@ -1459,9 +1694,11 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   Future<void> _editEvent(_MeetEventOption event) async {
     await _openAddSwimVideoSheet(
       existingEntry: _videoForMeetEvent(event),
-      initialStroke: event.stroke.trim().isNotEmpty ? event.stroke.trim() : null,
+      initialStroke:
+          event.stroke.trim().isNotEmpty ? event.stroke.trim() : null,
       initialDistance: event.distance,
-      initialUnit: event.unit.trim().isEmpty ? 'Y' : event.unit.trim().toUpperCase(),
+      initialUnit:
+          event.unit.trim().isEmpty ? 'Y' : event.unit.trim().toUpperCase(),
       initialIsLongCourse: event.isLongCourse,
       initialHeat: event.heat.trim(),
       initialLane: event.lane.trim(),
@@ -1611,7 +1848,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       var heat = video.heat.trim();
       var lane = video.lane.trim();
       if (heat.isEmpty || lane.isEmpty) {
-        final m = RegExp(r'^\s*(\d{1,2})\s*[/-]\s*(\d{1,2})\s*$').firstMatch(label);
+        final m =
+            RegExp(r'^\s*(\d{1,2})\s*[/-]\s*(\d{1,2})\s*$').firstMatch(label);
         if (m != null) {
           heat = heat.isEmpty ? (m.group(1) ?? '').trim() : heat;
           lane = lane.isEmpty ? (m.group(2) ?? '').trim() : lane;
@@ -1626,7 +1864,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       if (label.isEmpty) {
         final stroke = _shortStroke(video.stroke).trim();
         if (video.distance > 0) {
-          final unit = video.unit.trim().isEmpty ? 'Y' : video.unit.trim().toUpperCase();
+          final unit =
+              video.unit.trim().isEmpty ? 'Y' : video.unit.trim().toUpperCase();
           label = '${video.distance}$unit ${stroke.isEmpty ? 'Race' : stroke}';
         } else {
           label = stroke.isEmpty ? 'Race' : stroke;
@@ -1792,14 +2031,19 @@ class _MeetDetailViewState extends State<MeetDetailView> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text('Delete video?', style: GoogleFonts.sora(fontWeight: FontWeight.w700)),
+        title: Text('Delete video?',
+            style: GoogleFonts.sora(fontWeight: FontWeight.w700)),
         content: Text(
           'This removes the local video reference from this meet.',
           style: GoogleFonts.sora(fontSize: 14.0, color: _slate600),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -1822,7 +2066,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     _persistEnteredEventOrder();
   }
 
-  Future<void> _deletePersonalResourceFromList(PersonalMeetResourceEntry entry) async {
+  Future<void> _deletePersonalResourceFromList(
+      PersonalMeetResourceEntry entry) async {
     if (entry.id.trim().isEmpty) {
       return;
     }
@@ -1913,7 +2158,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
 
         return _softCard(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16.0, 14.0, 16.0, 8.0),
+            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1930,29 +2175,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       ),
                     ),
                     const SizedBox(width: 8.0),
-                    TextButton.icon(
+                    _sectionAddPill(
+                      label: 'Add Resource',
                       onPressed: () => _openPersonalResourceEditor(),
-                      style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFFEFF6FF),
-                        minimumSize: const Size(0.0, 32.0),
-                        padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                        visualDensity: VisualDensity.compact,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999.0),
-                        ),
-                      ),
-                      icon: Icon(
-                        Icons.add_rounded,
-                        size: 16.0,
-                        color: FlutterFlowTheme.of(context).primary,
-                      ),
-                      label: Text(
-                        'Add Resource',
-                        style: GoogleFonts.sora(
-                          fontWeight: FontWeight.w700,
-                          color: FlutterFlowTheme.of(context).primary,
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -1976,7 +2201,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 else if (resources.isEmpty)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(12.0, 12.0, 12.0, 10.0),
+                    padding: const EdgeInsets.fromLTRB(12.0, 12.0, 12.0, 12.0),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12.0),
@@ -2051,6 +2276,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         final photoCount = photos.length;
         final firstPhoto = photoCount > 0 ? photos.first : null;
         final formatted = _formatPersonalResourceContent(entry);
+        final hasUrlOrText = formatted.url.isNotEmpty ||
+            formatted.main.isNotEmpty ||
+            formatted.secondary.isNotEmpty;
         final metadataParts = <String>[];
         if (photoCount > 0) {
           metadataParts.add(
@@ -2077,6 +2305,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                     kind: entry.kind,
                     firstPhoto: firstPhoto,
                     photoCount: photoCount,
+                    hasUrlOrText: hasUrlOrText,
                   ),
                   const SizedBox(width: 10.0),
                   Expanded(
@@ -2174,7 +2403,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     );
   }
 
-  ({String title, String main, String secondary, String url}) _formatPersonalResourceContent(
+  ({String title, String main, String secondary, String url})
+      _formatPersonalResourceContent(
     PersonalMeetResourceEntry entry,
   ) {
     final notes = entry.notes.trim();
@@ -2212,7 +2442,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         return (
           title: entry.kind.uiTitle,
           main: dateTime,
-          secondary: entry.location.trim().isNotEmpty ? entry.location.trim() : notes,
+          secondary:
+              entry.location.trim().isNotEmpty ? entry.location.trim() : notes,
           url: '',
         );
       case PersonalResourceKind.parkingInfo:
@@ -2283,6 +2514,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     required PersonalResourceKind kind,
     required LocalResourcePhoto? firstPhoto,
     required int photoCount,
+    required bool hasUrlOrText,
   }) {
     final size = 48.0;
     if (firstPhoto == null) {
@@ -2296,7 +2528,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         ),
         alignment: Alignment.center,
         child: Icon(
-          _resourceTypeIcon(kind),
+          hasUrlOrText
+              ? _resourceTypeIcon(kind)
+              : Icons.insert_drive_file_outlined,
           size: 18.0,
           color: _slate500,
         ),
@@ -2328,7 +2562,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 right: 3.0,
                 bottom: 3.0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 1.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 4.0, vertical: 1.0),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(999.0),
@@ -2412,7 +2647,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     final hasEvents = displayEvents.isNotEmpty;
     return _softCard(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 14.0, 16.0, 8.0),
+        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2420,7 +2655,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
               children: [
                 Expanded(
                   child: Text(
-                    'Each entered event can have one quick race clip on this device.',
+                    'Each event can have one race clip on this device.',
                     style: GoogleFonts.sora(
                       fontSize: 12.0,
                       height: 1.35,
@@ -2428,24 +2663,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                     ),
                   ),
                 ),
-                TextButton.icon(
+                _sectionAddPill(
+                  label: 'Add Event',
                   onPressed: _savingSwimVideo ? null : _addSwimVideo,
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0.0, 32.0),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: Icon(
-                    Icons.add_rounded,
-                    size: 16.0,
-                    color: FlutterFlowTheme.of(context).primary,
-                  ),
-                  label: Text(
-                    'Add Event',
-                    style: GoogleFonts.sora(
-                      fontWeight: FontWeight.w700,
-                      color: FlutterFlowTheme.of(context).primary,
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -2462,7 +2682,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 height: 132.0,
                 child: _DashedPlaceholderCard(
                   text: 'No entered events yet.',
-                  subtitle: 'Once entries sync, each event will get a row for quick recording.',
+                  subtitle:
+                      'Once entries sync, each event will get a row for quick recording.',
                   onTap: _addSwimVideo,
                 ),
               )
@@ -2473,7 +2694,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: displayEvents.length,
                 onReorder: (oldIndex, newIndex) {
-                  final orderedKeys = displayEvents.map(_enteredEventKey).toList();
+                  final orderedKeys =
+                      displayEvents.map(_enteredEventKey).toList();
                   if (newIndex > oldIndex) {
                     newIndex -= 1;
                   }
@@ -2482,30 +2704,28 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                   final remaining = _enteredEventOrderKeys
                       .where((k) => !orderedKeys.contains(k))
                       .toList();
-                  setState(() => _enteredEventOrderKeys = [...orderedKeys, ...remaining]);
+                  setState(() =>
+                      _enteredEventOrderKeys = [...orderedKeys, ...remaining]);
                   _persistEnteredEventOrder();
                 },
                 itemBuilder: (context, index) {
                   final event = displayEvents[index];
                   final video = _videoForMeetEvent(event);
-                  final hasHeatLane =
-                      event.heat.trim().isNotEmpty || event.lane.trim().isNotEmpty;
+                  final hasHeatLane = event.heat.trim().isNotEmpty ||
+                      event.lane.trim().isNotEmpty;
                   final heatLaneLine = [
-                    if (event.heat.trim().isNotEmpty) 'Heat ${event.heat.trim()}',
-                    if (event.lane.trim().isNotEmpty) 'Lane ${event.lane.trim()}',
+                    if (event.heat.trim().isNotEmpty)
+                      'Heat ${event.heat.trim()}',
+                    if (event.lane.trim().isNotEmpty)
+                      'Lane ${event.lane.trim()}',
                   ].join(' · ');
-                  final hasVideo = video != null && video.path.trim().isNotEmpty;
+                  final hasVideo =
+                      video != null && video.path.trim().isNotEmpty;
                   return Container(
                     key: ValueKey('entered_event_${_enteredEventKey(event)}'),
                     margin: EdgeInsets.only(
-                      bottom: index == displayEvents.length - 1 ? 0.0 : 10.0,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12.0),
-                      border: Border.all(color: _cardBorder),
-                    ),
-                    padding: const EdgeInsets.fromLTRB(12.0, 12.0, 12.0, 10.0),
+                        bottom: index == displayEvents.length - 1 ? 0.0 : 2.0),
+                    padding: const EdgeInsets.fromLTRB(4.0, 10.0, 4.0, 8.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -2528,7 +2748,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                                   ),
                                   const SizedBox(height: 3.0),
                                   Text(
-                                    hasHeatLane ? heatLaneLine : 'Heat and lane not set',
+                                    hasHeatLane
+                                        ? heatLaneLine
+                                        : 'Heat and lane not set',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.sora(
@@ -2542,7 +2764,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                             ),
                             const SizedBox(width: 10.0),
                             _videoStatusBadge(hasVideo: hasVideo),
-                            const SizedBox(width: 4.0),
+                            const SizedBox(width: 2.0),
                             ReorderableDragStartListener(
                               index: index,
                               child: Icon(
@@ -2553,8 +2775,11 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10.0),
-                        const Divider(height: 1.0, thickness: 1.0, color: Color(0xFFE2E8F0)),
+                        const SizedBox(height: 8.0),
+                        const Divider(
+                            height: 1.0,
+                            thickness: 1.0,
+                            color: Color(0xFFE2E8F0)),
                         const SizedBox(height: 2.0),
                         SizedBox(
                           height: 36.0,
@@ -2566,7 +2791,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                                   style: TextButton.styleFrom(
                                     visualDensity: VisualDensity.compact,
                                     minimumSize: const Size(0.0, 30.0),
-                                    padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6.0),
                                   ),
                                   icon: const Icon(
                                     Icons.play_circle_fill_rounded,
@@ -2578,11 +2804,13 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                                 TextButton.icon(
                                   onPressed: _savingSwimVideo
                                       ? null
-                                      : () => _openQuickVideoSourcePicker(event),
+                                      : () =>
+                                          _openQuickVideoSourcePicker(event),
                                   style: TextButton.styleFrom(
                                     visualDensity: VisualDensity.compact,
                                     minimumSize: const Size(0.0, 30.0),
-                                    padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6.0),
                                   ),
                                   icon: const Icon(
                                     Icons.videocam_rounded,
@@ -2592,11 +2820,14 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                                 ),
                               const Spacer(),
                               TextButton(
-                                onPressed: _savingSwimVideo ? null : () => _editEvent(event),
+                                onPressed: _savingSwimVideo
+                                    ? null
+                                    : () => _editEvent(event),
                                 style: TextButton.styleFrom(
                                   visualDensity: VisualDensity.compact,
                                   minimumSize: const Size(0.0, 30.0),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0),
                                 ),
                                 child: const Text('Edit'),
                               ),
@@ -2614,12 +2845,21 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                                       child: Text('Delete video'),
                                     ),
                                   ],
-                                  icon: const Icon(Icons.more_horiz_rounded, size: 18.0),
+                                  icon: const Icon(Icons.more_horiz_rounded,
+                                      size: 18.0),
                                   color: Colors.white,
                                 ),
                             ],
                           ),
                         ),
+                        if (index != displayEvents.length - 1)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 6.0),
+                            child: Divider(
+                                height: 1.0,
+                                thickness: 1.0,
+                                color: Color(0xFFE2E8F0)),
+                          ),
                       ],
                     ),
                   );
@@ -2628,7 +2868,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             const SizedBox(height: 10.0),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10.0, vertical: 9.0),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10.0),
@@ -2636,8 +2877,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, size: 14.0, color: _slate500),
-                  const SizedBox(width: 6.0),
+                  Icon(Icons.info_outline_rounded,
+                      size: 15.0, color: _slate500),
+                  const SizedBox(width: 8.0),
                   Expanded(
                     child: Text(
                       'Videos are stored only on this device and won’t be shared.',
@@ -2679,7 +2921,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
           ),
           const SizedBox(width: 4.0),
           Text(
-            hasVideo ? 'Video added' : 'No video yet',
+            hasVideo ? 'Video saved' : 'No video yet',
             style: GoogleFonts.sora(
               fontSize: 10.5,
               fontWeight: FontWeight.w700,
@@ -2687,6 +2929,36 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _sectionAddPill({
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return TextButton.icon(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        backgroundColor: const Color(0xFFEFF6FF),
+        minimumSize: const Size(0.0, 32.0),
+        padding: const EdgeInsets.symmetric(horizontal: 10.0),
+        visualDensity: VisualDensity.compact,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999.0),
+        ),
+      ),
+      icon: Icon(
+        Icons.add_rounded,
+        size: 16.0,
+        color: FlutterFlowTheme.of(context).primary,
+      ),
+      label: Text(
+        label,
+        style: GoogleFonts.sora(
+          fontWeight: FontWeight.w700,
+          color: FlutterFlowTheme.of(context).primary,
+        ),
       ),
     );
   }
@@ -2811,9 +3083,11 @@ class _MeetDetailViewState extends State<MeetDetailView> {
   }
 
   Widget _statusBadge({required bool entered}) {
-    final label = entered ? 'Entered' : meetStatusLabel(
-          widget.preference?.status ?? MeetPreferenceStatus.newStatus,
-        );
+    final label = entered
+        ? 'Entered'
+        : meetStatusLabel(
+            widget.preference?.status ?? MeetPreferenceStatus.newStatus,
+          );
     final color = entered ? _enteredFg : const Color(0xFF92400E);
     final bg = entered ? _enteredBg : const Color(0xFFFEF3C7);
     final border = entered ? _enteredBorder : const Color(0xFFFDE68A);
@@ -2969,6 +3243,9 @@ class _MeetDetailViewState extends State<MeetDetailView> {
         timeCaption = 'Last updated';
         timeDetail = dateTimeFormat('MMM d, y · h:mm a', lastUpdated);
       }
+      final updatedLine = (timeCaption != null && (timeDetail ?? '').isNotEmpty)
+          ? '$timeCaption $timeDetail'
+          : '';
       final events = pref?.eventsEntered;
 
       return Column(
@@ -2986,7 +3263,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                     color: _enteredBorder.withValues(alpha: 0.7),
                   ),
                 ),
-                child: Icon(Icons.assignment_turned_in_rounded, color: _enteredFg, size: 18.0),
+                child: Icon(Icons.assignment_turned_in_rounded,
+                    color: _enteredFg, size: 18.0),
               ),
               const SizedBox(width: 10.0),
               Expanded(
@@ -3006,7 +3284,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
                 decoration: BoxDecoration(
                   color: _enteredBg,
                   borderRadius: BorderRadius.circular(999.0),
@@ -3046,24 +3325,14 @@ class _MeetDetailViewState extends State<MeetDetailView> {
               ),
             ),
           ],
-          if (timeCaption != null && (timeDetail ?? '').isNotEmpty) ...[
+          if (updatedLine.isNotEmpty) ...[
             const SizedBox(height: 12.0),
             Text(
-              timeCaption,
+              updatedLine,
               style: GoogleFonts.sora(
-                fontSize: 11.0,
+                fontSize: 12.0,
                 fontWeight: FontWeight.w600,
                 color: _slate500,
-                letterSpacing: 0.4,
-              ),
-            ),
-            const SizedBox(height: 2.0),
-            Text(
-              timeDetail!,
-              style: GoogleFonts.sora(
-                fontSize: 14.0,
-                fontWeight: FontWeight.w600,
-                color: _slate700,
               ),
             ),
           ],
@@ -3100,30 +3369,53 @@ class _MeetDetailViewState extends State<MeetDetailView> {
             ),
           ),
           const SizedBox(height: 10.0),
-          TextButton(
-            onPressed: _savingNotGoing ? null : _confirmWithdraw,
-            style: TextButton.styleFrom(
-              foregroundColor: _slate500,
-              padding: const EdgeInsets.symmetric(vertical: 6.0),
-              minimumSize: const Size(0.0, 36.0),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              _savingNotGoing ? 'Updating…' : 'Withdraw From Meet',
-              style: GoogleFonts.sora(
-                fontSize: 13.0,
-                fontWeight: FontWeight.w600,
+          Material(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10.0),
+            child: InkWell(
+              onTap: _savingNotGoing ? null : _confirmWithdraw,
+              borderRadius: BorderRadius.circular(10.0),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10.0, vertical: 9.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _savingNotGoing
+                                ? 'Updating…'
+                                : 'Withdraw From Meet',
+                            style: GoogleFonts.sora(
+                              fontSize: 13.0,
+                              fontWeight: FontWeight.w600,
+                              color: _slate600,
+                            ),
+                          ),
+                          const SizedBox(height: 2.0),
+                          Text(
+                            canOpenSignup
+                                ? 'Opens the meet site in your browser.'
+                                : 'No entry link on file for this meet.',
+                            style: GoogleFonts.sora(
+                              fontSize: 11.0,
+                              color: _slate500,
+                              height: 1.25,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.open_in_new_rounded,
+                      size: 16.0,
+                      color: _slate500,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-          Text(
-            canOpenSignup
-                ? 'Opens the meet site in your browser.'
-                : 'No entry link on file for this meet.',
-            style: GoogleFonts.sora(
-              fontSize: 11.0,
-              color: _slate500,
-              height: 1.25,
             ),
           ),
         ],
@@ -3133,7 +3425,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     if (currentUserUid.isEmpty) {
       return _softCard(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 18.0),
+          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
           child: body(null),
         ),
       );
@@ -3141,7 +3433,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
 
     return _softCard(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 18.0),
+        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
         child: StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('users')
@@ -3210,12 +3502,11 @@ class _MeetDetailViewState extends State<MeetDetailView> {
     final loc = _locationForMeetInfo;
     final fullAddress = _mapPreviewAddress.trim();
     final venueLabel = loc.isNotEmpty ? loc : _displayTitle;
-    final showFullAddress =
-        fullAddress.isNotEmpty && fullAddress.toLowerCase() != venueLabel.toLowerCase();
+    final showFullAddress = fullAddress.isNotEmpty &&
+        fullAddress.toLowerCase() != venueLabel.toLowerCase();
     final host = extras?.hostTeam?.trim() ?? '';
-    final warmupLabel = warmup != null
-        ? dateTimeFormat('EEE, MMM d · h:mm a', warmup)
-        : '';
+    final warmupLabel =
+        warmup != null ? dateTimeFormat('EEE, MMM d · h:mm a', warmup) : '';
     final startLabel =
         start != null ? dateTimeFormat('EEE, MMM d · h:mm a', start) : '';
     final showMeetDay = warmupLabel.isNotEmpty ||
@@ -3226,7 +3517,7 @@ class _MeetDetailViewState extends State<MeetDetailView> {
 
     return _softCard(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18.0, 16.0, 18.0, 16.0),
+        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -3392,59 +3683,66 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                         ],
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6.0),
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 28.0,
-                          height: 28.0,
+                    if (_isEntered && currentUserUid.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6.0),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 28.0,
+                            height: 28.0,
+                          ),
+                          alignment: Alignment.topCenter,
+                          tooltip: 'Edit venue address',
+                          onPressed: _savingLocationAddress
+                              ? null
+                              : _openLocationAddressEditor,
+                          icon: _savingLocationAddress
+                              ? const SizedBox(
+                                  width: 16.0,
+                                  height: 16.0,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2.0),
+                                )
+                              : Icon(
+                                  Icons.edit_outlined,
+                                  size: 18.0,
+                                  color: FlutterFlowTheme.of(context).primary,
+                                ),
                         ),
-                        alignment: Alignment.topCenter,
-                        tooltip: 'Edit venue address',
-                        onPressed:
-                            _savingLocationAddress ? null : _openLocationAddressEditor,
-                        icon: _savingLocationAddress
-                            ? const SizedBox(
-                                width: 16.0,
-                                height: 16.0,
-                                child: CircularProgressIndicator(strokeWidth: 2.0),
-                              )
-                            : Icon(
-                                Icons.edit_outlined,
-                                size: 18.0,
-                                color: FlutterFlowTheme.of(context).primary,
-                              ),
                       ),
-                    ),
                   ],
                 ),
               ),
               _meetDayRow(label: 'Host team', value: host),
               if (_mapPreviewAddress.isNotEmpty) ...[
                 const SizedBox(height: 4.0),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => _openInMaps(_mapPreviewAddress),
-                    icon: Icon(
-                      Icons.map_outlined,
-                      size: 18.0,
-                      color: FlutterFlowTheme.of(context).primary,
-                    ),
-                    label: Text(
-                      'Open in Maps',
-                      style: GoogleFonts.sora(
-                        fontWeight: FontWeight.w700,
-                        color: FlutterFlowTheme.of(context).primary,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _openInMaps(_mapPreviewAddress),
+                    borderRadius: BorderRadius.circular(8.0),
+                    child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8.0,
-                        vertical: 4.0,
+                          horizontal: 8.0, vertical: 6.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.map_outlined,
+                            size: 18.0,
+                            color: FlutterFlowTheme.of(context).primary,
+                          ),
+                          const SizedBox(width: 6.0),
+                          Text(
+                            'Open in Maps',
+                            style: GoogleFonts.sora(
+                              fontWeight: FontWeight.w700,
+                              color: FlutterFlowTheme.of(context).primary,
+                            ),
+                          ),
+                        ],
                       ),
-                      visualDensity: VisualDensity.compact,
                     ),
                   ),
                 ),
@@ -3520,7 +3818,8 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                               const SizedBox(width: 8.0),
                               Expanded(
                                 child: Text(
-                                  snap.connectionState == ConnectionState.waiting
+                                  snap.connectionState ==
+                                          ConnectionState.waiting
                                       ? 'Loading map preview...'
                                       : 'Could not locate this address. Open in Maps for navigation.',
                                   style: GoogleFonts.sora(
@@ -3857,6 +4156,10 @@ class _MeetDetailViewState extends State<MeetDetailView> {
                       warmup: details.warmupTime,
                       extras: widget.extras,
                     ),
+                    if (!entered) ...[
+                      const SizedBox(height: 24.0),
+                      _buildMeetDecisionCard(),
+                    ],
                     if (entered) ...[
                       const SizedBox(height: 26.0),
                       _sectionHeading('My meet resources'),
@@ -3895,7 +4198,8 @@ class _PersonalResourceEditorSheet extends StatefulWidget {
       _PersonalResourceEditorSheetState();
 }
 
-class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorSheet> {
+class _PersonalResourceEditorSheetState
+    extends State<_PersonalResourceEditorSheet> {
   late PersonalResourceKind _kind;
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, String?> _errors = {};
@@ -4063,7 +4367,10 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
         resourceId,
         fallbackResourceIds: <String>[
           (widget.initial?.kind.firestoreValue ?? ''),
-          (widget.initial?.resourceLabel ?? '').trim().toLowerCase().replaceAll(' ', '_'),
+          (widget.initial?.resourceLabel ?? '')
+              .trim()
+              .toLowerCase()
+              .replaceAll(' ', '_'),
         ],
       );
       if (!mounted) return;
@@ -4255,7 +4562,8 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
         ),
         content: Text(
           'This will remove this resource from your meet resources.',
-          style: GoogleFonts.sora(fontSize: 14.0, color: const Color(0xFF475569)),
+          style:
+              GoogleFonts.sora(fontSize: 14.0, color: const Color(0xFF475569)),
         ),
         actions: [
           TextButton(
@@ -4321,7 +4629,9 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
   String _fieldLabel(String key) {
     switch (key) {
       case 'title':
-        return _kind == PersonalResourceKind.volunteerJob ? 'Job title' : 'Title';
+        return _kind == PersonalResourceKind.volunteerJob
+            ? 'Job title'
+            : 'Title';
       case 'url':
         return 'URL';
       case 'date':
@@ -4366,7 +4676,8 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
           autocorrect: !multiline,
           minLines: multiline ? 3 : 1,
           maxLines: multiline ? 8 : 1,
-          textInputAction: multiline ? TextInputAction.newline : TextInputAction.done,
+          textInputAction:
+              multiline ? TextInputAction.newline : TextInputAction.done,
           onChanged: (_) {
             if (key == 'url' && _errors['url'] != null) {
               setState(() => _errors['url'] = null);
@@ -4479,10 +4790,13 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
                           _activeFields
                             ..clear()
                             ..addAll(
-                              _defaultFieldsByType[_kind] ?? const <String>['notes'],
+                              _defaultFieldsByType[_kind] ??
+                                  const <String>['notes'],
                             );
                           for (final key in _allFormKeys) {
-                            if ((_controllers[key]?.text ?? '').trim().isNotEmpty) {
+                            if ((_controllers[key]?.text ?? '')
+                                .trim()
+                                .isNotEmpty) {
                               _activeFields.add(key);
                             }
                           }
@@ -4526,7 +4840,8 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
                         .toList();
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 8.0, horizontal: 4.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -4563,12 +4878,14 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
                 spacing: 8.0,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: _saving ? null : () => _addPhoto(ImageSource.camera),
+                    onPressed:
+                        _saving ? null : () => _addPhoto(ImageSource.camera),
                     icon: const Icon(Icons.photo_camera_rounded, size: 16.0),
                     label: const Text('Take photo'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: _saving ? null : () => _addPhoto(ImageSource.gallery),
+                    onPressed:
+                        _saving ? null : () => _addPhoto(ImageSource.gallery),
                     icon: const Icon(Icons.photo_library_rounded, size: 16.0),
                     label: const Text('Choose photo'),
                   ),
@@ -4583,7 +4900,8 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
               else if (_photos.isEmpty)
                 Text(
                   'No photos attached yet.',
-                  style: GoogleFonts.sora(fontSize: 12.0, color: const Color(0xFF64748B)),
+                  style: GoogleFonts.sora(
+                      fontSize: 12.0, color: const Color(0xFF64748B)),
                 )
               else
                 SizedBox(
@@ -4608,7 +4926,8 @@ class _PersonalResourceEditorSheetState extends State<_PersonalResourceEditorShe
                                   height: 116.0,
                                   color: const Color(0xFFE2E8F0),
                                   alignment: Alignment.center,
-                                  child: const Icon(Icons.broken_image_outlined),
+                                  child:
+                                      const Icon(Icons.broken_image_outlined),
                                 ),
                               ),
                             ),
@@ -4949,7 +5268,8 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                             final vs = c.value.size;
                             if (vs.width == 0 || vs.height == 0) {
                               return const Center(
-                                child: CircularProgressIndicator(color: Colors.white54),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white54),
                               );
                             }
                             return Stack(
@@ -4978,8 +5298,10 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                                     child: Container(
                                       padding: const EdgeInsets.all(8.0),
                                       decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.45),
-                                        borderRadius: BorderRadius.circular(8.0),
+                                        color: Colors.black
+                                            .withValues(alpha: 0.45),
+                                        borderRadius:
+                                            BorderRadius.circular(8.0),
                                       ),
                                       child: Text(
                                         caption,
@@ -5010,17 +5332,20 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                                   .clamp(1, double.infinity),
                               min: 0,
                               onChanged: (v) async {
-                                await c.seekTo(Duration(milliseconds: v.toInt()));
+                                await c
+                                    .seekTo(Duration(milliseconds: v.toInt()));
                               },
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 14.0),
+                              padding: const EdgeInsets.fromLTRB(
+                                  12.0, 0, 12.0, 14.0),
                               child: Row(
                                 children: [
                                   IconButton(
                                     color: Colors.white,
                                     onPressed: () => _stepFrame(-1),
-                                    icon: const Icon(Icons.skip_previous_rounded),
+                                    icon:
+                                        const Icon(Icons.skip_previous_rounded),
                                     tooltip: 'Previous frame',
                                   ),
                                   IconButton(
@@ -5050,7 +5375,9 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                                     label: Text(
                                       'Slow Motion 0.5x',
                                       style: GoogleFonts.sora(
-                                        color: _slowMotion ? Colors.white : Colors.white70,
+                                        color: _slowMotion
+                                            ? Colors.white
+                                            : Colors.white70,
                                         fontSize: 11.5,
                                       ),
                                     ),

@@ -69,6 +69,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _parentNoteBg = Color(0xFFF8FAFC);
   static const Color _parentNoteDashBorder = Color(0xFFCBD5E1);
   static const Color _softRedGlow = Color(0xFFFECACA);
+
   /// Slightly stronger fills so pills read clearly on tinted section shells.
   static const Color _badgeNewBg = Color(0xFFDCEBFF);
   static const Color _badgeNewText = Color(0xFF2F6FED);
@@ -352,9 +353,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       child: IconButton(
         onPressed: onPressed,
         icon: Icon(
-          expanded
-              ? Icons.expand_less_rounded
-              : Icons.expand_more_rounded,
+          expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
           size: 22.0,
           color: SwimUiTokens.textMuted,
         ),
@@ -1066,8 +1065,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
 
     final pref = widget.preference;
 
-    /// Always start collapsed on tab/view re-entry; expand state is local only.
-    final hidden = !_expandedInList;
+    /// Full-screen-only interaction: keep list cards collapsed and open detail.
+    /// `activeTab >= 0` is always true at runtime, but stays runtime-evaluated
+    /// so analyzer does not treat the expanded branch as dead code.
+    final hidden = !_expandedInList || FFAppState().activeTab >= 0;
 
     if (hidden) {
       final hStatus = pref?.status ?? MeetPreferenceStatus.newStatus;
@@ -1090,8 +1091,6 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         skipSelected: hSkipSelected,
       );
       final metaLine = _collapsedMeetMetadataLine(doc, pref);
-      void revealMeet() => setState(() => _expandedInList = true);
-
       final hiddenCard = widget.groupedInSection
           ? Material(
               color: Colors.transparent,
@@ -1147,9 +1146,13 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                           ],
                         ),
                       ),
-                      _buildMeetChevronToggle(
-                        expanded: false,
-                        onPressed: revealMeet,
+                      const Padding(
+                        padding: EdgeInsets.only(top: 1.0),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 22.0,
+                          color: SwimUiTokens.textFaint,
+                        ),
                       ),
                     ],
                   ),
@@ -1162,8 +1165,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius:
-                      BorderRadius.circular(_meetCardCornerRadius),
+                  borderRadius: BorderRadius.circular(_meetCardCornerRadius),
                   onTap: () => _openMeetFocusFromMonitored(context, doc, pref),
                   child: Stack(
                     clipBehavior: Clip.none,
@@ -1216,9 +1218,13 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                     ],
                                   ),
                                 ),
-                                _buildMeetChevronToggle(
-                                  expanded: false,
-                                  onPressed: revealMeet,
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 1.0),
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 22.0,
+                                    color: SwimUiTokens.textFaint,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1265,8 +1271,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final hasAlert = pref?.hasAlert ?? false;
     final entered = status == MeetPreferenceStatus.entered;
     final skipSelected = pref?.skipSelected ?? false;
-    final wantsToEnter =
-        entered || status == MeetPreferenceStatus.needEntry;
+    final wantsToEnter = entered || status == MeetPreferenceStatus.needEntry;
     final pendingEntriesLane = _meetCardIsPendingEntriesLane(
       status: status,
       hasAlert: hasAlert,
@@ -1322,6 +1327,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final grouped = widget.groupedInSection;
     final innerTopPad = grouped ? 8.0 : 10.0;
     final innerBottomPad = grouped ? 10.0 : 12.0;
+
     /// Reserve space below the floating status pill / corner row so the title never overlaps.
     final titleTopInsetBelowStatus = grouped ? 20.0 : 26.0;
     final titleSize = grouped ? 14.5 : 15.0;
@@ -1393,7 +1399,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                         ),
                         if (dueThisWeekLine != null)
                           Padding(
-                            padding: const EdgeInsets.only(top: 2.0, bottom: 4.0),
+                            padding:
+                                const EdgeInsets.only(top: 2.0, bottom: 4.0),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFF7ED),
@@ -2236,7 +2243,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       required VoidCallback onTap,
       required Widget child,
       Color fillColor = Colors.white,
-      BorderSide outline = const BorderSide(color: SwimUiTokens.borderSubtle, width: 1.0),
+      BorderSide outline =
+          const BorderSide(color: SwimUiTokens.borderSubtle, width: 1.0),
       double? minHeight,
       EdgeInsetsGeometry padding =
           const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
@@ -2471,11 +2479,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       },
       style: FilledButton.styleFrom(
         elevation: on ? 2.0 : 0.0,
-        shadowColor:
-            on ? SwimUiTokens.accentBlue.withValues(alpha: 0.25) : Colors.transparent,
+        shadowColor: on
+            ? SwimUiTokens.accentBlue.withValues(alpha: 0.25)
+            : Colors.transparent,
         backgroundColor: muted
             ? SwimUiTokens.borderSubtle
-            : (on ? SwimUiTokens.accentBlue : SwimUiTokens.accentBlue.withValues(alpha: 0.92)),
+            : (on
+                ? SwimUiTokens.accentBlue
+                : SwimUiTokens.accentBlue.withValues(alpha: 0.92)),
         foregroundColor: muted ? SwimUiTokens.textMuted : Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0.0),
         minimumSize: const Size(72.0, _meetActionButtonHeight),
@@ -2522,11 +2533,13 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     );
     final remindMeLane = status == MeetPreferenceStatus.needEntry && hasAlert;
 
+    final showInlineDecisionRow = undecided && widget.groupedInSection;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (undecided)
+        if (showInlineDecisionRow)
           _buildNeedDecisionActionsRow(context)
         else if (!pendingEntriesLane && !skipped && !entered && !remindMeLane)
           _buildBinaryChoiceBand(
@@ -2802,7 +2815,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required bool isExplicitNotGoing,
     required bool suppressDisabledSignupButton,
   }) {
-    if (meetUndecided || isExplicitNotGoing) {
+    // In grouped list rows, undecided cards use the inline decision chips.
+    // In expanded/full-card mode, keep the primary CTA visible instead.
+    if ((meetUndecided && widget.groupedInSection) || isExplicitNotGoing) {
       return const SizedBox.shrink();
     }
     final hasUrl = doc.hasEntryPage;
@@ -3074,13 +3089,13 @@ class _ParentNoteEditorSheetState extends State<_ParentNoteEditorSheet> {
                   fillColor: SwimUiTokens.surfaceCard,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide:
-                        const BorderSide(color: SwimUiTokens.borderSubtle, width: 1.0),
+                    borderSide: const BorderSide(
+                        color: SwimUiTokens.borderSubtle, width: 1.0),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide:
-                        const BorderSide(color: SwimUiTokens.borderSubtle, width: 1.0),
+                    borderSide: const BorderSide(
+                        color: SwimUiTokens.borderSubtle, width: 1.0),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
