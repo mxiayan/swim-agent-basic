@@ -125,6 +125,11 @@ class MonitoredMeetsRecord extends FirestoreRecord {
 
   bool get hasEntryPage => entryUrl.isNotEmpty;
 
+  /// True only when an entry URL was explicitly stored in Firestore (as opposed
+  /// to being auto-constructed from the numeric meet ID).  Use this to decide
+  /// whether to deep-link directly into the meet entry page.
+  bool get hasExplicitEntryUrl => (_entryUrlRaw?.trim() ?? '').isNotEmpty;
+
   // ---- Legacy FlutterFlow UI aliases (m02 meet cards / lists) ----
   String get name => title;
   String get regionName => meetZone;

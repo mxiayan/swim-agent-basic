@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/meet_preferences_api.dart';
+import '/backend/push_notifications.dart';
 import '/backend/schema/meet_preferences_record.dart';
 import '/backend/backend.dart';
 import '/components/m01_activity/meet_detail_view.dart';
@@ -2683,6 +2684,26 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       value: notifyOn,
       onChanged: (next) async {
         if (next) {
+          final registered = await ensurePushNotificationsRegistered();
+          if (!registered) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Notifications are not enabled for this device yet.',
+                    style: GoogleFonts.sora(
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
+                  ),
+                  duration: const Duration(seconds: 3),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+            return;
+          }
           await _mergePref(
             hasAlert: true,
             status: MeetPreferenceStatus.needEntry,

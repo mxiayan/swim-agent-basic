@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +11,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'auth/firebase_auth/firebase_user_provider.dart';
 import 'backend/firebase/firebase_config.dart';
+import 'backend/push_notifications.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import 'flutter_flow/flutter_flow_util.dart';
@@ -19,6 +22,9 @@ void main() async {
   usePathUrlStrategy();
 
   await initFirebase();
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
   await FlutterFlowTheme.initialize();
 
@@ -83,9 +89,8 @@ class _MyAppState extends State<MyApp> {
     // the splash visible forever. Sync Firebase auth into the notifier.
     // Also set global [currentUser] — auth_util / loggedIn use it; it was only
     // updated by the unused swimAgentBasicFirebaseUserStream before.
-    final initialAuthUser =
-        SwimAgentBasicFirebaseUser.fromFirebaseUser(
-            FirebaseAuth.instance.currentUser);
+    final initialAuthUser = SwimAgentBasicFirebaseUser.fromFirebaseUser(
+        FirebaseAuth.instance.currentUser);
     currentUser = initialAuthUser;
     _appStateNotifier.update(initialAuthUser);
 
@@ -105,8 +110,7 @@ class _MyAppState extends State<MyApp> {
       }
     });
 
-    Future.delayed(
-        const Duration(milliseconds: 1000),
+    Future.delayed(const Duration(milliseconds: 1000),
         () => safeSetState(() => _appStateNotifier.stopShowingSplashImage()));
   }
 

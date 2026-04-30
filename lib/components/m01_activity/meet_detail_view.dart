@@ -4,6 +4,8 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/local/local_meet_media_store.dart';
 import '/backend/meet_preferences_api.dart';
+import '/components/m01_activity/fastswim_entry_browser.dart';
+import '/backend/push_notifications.dart';
 import '/backend/schema/entered_meets_record.dart';
 import '/backend/schema/meet_preferences_record.dart';
 import '/backend/schema/personal_meet_resources.dart';
@@ -134,6 +136,15 @@ class _MeetDetailViewState extends State<MeetDetailView>
   List<_MeetEventOption> _meetEventOptions = const <_MeetEventOption>[];
   List<String> _enteredEventOrderKeys = <String>[];
   final Map<String, Future<String?>> _videoThumbCache = {};
+  bool _syncingFastSwimEntries = false;
+  int? _syncedEventsCount;
+  String? _savedOrderToken;
+  // FastSwim's own numeric meet ID (e.g. "10796") — may differ from the
+  // Firestore document ID stored in widget.meetId.
+  String? _fastSwimMeetId;
+  // Full JSON response body captured from the WebView — used directly for
+  // sync so we never need an unauthenticated Dart HTTP call.
+  String? _cachedFastSwimResponse;
 
   static const String _locationSourceUserVerified = 'user_verified';
 
@@ -768,6 +779,22 @@ class _MeetDetailViewState extends State<MeetDetailView>
     }
     setState(() => _savingDecision = true);
     try {
+      if (enabled) {
+        final registered = await ensurePushNotificationsRegistered();
+        if (!registered) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Notifications are not enabled for this device yet.',
+                ),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+          return;
+        }
+      }
       await setMeetStatus(
         currentUserUid,
         widget.meetId,
@@ -834,43 +861,78 @@ class _MeetDetailViewState extends State<MeetDetailView>
     if (_savingDecision || currentUserUid.isEmpty) {
       return;
     }
+
+    final entryUrl = _entryUrl;
+    if (entryUrl.isEmpty) return;
+
     setState(() => _savingDecision = true);
     try {
-      if (_monitoredMeet != null) {
-        final opened = await startEntryInBrowser(
-          currentUserUid,
-          _monitoredMeet!,
-          notes: _noteController.text.trim(),
-        );
-        if (opened) {
-          _pendingEntryPromptMeetId = widget.meetId;
-          setState(() => _statusOverride = MeetPreferenceStatus.needEntry);
-          return;
-        }
-      }
-      if (_entryUrl.isNotEmpty) {
-        await setMeetStatus(
-          currentUserUid,
-          widget.meetId,
-          status: MeetPreferenceStatus.needEntry,
-          skipSelected: false,
-          hasAlert: false,
-          isHidden: false,
-          pendingEntryConfirmation: true,
-          notes: _noteController.text.trim(),
-          extra: <String, dynamic>{
+      // Save Firestore status before opening so the "needEntry" card is shown
+      // immediately when the user returns to this screen.
+      final existing =
+          await getMeetPreferenceOnce(currentUserUid, widget.meetId);
+      await setMeetStatus(
+        currentUserUid,
+        widget.meetId,
+        status: MeetPreferenceStatus.needEntry,
+        skipSelected: false,
+        hasAlert: false,
+        isHidden: false,
+        pendingEntryConfirmation: true,
+        notes: _noteController.text.trim(),
+        extra: <String, dynamic>{
+          if (existing == null)
             'entry_started_at': FieldValue.serverTimestamp(),
-            'entry_started_from_app': true,
-            'last_opened_entry_url_at': FieldValue.serverTimestamp(),
-          },
-        );
-        _pendingEntryPromptMeetId = widget.meetId;
-        await launchURL(_entryUrl);
-      }
+          'entry_started_from_app': true,
+          'last_opened_entry_url_at': FieldValue.serverTimestamp(),
+        },
+      );
+      _pendingEntryPromptMeetId = widget.meetId;
+      setState(() => _statusOverride = MeetPreferenceStatus.needEntry);
     } finally {
-      if (mounted) {
-        setState(() => _savingDecision = false);
-      }
+      if (mounted) setState(() => _savingDecision = false);
+    }
+
+    if (!mounted) return;
+
+    // Open FastSwim in an in-app browser.  The browser intercepts every
+    // network request and automatically extracts the orderToken + FastSwim
+    // meet ID the moment FastSwim calls its own API — no user action required.
+    final result = await Navigator.of(context).push<FastSwimCaptureResult?>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => FastSwimEntryBrowser(
+          entryUrl: entryUrl,
+          firestoreMeetId: widget.meetId,
+          uid: currentUserUid,
+          onCaptured: (r) {
+            if (mounted) {
+              setState(() {
+                _savedOrderToken = r.orderToken;
+                if (r.fastSwimMeetId.isNotEmpty) {
+                  _fastSwimMeetId = r.fastSwimMeetId;
+                }
+                if (r.responseBody.isNotEmpty) {
+                  _cachedFastSwimResponse = r.responseBody;
+                }
+              });
+            }
+          },
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (result != null) {
+      setState(() {
+        _savedOrderToken = result.orderToken;
+        if (result.fastSwimMeetId.isNotEmpty) {
+          _fastSwimMeetId = result.fastSwimMeetId;
+        }
+        if (result.responseBody.isNotEmpty) {
+          _cachedFastSwimResponse = result.responseBody;
+        }
+      });
     }
   }
 
@@ -1214,6 +1276,38 @@ class _MeetDetailViewState extends State<MeetDetailView>
                   ),
                 ),
                 const SizedBox(height: 8.0),
+                // After the user returns from FastSwim, they can sync their
+                // entered events directly — this also marks the meet as entered.
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _syncingFastSwimEntries
+                        ? null
+                        : _syncFastSwimEntries,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF166534),
+                      side: const BorderSide(color: Color(0xFF86EFAC)),
+                      backgroundColor: const Color(0xFFF0FDF4),
+                      padding: const EdgeInsets.symmetric(vertical: 11.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(11.0),
+                      ),
+                    ),
+                    icon: _syncingFastSwimEntries
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_download_rounded, size: 18),
+                    label: Text(
+                      _syncingFastSwimEntries
+                          ? 'Syncing…'
+                          : 'Sync my FastSwim entries',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8.0),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
@@ -1394,6 +1488,19 @@ class _MeetDetailViewState extends State<MeetDetailView>
           .doc(widget.meetId)
           .get();
       final data = snap.data() ?? <String, dynamic>{};
+
+      // Cache the stored order token and FastSwim meet ID so repeat syncs
+      // are fully automatic with no user input.
+      final storedToken = (data['order_token'] as String? ?? '').trim();
+      final storedFsMeetId =
+          (data['fastswim_meet_id'] as String? ?? '').trim();
+      if ((storedToken.isNotEmpty || storedFsMeetId.isNotEmpty) && mounted) {
+        setState(() {
+          if (storedToken.isNotEmpty) _savedOrderToken = storedToken;
+          if (storedFsMeetId.isNotEmpty) _fastSwimMeetId = storedFsMeetId;
+        });
+      }
+
       final candidates = <String>[
         'events',
         'event_list',
@@ -1426,13 +1533,36 @@ class _MeetDetailViewState extends State<MeetDetailView>
           if (label.isEmpty) {
             continue;
           }
+          // `strokeCode` is what the FastSwim sync saves; `stroke` is the
+          // legacy field name for manually added events.
+          final rawStroke =
+              (m['stroke'] ?? m['strokeCode'] ?? '').toString().trim();
+          final stroke = rawStroke.length == 1
+              ? _strokeName(rawStroke) // convert numeric code → name
+              : rawStroke;
+
+          // entryCourse: "LCM" = long course, "SCY"/"SCM" = short course.
+          final entryCourse =
+              (m['entryCourse'] ?? m['entry_course'] ?? '').toString().trim().toUpperCase();
+          final isLongCourse = m['is_long_course'] as bool? ??
+              entryCourse == 'LCM' ||
+              entryCourse == 'LM';
+
+          final entryTimeFormatted =
+              (m['entryTimeFormatted'] ?? m['entry_time_formatted'] ?? '')
+                  .toString()
+                  .trim();
+          final displayLabel = entryTimeFormatted.isNotEmpty
+              ? '$label  ($entryTimeFormatted)'
+              : label;
+
           out.add(
             _MeetEventOption(
-              label: label,
-              stroke: (m['stroke'] ?? '').toString().trim(),
+              label: displayLabel,
+              stroke: stroke,
               distance: (m['distance'] as num?)?.toInt() ?? 0,
               unit: (m['unit'] ?? 'Y').toString().trim().toUpperCase(),
-              isLongCourse: m['is_long_course'] as bool? ?? false,
+              isLongCourse: isLongCourse,
               heat: (m['heat'] ?? '').toString().trim(),
               lane: (m['lane'] ?? '').toString().trim(),
             ),
@@ -1444,6 +1574,238 @@ class _MeetDetailViewState extends State<MeetDetailView>
       return const <_MeetEventOption>[];
     }
   }
+
+  // ── FastSwim entry sync ─────────────────────────────────────────────────
+
+  // USA Swimming SDIF stroke codes (used by FastSwim):
+  // 1=Freestyle, 2=Backstroke, 3=Breaststroke, 4=Butterfly, 5=IM
+  static String _strokeName(String? code) {
+    switch (code) {
+      case '1':
+        return 'Freestyle';
+      case '2':
+        return 'Backstroke';
+      case '3':
+        return 'Breaststroke';
+      case '4':
+        return 'Butterfly';
+      case '5':
+        return 'IM';
+      default:
+        return code ?? '';
+    }
+  }
+
+  static String _formatEventLabel(Map<String, dynamic> ev, String sessionName) {
+    final num = ev['eventNumber'] ?? '';
+    final dist = ev['distance'] ?? '';
+    final stroke = _strokeName(ev['strokeCode']?.toString());
+    return 'Event $num – $dist ${stroke.isEmpty ? '' : stroke} ($sessionName)'.trim();
+  }
+
+  static String _formatEntryTime(int ms) {
+    final totalSec = ms ~/ 1000;
+    final frac = (ms % 1000) ~/ 10;
+    if (totalSec < 60) {
+      return '$totalSec.${frac.toString().padLeft(2, '0')}';
+    }
+    final m = totalSec ~/ 60;
+    final s = totalSec % 60;
+    return '$m:${s.toString().padLeft(2, '0')}.${frac.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _syncFastSwimEntries() async {
+    if (currentUserUid.isEmpty) return;
+
+    final cachedToken = _savedOrderToken?.trim() ?? '';
+    if (cachedToken.isEmpty) {
+      // Token not yet captured — the user needs to open FastSwim via the
+      // in-app browser so the token can be intercepted automatically.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Open FastSwim first — your entries will sync automatically '
+            'when you return.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Use the FastSwim numeric meet ID captured from the intercepted URL.
+    // Fall back to the monitored meet's meetId field (if it is numeric), then
+    // to widget.meetId as a last resort.
+    setState(() => _syncingFastSwimEntries = true);
+    try {
+      final cached = _cachedFastSwimResponse?.trim() ?? '';
+      if (cached.isNotEmpty) {
+        // Use the response body captured by the WebView — no HTTP call needed,
+        // and no 401 risk because the browser already fetched it authenticated.
+        await _processFastSwimResponseBody(cached, cachedToken, widget.meetId);
+      } else {
+        // Fallback: attempt a direct HTTP call.  May fail with 401 if
+        // FastSwim requires session cookies.  If so the user should re-open
+        // FastSwim via the in-app browser to refresh the cached response.
+        final fsMeetId = _fastSwimMeetId?.trim().isNotEmpty == true
+            ? _fastSwimMeetId!.trim()
+            : (_monitoredMeet?.meetId.trim() ?? '').isNotEmpty &&
+                    RegExp(r'^\d+$').hasMatch(_monitoredMeet!.meetId.trim())
+                ? _monitoredMeet!.meetId.trim()
+                : widget.meetId;
+        final apiUrl =
+            'https://api2.fastswims.com/api/v1/meets/$fsMeetId/enter?orderToken=$cachedToken';
+        await _doSyncFastSwimEntries(apiUrl, widget.meetId);
+      }
+    } finally {
+      if (mounted) setState(() => _syncingFastSwimEntries = false);
+    }
+  }
+
+  /// Fetches from the FastSwim API then delegates to [_parseAndSaveEvents].
+  Future<void> _doSyncFastSwimEntries(String apiUrl, String meetId) async {
+    String orderToken = '';
+    try {
+      orderToken = Uri.parse(apiUrl).queryParameters['orderToken'] ?? '';
+    } catch (_) {}
+
+    final response = await http.get(Uri.parse(apiUrl));
+    if (response.statusCode != 200) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'FastSwim request failed: ${response.statusCode}')),
+      );
+      return;
+    }
+    await _parseAndSaveEvents(
+        response.body, orderToken, meetId, apiUrl: apiUrl);
+  }
+
+  /// Uses the response body captured by the in-app WebView — no HTTP call,
+  /// no auth issues.
+  Future<void> _processFastSwimResponseBody(
+      String jsonBody, String orderToken, String meetId) async {
+    await _parseAndSaveEvents(jsonBody, orderToken, meetId);
+  }
+
+  /// Shared parse-and-persist logic used by both sync paths.
+  Future<void> _parseAndSaveEvents(
+    String jsonBody,
+    String orderToken,
+    String meetId, {
+    String apiUrl = '',
+  }) async {
+    Map<String, dynamic> body;
+    try {
+      body = jsonDecode(jsonBody) as Map<String, dynamic>;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not parse FastSwim response.')),
+      );
+      return;
+    }
+
+    final meetData = body['meet'] as Map<String, dynamic>?;
+    final sessions =
+        (meetData?['meetSessions'] as List?)?.cast<Map<String, dynamic>>() ??
+            [];
+
+    final List<Map<String, dynamic>> myEvents = [];
+    for (final session in sessions) {
+      final sessionName = session['name'] as String? ?? 'Session';
+      final availableEvents =
+          (session['availableEvents'] as List?)?.cast<Map<String, dynamic>>() ??
+              [];
+      for (final ev in availableEvents) {
+        final entries =
+            (ev['enteredIndividualEvents'] as List?)?.cast<Map<String, dynamic>>() ??
+                [];
+        for (final entry in entries) {
+          if (entry['enteredByMe'] == true) {
+            myEvents.add({
+              'eventId': ev['id'],
+              'eventNumber': ev['eventNumber'],
+              'distance': ev['distance'],
+              'strokeCode': ev['strokeCode'],
+              'entryCourse': entry['entryCourse'],
+              'entryTimeMs': entry['entryTimeMs'],
+              'entryId': entry['id'],
+              'swimmerId': entry['swimmerId'],
+              'sessionName': sessionName,
+              'label': _formatEventLabel(ev, sessionName),
+              'entryTimeFormatted': _formatEntryTime(
+                  (entry['entryTimeMs'] as num?)?.toInt() ?? 0),
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    // Extract FastSwim numeric meet ID from URL path if available.
+    String fsMeetIdFromUrl = _fastSwimMeetId?.trim() ?? '';
+    if (fsMeetIdFromUrl.isEmpty && apiUrl.isNotEmpty) {
+      try {
+        final match =
+            RegExp(r'/meets/(\d+)/').firstMatch(Uri.parse(apiUrl).path);
+        fsMeetIdFromUrl = match?.group(1) ?? '';
+      } catch (_) {}
+    }
+
+    final docRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUserUid)
+        .collection('entered_meets')
+        .doc(meetId);
+
+    await docRef.set({
+      'meet_id': meetId,
+      if (fsMeetIdFromUrl.isNotEmpty) 'fastswim_meet_id': fsMeetIdFromUrl,
+      'entered_at': FieldValue.serverTimestamp(),
+      'events': myEvents,
+      'events_count': myEvents.length,
+      if (orderToken.isNotEmpty) 'order_token': orderToken,
+    }, SetOptions(merge: true));
+
+    await setMeetStatus(
+      currentUserUid,
+      meetId,
+      status: MeetPreferenceStatus.entered,
+      extra: {'events_entered': myEvents.length},
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _syncedEventsCount = myEvents.length;
+      if (orderToken.isNotEmpty) _savedOrderToken = orderToken;
+      if (fsMeetIdFromUrl.isNotEmpty) _fastSwimMeetId = fsMeetIdFromUrl;
+      _statusOverride = MeetPreferenceStatus.entered;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          myEvents.isEmpty
+              ? 'No events with "enteredByMe" found. Check your entry on FastSwim.'
+              : 'Saved ${myEvents.length} entered event${myEvents.length == 1 ? '' : 's'}!',
+        ),
+      ),
+    );
+
+    // Refresh the Entered Events section with the newly saved data.
+    await _reloadMeetEventOptions();
+  }
+
+  Future<void> _reloadMeetEventOptions() async {
+    if (!mounted || currentUserUid.isEmpty) return;
+    final options = await _loadMeetEventOptions();
+    if (!mounted) return;
+    setState(() => _meetEventOptions = options);
+  }
+
+  // ── Swim video ───────────────────────────────────────────────────────────
 
   Future<void> _addSwimVideo() async {
     if (currentUserUid.isEmpty || _savingSwimVideo) {
@@ -1565,7 +1927,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
                 ),
               ),
               const SizedBox(height: 10.0),
-              if (_meetEventOptions.isNotEmpty) ...[
+              if (_meetEventOptions.isNotEmpty && seed == null) ...[
                 Text(
                   'Event mapping',
                   style: GoogleFonts.sora(
@@ -2209,7 +2571,24 @@ class _MeetDetailViewState extends State<MeetDetailView>
         continue;
       }
       seen.add(key);
-      out.add(event);
+      // Override heat/lane from the locally-saved video entry so edits made
+      // in the sheet are reflected immediately in the list.
+      final video = _videoForMeetEvent(event);
+      final heat =
+          (video?.heat.trim().isNotEmpty == true) ? video!.heat.trim() : event.heat;
+      final lane =
+          (video?.lane.trim().isNotEmpty == true) ? video!.lane.trim() : event.lane;
+      out.add(heat == event.heat && lane == event.lane
+          ? event
+          : _MeetEventOption(
+              label: event.label,
+              stroke: event.stroke,
+              distance: event.distance,
+              unit: event.unit,
+              isLongCourse: event.isLongCourse,
+              heat: heat,
+              lane: lane,
+            ));
     }
     for (final video in _swimVideos) {
       var label = video.eventLabel.trim();
@@ -2266,9 +2645,23 @@ class _MeetDetailViewState extends State<MeetDetailView>
       if (ar != br) {
         return ar.compareTo(br);
       }
-      return 0;
+      // Both events have no custom order — sort by event number from label
+      // (e.g. "Event 3 – 100 Freestyle" → 3).
+      return _eventNumberFromLabel(a.label)
+          .compareTo(_eventNumberFromLabel(b.label));
     });
     return out;
+  }
+
+  /// Extracts the numeric event number from a label like "Event 3 – 100 Free".
+  /// Returns [double.maxFinite.toInt()] when no number is found so unlabelled
+  /// events sort to the end.
+  static int _eventNumberFromLabel(String label) {
+    final m = RegExp(r'Event\s+(\d+)', caseSensitive: false).firstMatch(label);
+    if (m != null) {
+      return int.tryParse(m.group(1)!) ?? (1 << 20);
+    }
+    return 1 << 20;
   }
 
   Future<_MeetEventOption?> _openCustomEventBuilder({
@@ -3544,7 +3937,10 @@ class _MeetDetailViewState extends State<MeetDetailView>
                         children: [
                           IconButton(
                             onPressed: () => Navigator.of(context).maybePop(),
-                            icon: const Icon(Icons.arrow_back_rounded),
+                            icon: const Icon(
+                              Icons.arrow_back_rounded,
+                              color: Color(0xFF0F172A),
+                            ),
                             tooltip: 'Back',
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
@@ -3733,6 +4129,64 @@ class _MeetDetailViewState extends State<MeetDetailView>
               child: Text(
                 canOpenSignup ? 'View Entries' : 'Entries On File',
                 style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          // ── Save Entered Events ──────────────────────────────────────────
+          Material(
+            color: const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(10.0),
+            child: InkWell(
+              onTap: _syncingFastSwimEntries ? null : _syncFastSwimEntries,
+              borderRadius: BorderRadius.circular(10.0),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10.0, vertical: 9.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _syncingFastSwimEntries
+                                ? 'Syncing…'
+                                : 'Save Entered Events',
+                            style: GoogleFonts.sora(
+                              fontSize: 13.0,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF166534),
+                            ),
+                          ),
+                          const SizedBox(height: 2.0),
+                          Text(
+                            _syncedEventsCount != null
+                                ? '$_syncedEventsCount event${_syncedEventsCount == 1 ? '' : 's'} saved from FastSwim.'
+                                : 'Pull your entered events from FastSwim and save them here.',
+                            style: GoogleFonts.sora(
+                              fontSize: 11.0,
+                              color: const Color(0xFF15803D),
+                              height: 1.25,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_syncingFastSwimEntries)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      const Icon(
+                        Icons.cloud_download_rounded,
+                        size: 16.0,
+                        color: Color(0xFF15803D),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
