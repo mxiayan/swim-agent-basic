@@ -896,8 +896,8 @@ class _MeetDetailViewState extends State<MeetDetailView>
     if (!mounted) return;
 
     // Open FastSwim in an in-app browser.  The browser intercepts every
-    // network request and automatically extracts the orderToken + FastSwim
-    // meet ID the moment FastSwim calls its own API — no user action required.
+    // network request, captures the entry data, and shows a sync button
+    // directly on the browser screen — no need to return to the app first.
     final result = await Navigator.of(context).push<FastSwimCaptureResult?>(
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -905,18 +905,26 @@ class _MeetDetailViewState extends State<MeetDetailView>
           entryUrl: entryUrl,
           firestoreMeetId: widget.meetId,
           uid: currentUserUid,
+          hasExistingEvents: _meetEventOptions.isNotEmpty,
           onCaptured: (r) {
             if (mounted) {
               setState(() {
                 _savedOrderToken = r.orderToken;
-                if (r.fastSwimMeetId.isNotEmpty) {
-                  _fastSwimMeetId = r.fastSwimMeetId;
-                }
-                if (r.responseBody.isNotEmpty) {
-                  _cachedFastSwimResponse = r.responseBody;
-                }
+                if (r.fastSwimMeetId.isNotEmpty) _fastSwimMeetId = r.fastSwimMeetId;
+                if (r.responseBody.isNotEmpty) _cachedFastSwimResponse = r.responseBody;
               });
             }
+          },
+          onSync: (r) async {
+            // Update cached state first so _syncFastSwimEntries uses fresh data.
+            if (mounted) {
+              setState(() {
+                _savedOrderToken = r.orderToken;
+                if (r.fastSwimMeetId.isNotEmpty) _fastSwimMeetId = r.fastSwimMeetId;
+                if (r.responseBody.isNotEmpty) _cachedFastSwimResponse = r.responseBody;
+              });
+            }
+            await _syncFastSwimEntries();
           },
         ),
       ),
@@ -1273,38 +1281,6 @@ class _MeetDetailViewState extends State<MeetDetailView>
                     style: decisionStyle(selected: true, primary: true),
                     icon: const Icon(Icons.open_in_new_rounded, size: 18),
                     label: const Text('Open FastSwim'),
-                  ),
-                ),
-                const SizedBox(height: 8.0),
-                // After the user returns from FastSwim, they can sync their
-                // entered events directly — this also marks the meet as entered.
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _syncingFastSwimEntries
-                        ? null
-                        : _syncFastSwimEntries,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF166534),
-                      side: const BorderSide(color: Color(0xFF86EFAC)),
-                      backgroundColor: const Color(0xFFF0FDF4),
-                      padding: const EdgeInsets.symmetric(vertical: 11.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(11.0),
-                      ),
-                    ),
-                    icon: _syncingFastSwimEntries
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.cloud_download_rounded, size: 18),
-                    label: Text(
-                      _syncingFastSwimEntries
-                          ? 'Syncing…'
-                          : 'Sync my FastSwim entries',
-                    ),
                   ),
                 ),
                 const SizedBox(height: 8.0),
@@ -4133,63 +4109,6 @@ class _MeetDetailViewState extends State<MeetDetailView>
             ),
           ),
           const SizedBox(height: 8.0),
-          // ── Save Entered Events ──────────────────────────────────────────
-          Material(
-            color: const Color(0xFFF0FDF4),
-            borderRadius: BorderRadius.circular(10.0),
-            child: InkWell(
-              onTap: _syncingFastSwimEntries ? null : _syncFastSwimEntries,
-              borderRadius: BorderRadius.circular(10.0),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10.0, vertical: 9.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _syncingFastSwimEntries
-                                ? 'Syncing…'
-                                : 'Save Entered Events',
-                            style: GoogleFonts.sora(
-                              fontSize: 13.0,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF166534),
-                            ),
-                          ),
-                          const SizedBox(height: 2.0),
-                          Text(
-                            _syncedEventsCount != null
-                                ? '$_syncedEventsCount event${_syncedEventsCount == 1 ? '' : 's'} saved from FastSwim.'
-                                : 'Pull your entered events from FastSwim and save them here.',
-                            style: GoogleFonts.sora(
-                              fontSize: 11.0,
-                              color: const Color(0xFF15803D),
-                              height: 1.25,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_syncingFastSwimEntries)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      const Icon(
-                        Icons.cloud_download_rounded,
-                        size: 16.0,
-                        color: Color(0xFF15803D),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
           const SizedBox(height: 10.0),
           Material(
             color: const Color(0xFFF8FAFC),

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Data returned when the in-app FastSwim browser captures an entry.
@@ -26,30 +27,30 @@ class FastSwimCaptureResult {
 
 /// Opens the FastSwim entry form in an in-app WebView.
 ///
-/// Injected JavaScript intercepts the `fetch` / `XMLHttpRequest` call that the
-/// FastSwim web-app makes to `api2.fastswims.com`.  It captures both the URL
-/// (giving us the `orderToken` and numeric meet ID) **and the full response
-/// body** (giving us the entered-event JSON — with authentication already
-/// applied by the browser).  This means no separate HTTP call from Dart is
-/// needed and 401 errors are avoided.
+/// JavaScript intercepts the FastSwim API response, then shows a persistent
+/// bottom bar with a "Sync events to app" / "Re-sync events" button so the
+/// user can save their entries without leaving the browser.
 class FastSwimEntryBrowser extends StatefulWidget {
   const FastSwimEntryBrowser({
     super.key,
     required this.entryUrl,
     required this.firestoreMeetId,
     required this.uid,
+    /// True when the user has previously saved events for this meet, so the
+    /// button label reads "Re-sync events" instead of "Sync events to app".
+    this.hasExistingEvents = false,
     this.onCaptured,
+    /// Called when the user taps the sync button.  The caller is responsible
+    /// for parsing + persisting the events and returning when done.
+    this.onSync,
   });
 
   final String entryUrl;
-
-  /// Firestore document ID — used only for persisting to
-  /// `entered_meets/{firestoreMeetId}`.
   final String firestoreMeetId;
   final String uid;
-
-  /// Called as soon as the token + response body are captured.
+  final bool hasExistingEvents;
   final void Function(FastSwimCaptureResult result)? onCaptured;
+  final Future<void> Function(FastSwimCaptureResult result)? onSync;
 
   @override
   State<FastSwimEntryBrowser> createState() => _FastSwimEntryBrowserState();
@@ -59,9 +60,9 @@ class _FastSwimEntryBrowserState extends State<FastSwimEntryBrowser> {
   late final WebViewController _controller;
   bool _loading = true;
   FastSwimCaptureResult? _captured;
+  bool _syncing = false;
+  bool _synced = false;
 
-  // Intercepts fetch / XHR calls to the FastSwim entry API.
-  // Sends { token, meetId, responseBody } back to Flutter via TokenChannel.
   static const String _interceptJs = r'''
 (function() {
   const TARGET_HOST = 'api2.fastswims.com';
@@ -87,7 +88,6 @@ class _FastSwimEntryBrowserState extends State<FastSwimEntryBrowser> {
     }
   }
 
-  // --- Intercept fetch (captures authenticated response) ---
   const origFetch = window.fetch.bind(window);
   window.fetch = function(input, init) {
     const url = (typeof input === 'string') ? input : (input && input.url) || '';
@@ -102,15 +102,12 @@ class _FastSwimEntryBrowserState extends State<FastSwimEntryBrowser> {
     return origFetch(input, init);
   };
 
-  // --- Intercept XMLHttpRequest (captures authenticated response) ---
   const origOpen = XMLHttpRequest.prototype.open;
   const origSend = XMLHttpRequest.prototype.send;
-
   XMLHttpRequest.prototype.open = function(method, url) {
     this._fsInfo = extractInfo(typeof url === 'string' ? url : '');
     return origOpen.apply(this, arguments);
   };
-
   XMLHttpRequest.prototype.send = function() {
     if (this._fsInfo) {
       const info = this._fsInfo;
@@ -128,10 +125,7 @@ class _FastSwimEntryBrowserState extends State<FastSwimEntryBrowser> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..addJavaScriptChannel(
-        'TokenChannel',
-        onMessageReceived: _onMessage,
-      )
+      ..addJavaScriptChannel('TokenChannel', onMessageReceived: _onMessage)
       ..setNavigationDelegate(NavigationDelegate(
         onPageStarted: (_) {
           if (mounted) setState(() => _loading = true);
@@ -152,15 +146,18 @@ class _FastSwimEntryBrowserState extends State<FastSwimEntryBrowser> {
       final body = (json['responseBody'] as String? ?? '').trim();
       if (token.isEmpty) return;
       if (_captured?.orderToken == token && _captured?.responseBody == body) {
-        return; // duplicate
+        return;
       }
-
       final result = FastSwimCaptureResult(
         orderToken: token,
         fastSwimMeetId: meetId,
         responseBody: body,
       );
-      setState(() => _captured = result);
+      // New capture invalidates any previous synced state.
+      setState(() {
+        _captured = result;
+        _synced = false;
+      });
       _saveCapture(result);
       widget.onCaptured?.call(result);
     } catch (_) {}
@@ -183,9 +180,23 @@ class _FastSwimEntryBrowserState extends State<FastSwimEntryBrowser> {
     } catch (_) {}
   }
 
+  Future<void> _handleSync() async {
+    final captured = _captured;
+    if (captured == null || _syncing || widget.onSync == null) return;
+    setState(() => _syncing = true);
+    try {
+      await widget.onSync!(captured);
+      if (mounted) setState(() => _synced = true);
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final captured = _captured;
+    final isResync = widget.hasExistingEvents || _synced;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
@@ -198,27 +209,10 @@ class _FastSwimEntryBrowserState extends State<FastSwimEntryBrowser> {
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.of(context).pop(captured),
         ),
-        actions: [
-          if (captured != null)
-            const Padding(
-              padding: EdgeInsets.only(right: 12.0),
-              child: Row(
-                children: [
-                  Icon(Icons.check_circle_rounded,
-                      color: Color(0xFF4ADE80), size: 18),
-                  SizedBox(width: 4),
-                  Text(
-                    'Ready to sync',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF4ADE80)),
-                  ),
-                ],
-              ),
-            ),
-        ],
       ),
       body: Column(
         children: [
-          // Info banner sits above the WebView — never covers page content.
+          // Info banner: shown before capture, replaced by sync bar after.
           if (captured == null && !_loading)
             Material(
               color: const Color(0xFF1E3A5F),
@@ -242,6 +236,76 @@ class _FastSwimEntryBrowserState extends State<FastSwimEntryBrowser> {
                 ),
               ),
             ),
+
+          // Sync bar: shown once the entry data has been captured.
+          if (captured != null)
+            Material(
+              color: _synced
+                  ? const Color(0xFF14532D)
+                  : const Color(0xFF0F172A),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14.0, vertical: 10.0),
+                child: Row(
+                  children: [
+                    Icon(
+                      _synced
+                          ? Icons.check_circle_rounded
+                          : Icons.cloud_download_rounded,
+                      color: _synced
+                          ? const Color(0xFF4ADE80)
+                          : const Color(0xFF93C5FD),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _synced
+                            ? 'Events synced to app!'
+                            : isResync
+                                ? 'Entry data ready — tap to update your events.'
+                                : 'Entry data ready — tap to save your events.',
+                        style: GoogleFonts.sora(
+                          fontSize: 12,
+                          color: _synced
+                              ? const Color(0xFF4ADE80)
+                              : const Color(0xFFBFDBFE),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _synced
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        textStyle: GoogleFonts.sora(
+                            fontSize: 12, fontWeight: FontWeight.w600),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: _syncing ? null : _handleSync,
+                      child: _syncing
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : Text(isResync && !_synced
+                              ? 'Re-sync events'
+                              : _synced
+                                  ? 'Sync again'
+                                  : 'Sync events to app'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           Expanded(
             child: Stack(
               children: [
