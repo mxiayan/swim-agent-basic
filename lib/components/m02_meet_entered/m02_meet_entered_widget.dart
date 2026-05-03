@@ -78,6 +78,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   static const Color _badgeNeedEntryText = Color(0xFFB45309);
   static const Color _badgeEnteredBg = Color(0xFFF0FDF4);
   static const Color _badgeEnteredText = Color(0xFF15803D);
+  static const Color _badgeCompletedBg = Color(0xFFEEF2FF);
+  static const Color _badgeCompletedText = Color(0xFF4338CA);
+  static const Color _badgeCompletedBorder = Color(0xFFC7D2FE);
   static const Color _badgeNotGoingBg = Color(0xFFFEF2F2);
   static const Color _badgeNotGoingText = Color(0xFFB91C1C);
 
@@ -1079,12 +1082,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         hasAlert: hHasAlert,
         skipSelected: hSkipSelected,
       );
+      final hIsPastMeet = _isMeetPast(doc);
       final hTagLabel = _meetStatusTagLabel(
         hasPreference: hHasPreference,
         status: hStatus,
         entered: hEntered,
         hasAlert: hHasAlert,
         skipSelected: hSkipSelected,
+        isPastMeet: hIsPastMeet,
       );
       final metaLine = _collapsedMeetMetadataLine(doc, pref);
       final hiddenCard = widget.groupedInSection
@@ -1107,6 +1112,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                           label: hTagLabel,
                           status: hBadgeStatus,
                           compact: true,
+                          completedMeet:
+                              hEntered && hIsPastMeet,
                         ),
                       ),
                       const SizedBox(width: 10.0),
@@ -1238,6 +1245,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                           entered: hEntered,
                           hasAlert: hHasAlert,
                           skipSelected: hSkipSelected,
+                          isPastMeet: hIsPastMeet,
                         ),
                       ),
                       PositionedDirectional(
@@ -1248,6 +1256,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                           label: hTagLabel,
                           status: hBadgeStatus,
                           compact: true,
+                          completedMeet:
+                              hEntered && hIsPastMeet,
                         ),
                       ),
                     ],
@@ -1271,6 +1281,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final hasAlert = pref?.hasAlert ?? false;
     final entered = status == MeetPreferenceStatus.entered;
     final skipSelected = pref?.skipSelected ?? false;
+    final isPastMeet = _isMeetPast(doc);
     final wantsToEnter = entered || status == MeetPreferenceStatus.needEntry;
     final pendingEntriesLane = _meetCardIsPendingEntriesLane(
       status: status,
@@ -1308,6 +1319,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       entered: entered,
       hasAlert: hasAlert,
       skipSelected: skipSelected,
+      isPastMeet: isPastMeet,
     );
     final urgency = _deadlineUrgency(doc, entered);
     final pulseEligible = !entered &&
@@ -1538,6 +1550,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               entered: entered,
               hasAlert: hasAlert,
               skipSelected: skipSelected,
+              isPastMeet: isPastMeet,
             ),
             ..._buildMeetCardActionOverlay(
               context,
@@ -1704,6 +1717,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required bool entered,
     required bool hasAlert,
     required bool skipSelected,
+    required bool isPastMeet,
   }) {
     final canonical = _canonicalBadgeStatus(
       hasPreference: hasPreference,
@@ -1712,6 +1726,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       hasAlert: hasAlert,
       skipSelected: skipSelected,
     );
+    if (canonical == MeetPreferenceStatus.entered && isPastMeet) {
+      return _badgeCompletedText;
+    }
     return _badgeTextColor(canonical);
   }
 
@@ -1928,18 +1945,28 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     return null;
   }
 
+  /// Returns true when the meet's end date (fallback: start date) is before today's midnight.
+  static bool _isMeetPast(MonitoredMeetsRecord m) {
+    final meetEnd = m.endDate ?? m.startDate;
+    if (meetEnd == null) return false;
+    final now = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day);
+    return meetEnd.isBefore(midnight);
+  }
+
   String _meetStatusTagLabel({
     required bool hasPreference,
     required MeetPreferenceStatus status,
     required bool entered,
     required bool hasAlert,
     required bool skipSelected,
+    bool isPastMeet = false,
   }) {
     if (!hasPreference) {
       return 'Not decided';
     }
     if (entered) {
-      return 'Entered';
+      return isPastMeet ? 'Completed' : 'Entered';
     }
     if (status == MeetPreferenceStatus.needEntry) {
       return 'Entry needed';
@@ -1956,24 +1983,34 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required String label,
     required MeetPreferenceStatus status,
     required bool compact,
+    bool completedMeet = false,
   }) {
     final padH = compact ? 7.0 : 8.0;
     final padV = compact ? 3.0 : 4.0;
     final fontSize = compact ? 9.0 : 10.0;
-    final fill = _badgeBackgroundColor(status);
-    final textColor = _badgeTextColor(status);
-    final icon = switch (status) {
-      MeetPreferenceStatus.newStatus => Icons.help_outline_rounded,
-      MeetPreferenceStatus.needEntry => Icons.schedule_rounded,
-      MeetPreferenceStatus.entered => Icons.check_circle_rounded,
-      MeetPreferenceStatus.notGoing => Icons.close_rounded,
-    };
+    final fill = completedMeet
+        ? _badgeCompletedBg
+        : _badgeBackgroundColor(status);
+    final textColor = completedMeet
+        ? _badgeCompletedText
+        : _badgeTextColor(status);
+    final borderColor = completedMeet
+        ? _badgeCompletedBorder
+        : _badgePillBorderColor(status);
+    final icon = completedMeet
+        ? Icons.flag_rounded
+        : switch (status) {
+            MeetPreferenceStatus.newStatus => Icons.help_outline_rounded,
+            MeetPreferenceStatus.needEntry => Icons.schedule_rounded,
+            MeetPreferenceStatus.entered => Icons.check_circle_rounded,
+            MeetPreferenceStatus.notGoing => Icons.close_rounded,
+          };
     return DecoratedBox(
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(999.0),
         border: Border.all(
-          color: _badgePillBorderColor(status),
+          color: borderColor,
           width: 0.5,
         ),
       ),
@@ -2047,6 +2084,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     required bool entered,
     required bool hasAlert,
     required bool skipSelected,
+    bool isPastMeet = false,
   }) {
     final badge = _buildMeetPreferenceStatusBadge(
       context,
@@ -2070,6 +2108,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       entered: entered,
       hasAlert: hasAlert,
       skipSelected: skipSelected,
+      isPastMeet: isPastMeet,
     );
     const half = _cornerStateBadgeSize / 2.0;
     final hasDisk = badge != null;
@@ -2091,6 +2130,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
               label: tagLabel,
               status: badgeStatus,
               compact: false,
+              completedMeet: entered && isPastMeet,
             ),
           ],
         ),

@@ -102,6 +102,9 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     if (app.meetShowNotGoingInList) {
       return true;
     }
+    if (app.meetShowPastEvents) {
+      return true;
+    }
     return false;
   }
 
@@ -166,6 +169,21 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       return true;
     }
     return !MeetListQuickFilter.isNotGoingCategory(prefs[m.reference.id]);
+  }
+
+  /// Returns false for past meets unless the user has enabled "Show Past Meets".
+  /// A meet is past when its end date (or start date) is before today's midnight.
+  bool _matchesPastFilter(MonitoredMeetsRecord m, FFAppState app) {
+    if (app.meetShowPastEvents) {
+      return true;
+    }
+    final today = DateTime.now();
+    final midnight = DateTime(today.year, today.month, today.day);
+    final meetEnd = m.endDate ?? m.startDate;
+    if (meetEnd == null) {
+      return true;
+    }
+    return !meetEnd.isBefore(midnight);
   }
 
   /// Optional my-list filters from the tune menu (pending / entered / not going / remind).
@@ -791,6 +809,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         .where(_matchesClassFilters)
                         .where((m) => _matchesSearch(m))
                         .where((m) => _matchesNotGoingVisibility(m, prefs, app))
+                        .where((m) => _matchesPastFilter(m, app))
                         .where((m) => _matchesMyMeetListFilters(m, prefs, app))
                         .toList()
                       ..sort((a, b) => _sortDate(a).compareTo(_sortDate(b)));
@@ -1298,6 +1317,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                           app.meetFilterNotGoing = false;
                           app.meetFilterRemindMe = false;
                           app.meetShowNotGoingInList = false;
+                          app.meetShowPastEvents = false;
                           app.meetListChipFilter = 0;
                         });
                         persist();
@@ -1453,6 +1473,27 @@ class _MeetRefineSheetContent extends StatelessWidget {
                   return;
                 }
                 app.update(() => app.meetShowNotGoingInList = !v);
+                persist();
+              },
+              activeColor: SwimUiTokens.accentBlueSheet,
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Show Past Meets',
+                style: GoogleFonts.sora(
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.w500,
+                  color: SwimUiTokens.textBannerTitle,
+                ),
+              ),
+              value: app.meetShowPastEvents,
+              onChanged: (v) {
+                if (v == null) {
+                  return;
+                }
+                app.update(() => app.meetShowPastEvents = v);
                 persist();
               },
               activeColor: SwimUiTokens.accentBlueSheet,

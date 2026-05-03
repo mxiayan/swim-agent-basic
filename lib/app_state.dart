@@ -177,6 +177,7 @@ class FFAppState extends ChangeNotifier {
   static const _kMeetsShowAllZones = 'ff_meetsShowAllZones';
   static const _kMeetShowNotGoingInList = 'ff_meetShowNotGoingInList';
   static const _kMeetListChipFilter = 'ff_meetListChipFilter';
+  static const _kMeetShowPastEvents = 'ff_meetShowPastEvents';
 
   Future initializePersistedState() async {
     final prefs = await SharedPreferences.getInstance();
@@ -201,6 +202,7 @@ class FFAppState extends ChangeNotifier {
     _meetShowNotGoingInList = prefs.getBool(_kMeetShowNotGoingInList) ?? false;
     final rawChip = prefs.getInt(_kMeetListChipFilter) ?? 0;
     _meetListChipFilter = rawChip < 0 ? 0 : (rawChip > 3 ? 3 : rawChip);
+    _meetShowPastEvents = prefs.getBool(_kMeetShowPastEvents) ?? false;
     notifyListeners();
     await persistSwimmerContext();
     await persistMeetUiState();
@@ -227,6 +229,7 @@ class FFAppState extends ChangeNotifier {
     await prefs.setBool(_kMeetsShowAllZones, _meetsShowAllZones);
     await prefs.setBool(_kMeetShowNotGoingInList, _meetShowNotGoingInList);
     await prefs.setInt(_kMeetListChipFilter, _meetListChipFilter);
+    await prefs.setBool(_kMeetShowPastEvents, _meetShowPastEvents);
   }
 
   /// Call after sign-out so Home / Meets do not show stale data.
@@ -370,6 +373,13 @@ class FFAppState extends ChangeNotifier {
   bool get meetShowNotGoingInList => _meetShowNotGoingInList;
   set meetShowNotGoingInList(bool value) {
     _meetShowNotGoingInList = value;
+  }
+
+  /// When false (default), past meets are hidden from both tabs.
+  bool _meetShowPastEvents = false;
+  bool get meetShowPastEvents => _meetShowPastEvents;
+  set meetShowPastEvents(bool value) {
+    _meetShowPastEvents = value;
   }
 
   /// Meets list chip row: 0 All, 1 Need Action, 2 Entered, 3 Not Going (persisted).
