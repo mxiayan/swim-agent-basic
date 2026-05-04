@@ -15,6 +15,7 @@ import 'schema/metadata_clubs_record.dart';
 import 'schema/metadata_groups_record.dart';
 import 'schema/metadata_regions_record.dart';
 import 'schema/monitored_meets_record.dart';
+import 'schema/team_events_record.dart';
 
 export 'dart:async' show StreamSubscription;
 export 'package:cloud_firestore/cloud_firestore.dart' hide Order;
@@ -33,6 +34,22 @@ export 'schema/metadata_clubs_record.dart';
 export 'schema/metadata_groups_record.dart';
 export 'schema/metadata_regions_record.dart';
 export 'schema/monitored_meets_record.dart';
+export 'schema/team_events_record.dart';
+
+/// Stream every parsed event for a team, ordered chronologically (oldest first).
+///
+/// We sort client-side because Firestore can't combine an `==` filter with a
+/// nested-field `orderBy` without a composite index, and the per-team event
+/// volume is tiny (dozens to a few hundred docs).
+Stream<List<TeamEventsRecord>> streamTeamEvents(String teamId) {
+  if (teamId.trim().isEmpty) {
+    return Stream.value(const <TeamEventsRecord>[]);
+  }
+  return TeamEventsRecord.collection
+      .where('team_id', isEqualTo: teamId.trim())
+      .snapshots()
+      .map((s) => s.docs.map(TeamEventsRecord.fromSnapshot).toList());
+}
 
 /// Functions to query TeamsRecords (as a Stream and as a Future).
 Future<int> queryTeamsRecordCount({

@@ -82,6 +82,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Polymorphic calendar events written by the swim-coach-parser Cloud Run
+    // service. Client reads only; the parser uses the Admin SDK so it
+    // bypasses these rules for writes.
+    match /team_events/{docId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Quarantined inbound emails: backend-only, never exposed to clients.
+    match /team_events_quarantine/{docId} {
+      allow read, write: if false;
+    }
+
     // Meets feed (read-only from client; backend/Admin for writes)
     match /monitored_meets/{docId} {
       allow read: if signedIn();

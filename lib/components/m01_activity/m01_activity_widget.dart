@@ -4,6 +4,7 @@ import '/backend/meet_preferences_api.dart';
 import '/backend/schema/meet_preferences_record.dart';
 import '/components/m01_activity_card/m01_activity_card_widget.dart';
 import '/components/m01_activity/meet_detail_view.dart';
+import '/components/m01_activity/team_events_schedule.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -185,8 +186,18 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
 
   @override
   Widget build(BuildContext context) {
-    // Fills the home Stack slot so ListView gets a bounded height (avoids
-    // RenderFlex overflow from Columns with mainAxisSize.max inside scroll).
+    // Schedule tab now renders the parser-produced `team_events` collection
+    // (multi-team registry-driven). The legacy `activities` list is kept on
+    // disk in case other surfaces need it; restore the old StreamBuilder if
+    // that proves necessary.
+    return const SizedBox.expand(
+      child: TeamEventsScheduleList(teamId: 'oapb'),
+    );
+  }
+
+  @Deprecated('Replaced by TeamEventsScheduleList; retained for fallback.')
+  // ignore: unused_element
+  Widget _buildLegacyActivitiesList(BuildContext context) {
     return SizedBox.expand(
       child: StreamBuilder<List<ActivitiesRecord>>(
         stream: queryActivitiesRecord(
