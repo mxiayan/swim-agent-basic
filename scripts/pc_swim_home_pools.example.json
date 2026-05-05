@@ -1,0 +1,11 @@
+[
+  {
+    "document_id": "OAPB",
+    "home_pool_location": "Soda Aquatic Center at Campolindo High School, 300 Moraga Rd, Moraga, CA 94556",
+    "club_code": "OAPB",
+    "club_name": "Orinda Aquatics Parent Booster",
+    "lsc_name": "Pacific Swimming",
+    "lsc_code": "PC",
+    "notes": "Copy this file to pc_swim_home_pools.json (gitignored), add all PC teams, then run seed_metadata_club_home_pools.mjs"
+  }
+]

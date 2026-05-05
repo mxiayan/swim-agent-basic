@@ -35,6 +35,8 @@ export 'schema/metadata_groups_record.dart';
 export 'schema/metadata_regions_record.dart';
 export 'schema/monitored_meets_record.dart';
 export 'schema/team_events_record.dart';
+export 'schedule_baseline.dart';
+export 'team_events_list_logic.dart';
 
 /// Stream every parsed event for a team, ordered chronologically (oldest first).
 ///

@@ -82,6 +82,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Parser hybrid grounding: verified home pool per sender team (Admin writes).
+    match /metadata_teams/{docId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // Polymorphic calendar events written by the swim-coach-parser Cloud Run
     // service. Client reads only; the parser uses the Admin SDK so it
     // bypasses these rules for writes.
@@ -169,6 +175,13 @@ service cloud.firestore {
     }
 
     match /metadata_clubs/{document} {
+      allow create: if true;
+      allow read: if true;
+      allow write: if false;
+      allow delete: if false;
+    }
+
+    match /metadata_teams/{document} {
       allow create: if true;
       allow read: if true;
       allow write: if false;

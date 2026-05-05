@@ -57,9 +57,15 @@ final Map<String, Map<String, String>> venueData = {
     "address": "3000 Campus Hill Dr, Livermore, CA 94551",
     "zone": "2"
   },
+  // Home pool for OAPB: commonly called "Soda Center"; on Campolindo HS campus, Moraga.
   "Soda Aquatic Center (Campolindo)": {
     "address": "300 Moraga Rd, Moraga, CA 94556",
-    "soft_name": "Campolindo",
+    "soft_name": "Campolindo High School",
+    "zone": "2"
+  },
+  "Soda Center": {
+    "address": "300 Moraga Rd, Moraga, CA 94556",
+    "soft_name": "Campolindo High School Moraga",
     "zone": "2"
   },
   "Tracy High School Pool": {

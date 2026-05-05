@@ -10,7 +10,13 @@
     "backfill-meets:apply": "node backfill_meet_zones.mjs --apply --mapping meet_zone_mapping.json",
     "diagnose": "node diagnose_swimmer_zones.mjs",
     "hydrate-swimmers:dry-run": "node hydrate_swimmers_zones_admin.mjs --dry-run",
-    "hydrate-swimmers:apply": "node hydrate_swimmers_zones_admin.mjs"
+    "hydrate-swimmers:apply": "node hydrate_swimmers_zones_admin.mjs",
+    "fix-oapb-parser-hints:dry-run": "node fix_oapb_parser_hints_soda_venue.mjs --dry-run",
+    "fix-oapb-parser-hints:apply": "node fix_oapb_parser_hints_soda_venue.mjs",
+    "seed-club-pools:dry-run": "node seed_metadata_club_home_pools.mjs --dry-run pc_swim_home_pools.json",
+    "seed-club-pools:apply": "node seed_metadata_club_home_pools.mjs pc_swim_home_pools.json",
+    "seed-metadata-teams:dry-run": "node seed_metadata_teams.mjs --dry-run metadata_teams.json",
+    "seed-metadata-teams:apply": "node seed_metadata_teams.mjs metadata_teams.json"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0"

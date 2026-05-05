@@ -1,0 +1,14 @@
+[
+  {
+    "document_id": "oapb",
+    "sender_emails": [
+      "notifications@gomotionapp.com",
+      "coach@example-orinda.org"
+    ],
+    "grounding_truth": "Organization: Orinda Aquatics (Pacific Swimming).\nHome pool: Soda Aquatic Center at Campolindo High School.\nAddress: 300 Moraga Rd, Moraga, CA 94556.\nCampus: Campolindo High School — do not confuse with Saint Mary's College.",
+    "organization_display_name": "Orinda Aquatics",
+    "home_pool_canonical": "Soda Aquatic Center at Campolindo High School",
+    "home_pool_address": "300 Moraga Rd, Moraga, CA 94556",
+    "supplementary_notes": "Replace sender_emails with real coach newsletter From addresses (lowercase)."
+  }
+]

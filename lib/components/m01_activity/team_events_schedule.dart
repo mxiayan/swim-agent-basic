@@ -5,6 +5,580 @@ import 'package:url_launcher/url_launcher.dart';
 import '/backend/backend.dart';
 import '/theme/swim_ui_tokens.dart';
 
+// ─── Display normalization (Firestore text may lag parser_hints / coach typos) ─
+
+String normalizeCoachLocationForUi(String location) {
+  if (location.isEmpty) return location;
+  var s = location;
+  if (!RegExp(r'soda', caseSensitive: false).hasMatch(s)) {
+    return s;
+  }
+  s = s.replaceAll(
+    RegExp(r"\bSaint Mary's College\b", caseSensitive: false),
+    'Campolindo High School',
+  );
+  s = s.replaceAll(
+    RegExp(r"\bSt\. Mary's College\b", caseSensitive: false),
+    'Campolindo High School',
+  );
+  s = s.replaceAll(RegExp(r'\bMorga\b', caseSensitive: false), 'Moraga');
+  return s;
+}
+
+DateTime? _tryParseBaselineDate(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(raw.trim());
+  if (m == null) return null;
+  return DateTime(
+    int.parse(m.group(1)!),
+    int.parse(m.group(2)!),
+    int.parse(m.group(3)!),
+  );
+}
+
+bool _baselineActiveOn(ScheduleBaseline b, DateTime day) {
+  final from = _tryParseBaselineDate(b.validFrom);
+  final to = _tryParseBaselineDate(b.validTo);
+  final d = DateTime(day.year, day.month, day.day);
+  if (from != null) {
+    final fromD = DateTime(from.year, from.month, from.day);
+    if (d.isBefore(fromD)) return false;
+  }
+  if (to != null) {
+    final toD = DateTime(to.year, to.month, to.day);
+    if (d.isAfter(toD)) return false;
+  }
+  return true;
+}
+
+List<ScheduleBaseline> _baselinesForDisplayDay(
+  List<ScheduleBaseline> all,
+  DateTime day,
+) {
+  final hit = all.where((b) => _baselineActiveOn(b, day)).toList();
+  return hit.isNotEmpty ? hit : all;
+}
+
+// ─── Training squad filter (coach-email cards) ──────────────────────────────
+
+bool _trainingMentionsJunior(TeamEventsRecord e) {
+  bool textHas(String s) {
+    final t = s.toLowerCase();
+    return t.contains('junior') ||
+        RegExp(r'\bjr\.?\b').hasMatch(t) ||
+        t.contains('jr pm') ||
+        t.contains('jr group');
+  }
+
+  if (textHas(e.title)) return true;
+  for (final g in e.appliesToGroups) {
+    if (textHas(g)) return true;
+  }
+  if (textHas(e.details)) return true;
+  return false;
+}
+
+bool _trainingMentionsSenior(TeamEventsRecord e) {
+  bool textHas(String s) {
+    final t = s.toLowerCase();
+    return t.contains('senior') ||
+        RegExp(r'\bsr\.?\b').hasMatch(t) ||
+        t.contains('sr pm') ||
+        t.contains('sr group');
+  }
+
+  if (textHas(e.title)) return true;
+  for (final g in e.appliesToGroups) {
+    if (textHas(g)) return true;
+  }
+  if (textHas(e.details)) return true;
+  return false;
+}
+
+// ─── OAPB standing-grid hints (pool + dryland from schedule_baselines) ─────
+
+enum _BaselineDaypartHint { h24, pm12, am12 }
+
+class StandingGridBaselineHints {
+  const StandingGridBaselineHints({this.scheduleSummary, this.drylandLine});
+  final String? scheduleSummary;
+  final String? drylandLine;
+}
+
+String _clockLabel12(int hour12, String mins, {required bool isPm}) {
+  assert(hour12 >= 1 && hour12 <= 12);
+  final mm = mins == '00' ? '' : ':$mins';
+  final ap = isPm ? 'pm' : 'am';
+  return '$hour12$mm $ap'.trim();
+}
+
+String _formatHmCompact(String hhmm, _BaselineDaypartHint hint) {
+  final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(hhmm.trim());
+  if (m == null) return hhmm;
+  final hRaw = int.parse(m.group(1)!);
+  final mins = m.group(2)!;
+
+  switch (hint) {
+    case _BaselineDaypartHint.h24:
+      final am = hRaw < 12;
+      var hh12 = hRaw % 12;
+      if (hh12 == 0) hh12 = 12;
+      return mins == '00'
+          ? '$hh12${am ? 'am' : 'pm'}'
+          : '$hh12:$mins${am ? 'am' : 'pm'}';
+    case _BaselineDaypartHint.pm12:
+      if (hRaw >= 13 && hRaw <= 23) {
+        final h12 = hRaw - 12;
+        return _clockLabel12(h12 == 0 ? 12 : h12, mins, isPm: true);
+      }
+      if (hRaw == 12) {
+        return _clockLabel12(12, mins, isPm: true);
+      }
+      final hh = hRaw < 1 ? 1 : (hRaw > 12 ? 12 : hRaw);
+      return _clockLabel12(hh, mins, isPm: true);
+    case _BaselineDaypartHint.am12:
+      if (hRaw >= 13 && hRaw <= 23) {
+        final h12 = hRaw - 12;
+        return _clockLabel12(h12 == 0 ? 12 : h12, mins, isPm: false);
+      }
+      if (hRaw == 12) {
+        return _clockLabel12(12, mins, isPm: false);
+      }
+      final hh = hRaw < 1 ? 1 : (hRaw > 12 ? 12 : hRaw);
+      return _clockLabel12(hh, mins, isPm: false);
+  }
+}
+
+String _formatMatchedRange(RegExpMatch m, _BaselineDaypartHint hint) =>
+    '${_formatHmCompact(m.group(1)!, hint)}–${_formatHmCompact(m.group(2)!, hint)}';
+
+String? _extractWeekdayBlock(String body, String anchor, DateTime day) {
+  const names = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  final wd = names[day.weekday - 1];
+  final anchorIdx = body.indexOf(anchor);
+  if (anchorIdx < 0) return null;
+  final tail = body.substring(anchorIdx);
+  final hdr = RegExp(r'(^|\n)' + RegExp.escape(wd) + r':');
+  final hm = hdr.firstMatch(tail);
+  if (hm == null) return null;
+  final afterColon = tail.substring(hm.end);
+  final next = RegExp(
+    r'\n(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday):',
+  ).firstMatch(afterColon);
+  return next != null ? afterColon.substring(0, next.start) : afterColon;
+}
+
+String? _poolLineFromDayBlock(
+  String block, {
+  required bool preferPmForAmbiguous,
+}) {
+  final amb = preferPmForAmbiguous
+      ? _BaselineDaypartHint.pm12
+      : _BaselineDaypartHint.am12;
+
+  final pmRx =
+      RegExp(r'^PM:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})');
+  final amRx =
+      RegExp(r'^AM:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})');
+  final practiceRx = RegExp(
+    r'^Practice:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})',
+    caseSensitive: false,
+  );
+
+  final coreOrder = preferPmForAmbiguous
+      ? <(RegExp, _BaselineDaypartHint)>[
+          (pmRx, _BaselineDaypartHint.pm12),
+          (amRx, _BaselineDaypartHint.am12),
+          (practiceRx, _BaselineDaypartHint.am12),
+        ]
+      : [
+          (amRx, _BaselineDaypartHint.am12),
+          (practiceRx, _BaselineDaypartHint.am12),
+          (pmRx, _BaselineDaypartHint.pm12),
+        ];
+
+  final tailPatterns = <(RegExp, _BaselineDaypartHint)>[
+    (
+      RegExp(
+        r'^Jr All LC:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})',
+        caseSensitive: false,
+      ),
+      _BaselineDaypartHint.pm12,
+    ),
+    (
+      RegExp(
+        r'^Jr All SC:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})',
+        caseSensitive: false,
+      ),
+      _BaselineDaypartHint.am12,
+    ),
+    (
+      RegExp(
+        r'^LC:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})',
+        caseSensitive: false,
+      ),
+      amb,
+    ),
+    (
+      RegExp(
+        r'^SC:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})',
+        caseSensitive: false,
+      ),
+      amb,
+    ),
+    (
+      RegExp(
+        r'^Sr\s+.+LC:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})',
+        caseSensitive: false,
+      ),
+      amb,
+    ),
+    (
+      RegExp(
+        r'^Sr\s+.+SC:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})',
+        caseSensitive: false,
+      ),
+      amb,
+    ),
+    (
+      RegExp(
+        r'^Jr\s+\d.*LC:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})',
+        caseSensitive: false,
+      ),
+      _BaselineDaypartHint.am12,
+    ),
+  ];
+
+  for (final raw in block.split('\n')) {
+    final line = raw.trim();
+    if (line.isEmpty) continue;
+
+    for (final pair in [...coreOrder, ...tailPatterns]) {
+      final m = pair.$1.firstMatch(line);
+      if (m != null) return _formatMatchedRange(m, pair.$2);
+    }
+
+    final lower = line.toLowerCase();
+    if (!lower.contains('dryland') &&
+        !lower.contains('meeting') &&
+        RegExp(r'LC|SC', caseSensitive: false).hasMatch(line)) {
+      final m =
+          RegExp(r'(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})').firstMatch(line);
+      if (m != null) return _formatMatchedRange(m, amb);
+    }
+  }
+  return null;
+}
+
+String? _drylandLineFromDayBlock(String block) {
+  for (final raw in block.split('\n')) {
+    final line = raw.trim();
+    if (line.isEmpty || !line.toLowerCase().contains('dryland')) continue;
+    final up = line.toUpperCase();
+    if (up.contains('TBD')) {
+      return 'Dryland TBD';
+    }
+    final m =
+        RegExp(r'(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})').firstMatch(line);
+    if (m == null) continue;
+    final hint = up.contains('AM DRYLAND')
+        ? _BaselineDaypartHint.am12
+        : _BaselineDaypartHint.pm12;
+    return 'Dryland ${_formatMatchedRange(m, hint)}';
+  }
+  return null;
+}
+
+bool _refersToStandingWorkoutGrid(TeamEventsRecord e) {
+  final tl = e.title.toLowerCase();
+  return e.isRecurring ||
+      tl.contains('regular') ||
+      ((tl.contains('junior') || tl.contains('senior')) &&
+          (tl.contains('training') ||
+              tl.contains('workout') ||
+              tl.contains('practice')));
+}
+
+StandingGridBaselineHints standingGridBaselineHints(
+  TeamEventsRecord e,
+  List<ScheduleBaseline> baselines,
+) {
+  const none = StandingGridBaselineHints();
+  if (e.teamId != 'oapb' || e.eventType != TeamEventType.training) {
+    return none;
+  }
+  if (!_refersToStandingWorkoutGrid(e)) return none;
+
+  final day = e.parsedStart ?? DateTime.now();
+  final bodies = _baselinesForDisplayDay(baselines, day)
+      .map((b) => b.body)
+      .join('\n\n');
+  if (bodies.trim().isEmpty) return none;
+
+  final hasFirestoreTimes =
+      e.startTimeLocal.isNotEmpty || e.endTimeLocal.isNotEmpty;
+
+  final tl = e.title.toLowerCase();
+  final isJunior =
+      _trainingMentionsJunior(e) || tl.contains('junior');
+  final isSenior =
+      _trainingMentionsSenior(e) || tl.contains('senior');
+
+  String? pool;
+  String? dry;
+
+  if (isJunior) {
+    const anchors = [
+      'Junior 1 & 2',
+      'Junior 3',
+      'Jr PM',
+      'Junior Group',
+    ];
+    for (final a in anchors) {
+      final block = _extractWeekdayBlock(bodies, a, day);
+      if (block == null) continue;
+      pool ??= _poolLineFromDayBlock(
+        block,
+        preferPmForAmbiguous: true,
+      );
+      dry ??= _drylandLineFromDayBlock(block);
+      if (pool != null) break;
+    }
+    if (dry == null) {
+      for (final a in anchors) {
+        final block = _extractWeekdayBlock(bodies, a, day);
+        if (block == null) continue;
+        dry = _drylandLineFromDayBlock(block);
+        if (dry != null) break;
+      }
+    }
+  } else if (isSenior) {
+    final seniorAnchors = <(String, bool)>[
+      ('Senior 4', false),
+      ('Senior 3', false),
+      ('Senior 2', false),
+      ('Sr PM', true),
+      ('Sr AM', false),
+      ('Senior Group', true),
+    ];
+    for (final pair in seniorAnchors) {
+      final a = pair.$1;
+      final preferPm = pair.$2;
+      final block = _extractWeekdayBlock(bodies, a, day);
+      if (block == null) continue;
+      pool ??= _poolLineFromDayBlock(
+        block,
+        preferPmForAmbiguous: preferPm,
+      );
+      dry ??= _drylandLineFromDayBlock(block);
+      if (pool != null) break;
+    }
+    if (dry == null) {
+      for (final pair in seniorAnchors) {
+        final block = _extractWeekdayBlock(bodies, pair.$1, day);
+        if (block == null) continue;
+        dry = _drylandLineFromDayBlock(block);
+        if (dry != null) break;
+      }
+    }
+  }
+
+  if (dry == null && isJunior) {
+    for (final da in ['Jr Dryland or Meeting', 'Jr Dryland']) {
+      final block = _extractWeekdayBlock(bodies, da, day);
+      if (block == null) continue;
+      dry = _drylandLineFromDayBlock(block);
+      if (dry != null) break;
+    }
+  } else if (dry == null && isSenior) {
+    for (final da in ['Sr PM Dryland or Meeting', 'Sr AM Dryland']) {
+      final block = _extractWeekdayBlock(bodies, da, day);
+      if (block == null) continue;
+      dry = _drylandLineFromDayBlock(block);
+      if (dry != null) break;
+    }
+  }
+
+  if (pool == null && dry == null) return none;
+
+  final summary =
+      !hasFirestoreTimes && pool != null
+          ? 'Regular week · typical pool $pool (Season schedules)'
+          : null;
+  return StandingGridBaselineHints(
+    scheduleSummary: summary,
+    drylandLine: dry,
+  );
+}
+
+/// Training rows only; non-training events always pass.
+bool _matchesTrainingSquadFilter(
+  TeamEventsRecord e,
+  _TrainingSquadFilter squad,
+) {
+  if (e.eventType != TeamEventType.training) return true;
+  if (squad == _TrainingSquadFilter.all) return true;
+  final j = _trainingMentionsJunior(e);
+  final s = _trainingMentionsSenior(e);
+  if (j && s) return true;
+  if (!j && !s) return true;
+  if (squad == _TrainingSquadFilter.junior) return j;
+  return s;
+}
+
+enum _TrainingSquadFilter { all, junior, senior }
+
+/// Split standing-schedule body into blocks with optional inline headings.
+List<String> _baselineParagraphChunks(String body) {
+  var paragraphs = body
+      .split(RegExp(r'\n\s*\n+'))
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
+
+  if (paragraphs.length == 1 && paragraphs.single.length > 480) {
+    final split = _splitDenseBaselineLines(paragraphs.single);
+    if (split.length > 1) {
+      paragraphs = split;
+    }
+  }
+  return paragraphs;
+}
+
+/// When baselines are pasted as one paragraph, break on obvious group headers.
+List<String> _splitDenseBaselineLines(String paragraph) {
+  final lines = paragraph.split('\n');
+  if (lines.length < 4) return [paragraph];
+
+  final sectionStarter = RegExp(
+    r'^\s*(\*{0,3})?\s*(Junior|Senior)\b'
+    r'|^\s*(\*{0,3})?\s*(Jr\.|Sr\.)\s',
+    caseSensitive: false,
+  );
+
+  final chunks = <String>[];
+  final buf = StringBuffer();
+
+  void flush() {
+    final s = buf.toString().trim();
+    if (s.isNotEmpty) chunks.add(s);
+    buf.clear();
+  }
+
+  for (final line in lines) {
+    final t = line.trim();
+    if (t.isEmpty) {
+      continue;
+    }
+    if (buf.isNotEmpty &&
+        sectionStarter.hasMatch(t) &&
+        buf.toString().trim().length > 24) {
+      flush();
+    }
+    if (buf.isNotEmpty) {
+      buf.writeln();
+    }
+    buf.write(line);
+  }
+  flush();
+  return chunks.length > 1 ? chunks : [paragraph];
+}
+
+/// Widgets for baseline body copy (Notes tab, detail sheets).
+List<Widget> readableScheduleBaselineBodyWidgets(String body) =>
+    _readableBaselineBodyWidgets(body);
+
+List<Widget> _readableBaselineBodyWidgets(String body) {
+  final paragraphs = _baselineParagraphChunks(body);
+  if (paragraphs.isEmpty) {
+    return [
+      SelectableText(
+        body,
+        style: GoogleFonts.sora(
+          fontSize: 12.0,
+          height: 1.42,
+          color: SwimUiTokens.textTitle,
+        ),
+      ),
+    ];
+  }
+
+  final timeLike = RegExp(r'\d{1,2}:\d{2}');
+  final out = <Widget>[];
+  for (var i = 0; i < paragraphs.length; i++) {
+    final p = paragraphs[i];
+    final lines = p.split('\n');
+    String? heading;
+    var content = p;
+    if (lines.length >= 2) {
+      final first = lines.first.trim();
+      final looksLikeHeading = first.length <= 54 &&
+          first.length >= 2 &&
+          !timeLike.hasMatch(first);
+      if (looksLikeHeading) {
+        heading = first;
+        content = lines.sublist(1).join('\n').trim();
+        if (content.isEmpty) {
+          content = first;
+          heading = null;
+        }
+      }
+    }
+
+    out.add(
+      Padding(
+        padding: EdgeInsets.only(bottom: i == paragraphs.length - 1 ? 0 : 8.0),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: SwimUiTokens.surfaceCanvasSchedule,
+            borderRadius: BorderRadius.circular(8.0),
+            border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10.0, 8.0, 10.0, 10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (heading != null) ...[
+                  Text(
+                    heading,
+                    style: GoogleFonts.sora(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      letterSpacing: 0.15,
+                      color: SwimUiTokens.accentBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 6.0),
+                ],
+                SelectableText(
+                  content,
+                  style: GoogleFonts.sora(
+                    fontSize: 11.75,
+                    fontWeight: FontWeight.w400,
+                    height: 1.42,
+                    color: SwimUiTokens.textTitle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  return out;
+}
+
 /// Renders the parser-produced `team_events` collection as a scannable list
 /// for the Schedule tab. This is the user-facing replacement for poking at
 /// raw Firestore JSON.
@@ -19,89 +593,200 @@ class TeamEventsScheduleList extends StatefulWidget {
 
 class _TeamEventsScheduleListState extends State<TeamEventsScheduleList> {
   TeamEventType? _typeFilter;
+  _TrainingSquadFilter _squadFilter = _TrainingSquadFilter.all;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: SwimUiTokens.surfaceCanvasSchedule,
-      child: StreamBuilder<List<TeamEventsRecord>>(
-        stream: streamTeamEvents(widget.teamId),
-        builder: (context, snap) {
-          if (snap.hasError) {
-            return _ErrorState(message: snap.error.toString());
-          }
-          if (!snap.hasData) {
-            return const _LoadingState();
-          }
-          final all = snap.data!;
-          if (all.isEmpty) {
-            return const _EmptyState();
-          }
-
-          final counts = <TeamEventType, int>{};
-          for (final e in all) {
-            counts[e.eventType] = (counts[e.eventType] ?? 0) + 1;
-          }
-
-          final filtered = (_typeFilter == null
-                  ? all
-                  : all.where((e) => e.eventType == _typeFilter).toList())
-              .toList();
-
-          // Sort: dated upcoming asc → dated past desc → undated last.
-          final now = DateTime.now();
-          final today = DateTime(now.year, now.month, now.day);
-          int bucket(TeamEventsRecord e) {
-            if (e.parsedStart == null) return 2;
-            final eDay = DateTime(
-              e.parsedStart!.year,
-              e.parsedStart!.month,
-              e.parsedStart!.day,
-            );
-            return eDay.isBefore(today) ? 1 : 0;
-          }
-
-          filtered.sort((a, b) {
-            final ba = bucket(a);
-            final bb = bucket(b);
-            if (ba != bb) return ba.compareTo(bb);
-            if (a.parsedStart != null && b.parsedStart != null) {
-              if (ba == 0) {
-                return a.parsedStart!.compareTo(b.parsedStart!);
-              }
-              if (ba == 1) {
-                return b.parsedStart!.compareTo(a.parsedStart!);
-              }
-            }
-            return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-          });
-
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: _FilterStrip(
-                  totalCount: all.length,
-                  counts: counts,
-                  selected: _typeFilter,
-                  onChanged: (t) => setState(() => _typeFilter = t),
-                ),
-              ),
-              if (filtered.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _EmptyFilterState(),
+      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: streamTeamRegistryDocument(widget.teamId),
+        builder: (context, registrySnap) {
+          final baselines = (!registrySnap.hasError && registrySnap.hasData)
+              ? ScheduleBaseline.listFromSnapshotData(
+                  registrySnap.data!.data(),
                 )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(14.0, 4.0, 14.0, 28.0),
-                  sliver: SliverList.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10.0),
-                    itemBuilder: (context, i) =>
-                        _TeamEventCard(event: filtered[i]),
-                  ),
-                ),
-            ],
+              : <ScheduleBaseline>[];
+          return StreamBuilder<List<TeamEventsRecord>>(
+            stream: streamTeamEvents(widget.teamId),
+            builder: (context, snap) {
+              if (snap.hasError) {
+                return _ErrorState(message: snap.error.toString());
+              }
+              if (!snap.hasData) {
+                return const _LoadingState();
+              }
+              final raw = snap.data!;
+              final deduped = dedupeTeamEvents(raw);
+              final all = expandScheduleList(deduped);
+              final hasBaselines = baselines.isNotEmpty;
+
+              final counts = <TeamEventType, int>{};
+              for (final e in all) {
+                counts[e.eventType] = (counts[e.eventType] ?? 0) + 1;
+              }
+
+              var filtered = (_typeFilter == null
+                      ? all
+                      : all.where((e) => e.eventType == _typeFilter).toList())
+                  .toList();
+              filtered = filtered
+                  .where((e) => _matchesTrainingSquadFilter(e, _squadFilter))
+                  .toList();
+
+              final trainingTotal =
+                  all.where((e) => e.eventType == TeamEventType.training).length;
+              final trainingJunior = all
+                  .where(
+                    (e) =>
+                        e.eventType == TeamEventType.training &&
+                        _trainingMentionsJunior(e),
+                  )
+                  .length;
+              final trainingSenior = all
+                  .where(
+                    (e) =>
+                        e.eventType == TeamEventType.training &&
+                        _trainingMentionsSenior(e),
+                  )
+                  .length;
+
+              // Sort: dated upcoming asc → dated past desc → undated last.
+              final now = DateTime.now();
+              final today = DateTime(now.year, now.month, now.day);
+              int bucket(TeamEventsRecord e) {
+                if (e.parsedStart == null) return 2;
+                final eDay = DateTime(
+                  e.parsedStart!.year,
+                  e.parsedStart!.month,
+                  e.parsedStart!.day,
+                );
+                return eDay.isBefore(today) ? 1 : 0;
+              }
+
+              filtered.sort((a, b) {
+                final ba = bucket(a);
+                final bb = bucket(b);
+                if (ba != bb) return ba.compareTo(bb);
+                if (a.parsedStart != null && b.parsedStart != null) {
+                  if (ba == 0) {
+                    return a.parsedStart!.compareTo(b.parsedStart!);
+                  }
+                  if (ba == 1) {
+                    return b.parsedStart!.compareTo(a.parsedStart!);
+                  }
+                }
+                return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+              });
+
+              return CustomScrollView(
+                slivers: [
+                  if (hasBaselines) ...[
+                    const SliverToBoxAdapter(
+                      child: _SectionHeader(title: 'Season schedules'),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(14.0, 2.0, 14.0, 6.0),
+                      sliver: SliverList.separated(
+                        itemCount: baselines.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 8.0),
+                        itemBuilder: (context, i) =>
+                            SeasonScheduleBaselineCard(baseline: baselines[i]),
+                      ),
+                    ),
+                  ],
+                  if (deduped.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          14.0,
+                          hasBaselines ? 12.0 : 0.0,
+                          14.0,
+                          6.0,
+                        ),
+                        child: const _SectionHeader(
+                          title: 'From coach emails',
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _FilterStrip(
+                            totalCount: all.length,
+                            counts: counts,
+                            selected: _typeFilter,
+                            onChanged: (t) => setState(() => _typeFilter = t),
+                          ),
+                          if (trainingTotal > 0)
+                            _SquadFilterStrip(
+                              trainingTotal: trainingTotal,
+                              juniorCount: trainingJunior,
+                              seniorCount: trainingSenior,
+                              selected: _squadFilter,
+                              onChanged: (s) =>
+                                  setState(() => _squadFilter = s),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (filtered.isEmpty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _EmptyFilterState(),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(
+                          14.0,
+                          4.0,
+                          14.0,
+                          28.0,
+                        ),
+                        sliver: SliverList.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10.0),
+                          itemBuilder: (context, i) => _TeamEventCard(
+                            event: filtered[i],
+                            baselines: baselines,
+                          ),
+                        ),
+                      ),
+                  ] else if (hasBaselines) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          24.0,
+                          16.0,
+                          24.0,
+                          32.0,
+                        ),
+                        child: Text(
+                          'No email updates yet. Weekly newsletters and reminders '
+                          'from the coach will appear here.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.sora(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                            height: 1.45,
+                            color: SwimUiTokens.textMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (deduped.isEmpty && !hasBaselines) ...[
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyState(),
+                    ),
+                  ],
+                ],
+              );
+            },
           );
         },
       ),
@@ -157,7 +842,7 @@ class _FilterStrip extends StatelessWidget {
       );
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14.0, 14.0, 14.0, 6.0),
+      padding: const EdgeInsets.fromLTRB(14.0, 8.0, 14.0, 6.0),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -168,6 +853,74 @@ class _FilterStrip extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SquadFilterStrip extends StatelessWidget {
+  const _SquadFilterStrip({
+    required this.trainingTotal,
+    required this.juniorCount,
+    required this.seniorCount,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final int trainingTotal;
+  final int juniorCount;
+  final int seniorCount;
+  final _TrainingSquadFilter selected;
+  final ValueChanged<_TrainingSquadFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14.0, 0.0, 14.0, 10.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Training squad',
+            style: GoogleFonts.sora(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.35,
+              color: SwimUiTokens.textMuted,
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _Chip(
+                  label: 'All',
+                  count: trainingTotal,
+                  selected: selected == _TrainingSquadFilter.all,
+                  onTap: () => onChanged(_TrainingSquadFilter.all),
+                  accent: const Color(0xFF334155),
+                ),
+                const SizedBox(width: 8.0),
+                _Chip(
+                  label: 'Junior',
+                  count: juniorCount,
+                  selected: selected == _TrainingSquadFilter.junior,
+                  onTap: () => onChanged(_TrainingSquadFilter.junior),
+                  accent: const Color(0xFF4338CA),
+                ),
+                const SizedBox(width: 8.0),
+                _Chip(
+                  label: 'Senior',
+                  count: seniorCount,
+                  selected: selected == _TrainingSquadFilter.senior,
+                  onTap: () => onChanged(_TrainingSquadFilter.senior),
+                  accent: const Color(0xFF0F766E),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -237,12 +990,116 @@ class _Chip extends StatelessWidget {
   }
 }
 
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14.0, 8.0, 14.0, 4.0),
+      child: Text(
+        title,
+        style: GoogleFonts.sora(
+          fontSize: 13.0,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+          color: SwimUiTokens.textMuted,
+        ),
+      ),
+    );
+  }
+}
+
+class SeasonScheduleBaselineCard extends StatelessWidget {
+  const SeasonScheduleBaselineCard({super.key, required this.baseline});
+
+  final ScheduleBaseline baseline;
+
+  @override
+  Widget build(BuildContext context) {
+    final range = [
+      if (baseline.validFrom != null && baseline.validFrom!.isNotEmpty)
+        baseline.validFrom,
+      if (baseline.validTo != null && baseline.validTo!.isNotEmpty)
+        baseline.validTo,
+    ].join(' → ');
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(SwimUiTokens.radiusCard),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: SwimUiTokens.surfaceCard,
+          borderRadius:
+              BorderRadius.circular(SwimUiTokens.radiusCard),
+          border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            dividerColor: Colors.transparent,
+            splashColor: SwimUiTokens.accentBlue.withValues(alpha: 0.12),
+            visualDensity: VisualDensity.compact,
+          ),
+          child: ExpansionTile(
+            tilePadding:
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
+            childrenPadding:
+                const EdgeInsets.fromLTRB(10.0, 0.0, 10.0, 10.0),
+            title: Text(
+              baseline.title,
+              style: GoogleFonts.sora(
+                fontSize: 13.25,
+                fontWeight: FontWeight.w700,
+                height: 1.22,
+                color: SwimUiTokens.textBannerTitle,
+              ),
+            ),
+            subtitle: range.isEmpty
+                ? null
+                : Text(
+                    range,
+                    style: GoogleFonts.sora(
+                      fontSize: 10.75,
+                      fontWeight: FontWeight.w500,
+                      height: 1.25,
+                      color: SwimUiTokens.textMuted,
+                    ),
+                  ),
+            children: [
+              if (baseline.notes.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6.0),
+                  child: Text(
+                    baseline.notes,
+                    style: GoogleFonts.sora(
+                      fontSize: 11.25,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                      color: SwimUiTokens.accentBlue,
+                    ),
+                  ),
+                ),
+              ],
+              ..._readableBaselineBodyWidgets(baseline.body),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Per-event card ─────────────────────────────────────────────────────────
 
 class _TeamEventCard extends StatelessWidget {
-  const _TeamEventCard({required this.event});
+  const _TeamEventCard({
+    required this.event,
+    required this.baselines,
+  });
 
   final TeamEventsRecord event;
+  final List<ScheduleBaseline> baselines;
 
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -256,7 +1113,11 @@ class _TeamEventCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final visual = _typeVisual(event.eventType);
     final dateLine = _formatDateLine(event);
-    final timeLine = _formatTimeLine(event);
+    final primaryTime = _formatTimeLine(event);
+    final hints = standingGridBaselineHints(event, baselines);
+    final timeLine =
+        primaryTime.isNotEmpty ? primaryTime : (hints.scheduleSummary ?? '');
+    final locationLine = normalizeCoachLocationForUi(event.location);
     final isPast = _isPast(event);
 
     final r = BorderRadius.circular(SwimUiTokens.radiusCard);
@@ -275,7 +1136,7 @@ class _TeamEventCard extends StatelessWidget {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            onTap: () => _showEventSheet(context, event),
+            onTap: () => _showEventSheet(context, event, baselines),
             child: Stack(
               clipBehavior: Clip.hardEdge,
               children: [
@@ -289,12 +1150,12 @@ class _TeamEventCard extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(4.0 + 14.0, 12.0, 14.0, 14.0),
+                  padding: const EdgeInsets.fromLTRB(4.0 + 12.0, 10.0, 12.0, 11.0),
                   child: DefaultTextStyle.merge(
                     style: const TextStyle(
                       color: SwimUiTokens.textTitle,
-                      fontSize: 14.0,
-                      height: 1.35,
+                      fontSize: 13.0,
+                      height: 1.32,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -305,15 +1166,15 @@ class _TeamEventCard extends StatelessWidget {
                               ? '(untitled event)'
                               : event.title,
                           style: GoogleFonts.sora(
-                            fontSize: 16.0,
+                            fontSize: 14.25,
                             fontWeight: FontWeight.w700,
-                            height: 1.25,
+                            height: 1.22,
                             color: isPast
                                 ? SwimUiTokens.textMuted
                                 : SwimUiTokens.textBannerTitle,
                           ),
                         ),
-                        const SizedBox(height: 10.0),
+                        const SizedBox(height: 8.0),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -322,8 +1183,8 @@ class _TeamEventCard extends StatelessWidget {
                             if (event.appliesToGroups.isNotEmpty)
                               Expanded(
                                 child: Wrap(
-                                  spacing: 6.0,
-                                  runSpacing: 4.0,
+                                  spacing: 5.0,
+                                  runSpacing: 3.0,
                                   alignment: WrapAlignment.start,
                                   children: event.appliesToGroups
                                       .map((g) => _GroupChip(label: g))
@@ -337,7 +1198,7 @@ class _TeamEventCard extends StatelessWidget {
                                 dateLine,
                                 textAlign: TextAlign.right,
                                 style: GoogleFonts.sora(
-                                  fontSize: 12.0,
+                                  fontSize: 11.25,
                                   fontWeight: FontWeight.w600,
                                   color: isPast
                                       ? SwimUiTokens.textFaint
@@ -348,26 +1209,33 @@ class _TeamEventCard extends StatelessWidget {
                           ],
                         ),
                         if (timeLine.isNotEmpty ||
-                            event.location.isNotEmpty) ...[
-                          const SizedBox(height: 8.0),
+                            locationLine.isNotEmpty) ...[
+                          const SizedBox(height: 6.0),
                           _IconLine(
                             icon: Icons.access_time_rounded,
                             text: [
                               if (timeLine.isNotEmpty) timeLine,
-                              if (event.location.isNotEmpty) event.location,
+                              if (locationLine.isNotEmpty) locationLine,
                             ].join('  ·  '),
+                          ),
+                        ],
+                        if (hints.drylandLine != null) ...[
+                          const SizedBox(height: 4.0),
+                          _IconLine(
+                            icon: Icons.fitness_center_rounded,
+                            text: hints.drylandLine!,
                           ),
                         ],
                         if (event.isRecurring &&
                             event.recurrenceRule.isNotEmpty) ...[
-                          const SizedBox(height: 4.0),
+                          const SizedBox(height: 3.0),
                           _IconLine(
                             icon: Icons.repeat_rounded,
                             text: _humanRecurrence(event.recurrenceRule),
                           ),
                         ],
                         if (event.entryDeadline.isNotEmpty) ...[
-                          const SizedBox(height: 4.0),
+                          const SizedBox(height: 3.0),
                           _IconLine(
                             icon: Icons.event_busy_rounded,
                             text:
@@ -375,37 +1243,17 @@ class _TeamEventCard extends StatelessWidget {
                             emphasize: !isPast,
                           ),
                         ],
-                        if (event.status.isNotEmpty &&
-                            event.status.toUpperCase() != 'TBD') ...[
-                          const SizedBox(height: 4.0),
-                          _IconLine(
-                            icon: Icons.flag_outlined,
-                            text: 'Status: ${event.status}',
-                          ),
-                        ],
                         if (event.details.isNotEmpty) ...[
-                          const SizedBox(height: 8.0),
+                          const SizedBox(height: 6.0),
                           Text(
                             event.details,
-                            maxLines: 3,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.sora(
-                              fontSize: 12.5,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w400,
-                              height: 1.4,
+                              height: 1.38,
                               color: SwimUiTokens.textMuted,
-                            ),
-                          ),
-                        ],
-                        if (event.sourceSection.isNotEmpty) ...[
-                          const SizedBox(height: 8.0),
-                          Text(
-                            'Source: ${event.sourceSection}',
-                            style: GoogleFonts.sora(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w500,
-                              color: SwimUiTokens.textFaint,
-                              letterSpacing: 0.2,
                             ),
                           ),
                         ],
@@ -489,17 +1337,11 @@ class _TeamEventCard extends StatelessWidget {
   }
 
   static Future<void> _showEventSheet(
-      BuildContext context, TeamEventsRecord e) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(18.0)),
-      ),
-      builder: (_) => _EventDetailSheet(event: e),
-    );
+    BuildContext context,
+    TeamEventsRecord e,
+    List<ScheduleBaseline> baselines,
+  ) async {
+    await showScheduleEventDetailSheet(context, event: e, baselines: baselines);
   }
 }
 
@@ -608,149 +1450,119 @@ class _GroupChip extends StatelessWidget {
 // ─── Detail bottom sheet ────────────────────────────────────────────────────
 
 class _EventDetailSheet extends StatelessWidget {
-  const _EventDetailSheet({required this.event});
+  const _EventDetailSheet({
+    required this.event,
+    required this.baselines,
+  });
   final TeamEventsRecord event;
+  final List<ScheduleBaseline> baselines;
 
   @override
   Widget build(BuildContext context) {
     final visual = _typeVisual(event.eventType);
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.88;
+    final gridHints = standingGridBaselineHints(event, baselines);
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 38.0,
-                height: 4.0,
-                decoration: BoxDecoration(
-                  color: SwimUiTokens.borderSection,
-                  borderRadius: BorderRadius.circular(999.0),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14.0),
-            Row(
-              children: [
-                _TypeBadge(visual: visual),
-                const Spacer(),
-                if (event.parsingConfidence > 0)
-                  Text(
-                    'Confidence: ${(event.parsingConfidence * 100).round()}%',
-                    style: GoogleFonts.sora(
-                      fontSize: 11.0,
-                      fontWeight: FontWeight.w600,
-                      color: SwimUiTokens.textMuted,
-                    ),
+      child: SizedBox(
+        height: sheetHeight,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38.0,
+                  height: 4.0,
+                  decoration: BoxDecoration(
+                    color: SwimUiTokens.borderSection,
+                    borderRadius: BorderRadius.circular(999.0),
                   ),
-              ],
-            ),
-            const SizedBox(height: 10.0),
-            Text(
-              event.title.isEmpty ? '(untitled event)' : event.title,
-              style: GoogleFonts.sora(
-                fontSize: 19.0,
-                fontWeight: FontWeight.w700,
-                color: SwimUiTokens.textBannerTitle,
-                height: 1.25,
-              ),
-            ),
-            const SizedBox(height: 16.0),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _kv('Date', _kvDate(event)),
-                    _kv('Time', _kvTime(event)),
-                    if (event.appliesToGroups.isNotEmpty)
-                      _kv('Groups', event.appliesToGroups.join(', ')),
-                    if (event.location.isNotEmpty)
-                      _kv('Location', event.location),
-                    if (event.timezone.isNotEmpty)
-                      _kv('Timezone', event.timezone),
-                    if (event.isRecurring)
-                      _kv(
-                        'Recurrence',
-                        event.recurrenceRule.isNotEmpty
-                            ? event.recurrenceRule
-                            : 'recurring',
-                      ),
-                    if (event.entryDeadline.isNotEmpty)
-                      _kv('Entry deadline', event.entryDeadline),
-                    if (event.status.isNotEmpty)
-                      _kv('Status', event.status),
-                    if (event.entryUrl.isNotEmpty)
-                      _kvLink(context, 'Entry URL', event.entryUrl),
-                    if (event.details.isNotEmpty) ...[
-                      const SizedBox(height: 6.0),
-                      Text(
-                        'Details',
-                        style: GoogleFonts.sora(
-                          fontSize: 12.0,
-                          fontWeight: FontWeight.w700,
-                          color: SwimUiTokens.textMuted,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                      const SizedBox(height: 4.0),
-                      Text(
-                        event.details,
-                        style: GoogleFonts.sora(
-                          fontSize: 13.0,
-                          fontWeight: FontWeight.w500,
-                          height: 1.45,
-                          color: SwimUiTokens.textTitle,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 18.0),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: SwimUiTokens.surfaceCanvasSchedule,
-                        borderRadius: BorderRadius.circular(10.0),
-                        border: Border.all(
-                          color: SwimUiTokens.borderSubtle,
-                          width: 1.0,
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Source',
-                            style: GoogleFonts.sora(
-                              fontSize: 11.0,
-                              fontWeight: FontWeight.w700,
-                              color: SwimUiTokens.textMuted,
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                          const SizedBox(height: 6.0),
-                          if (event.subject.isNotEmpty)
-                            _smallKv('Subject', event.subject),
-                          if (event.sender.isNotEmpty)
-                            _smallKv('From', event.sender),
-                          if (event.sourceSection.isNotEmpty)
-                            _smallKv('Section', event.sourceSection),
-                          if (event.processedAt != null)
-                            _smallKv(
-                              'Processed',
-                              event.processedAt!.toLocal().toString(),
-                            ),
-                          _smallKv('Doc id', event.docId),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 14.0),
+              Row(
+                children: [
+                  _TypeBadge(visual: visual),
+                  const Spacer(),
+                  if (event.parsingConfidence > 0)
+                    Text(
+                      'Confidence: ${(event.parsingConfidence * 100).round()}%',
+                      style: GoogleFonts.sora(
+                        fontSize: 11.0,
+                        fontWeight: FontWeight.w600,
+                        color: SwimUiTokens.textMuted,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10.0),
+              Text(
+                event.title.isEmpty ? '(untitled event)' : event.title,
+                style: GoogleFonts.sora(
+                  fontSize: 19.0,
+                  fontWeight: FontWeight.w700,
+                  color: SwimUiTokens.textBannerTitle,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 14.0),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _kv('Date', _kvDate(event)),
+                      _kv('Time', _kvTime(event, baselines)),
+                      if (gridHints.drylandLine != null)
+                        _kv('Dryland', gridHints.drylandLine!),
+                      if (event.appliesToGroups.isNotEmpty)
+                        _kv('Groups', event.appliesToGroups.join(', ')),
+                      if (event.location.isNotEmpty)
+                        _kv(
+                          'Location',
+                          normalizeCoachLocationForUi(event.location),
+                        ),
+                      if (event.isRecurring)
+                        _kv(
+                          'Recurrence',
+                          event.recurrenceRule.isNotEmpty
+                              ? event.recurrenceRule
+                              : 'recurring',
+                        ),
+                      if (event.entryDeadline.isNotEmpty)
+                        _kv('Entry deadline', event.entryDeadline),
+                      if (event.entryUrl.isNotEmpty)
+                        _kvLink(context, 'Entry URL', event.entryUrl),
+                      if (event.details.isNotEmpty) ...[
+                        const SizedBox(height: 6.0),
+                        Text(
+                          'Details',
+                          style: GoogleFonts.sora(
+                            fontSize: 12.0,
+                            fontWeight: FontWeight.w700,
+                            color: SwimUiTokens.textMuted,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 4.0),
+                        SelectableText(
+                          event.details,
+                          style: GoogleFonts.sora(
+                            fontSize: 13.0,
+                            fontWeight: FontWeight.w500,
+                            height: 1.45,
+                            color: SwimUiTokens.textTitle,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -766,8 +1578,16 @@ class _EventDetailSheet extends StatelessWidget {
     return e.startDate;
   }
 
-  static String _kvTime(TeamEventsRecord e) {
+  static String _kvTime(
+    TeamEventsRecord e,
+    List<ScheduleBaseline> baselines,
+  ) {
     if (e.startTimeLocal.isEmpty && e.endTimeLocal.isEmpty) {
+      final hints = standingGridBaselineHints(e, baselines);
+      if (hints.scheduleSummary != null) return hints.scheduleSummary!;
+      if (hints.drylandLine != null) {
+        return 'Pool times in Season schedules';
+      }
       return '(none)';
     }
     if (e.endTimeLocal.isEmpty) return e.startTimeLocal;
@@ -844,34 +1664,6 @@ class _EventDetailSheet extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  static Widget _smallKv(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(
-              text: '$label: ',
-              style: GoogleFonts.sora(
-                fontSize: 11.0,
-                fontWeight: FontWeight.w700,
-                color: SwimUiTokens.textMuted,
-              ),
-            ),
-            TextSpan(
-              text: value,
-              style: GoogleFonts.sora(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w500,
-                color: SwimUiTokens.textTitle,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1064,4 +1856,20 @@ class _EmptyFilterState extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> showScheduleEventDetailSheet(
+  BuildContext context, {
+  required TeamEventsRecord event,
+  required List<ScheduleBaseline> baselines,
+}) async {
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.white,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18.0)),
+    ),
+    builder: (_) => _EventDetailSheet(event: event, baselines: baselines),
+  );
 }

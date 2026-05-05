@@ -40,6 +40,10 @@ class MetadataClubsRecord extends FirestoreRecord {
   String? _clubName;
   String get clubName => (_clubName ?? _name ?? '').trim();
 
+  /// Canonical home pool line for coach-email parsing (Pacific / any LSC).
+  String? _homePoolLocation;
+  String get homePoolLocation => (_homePoolLocation ?? '').trim();
+
   void _initializeFields() {
     _name = snapshotData['name'] as String?;
     _zoneId = _asString(snapshotData['zone_id']);
@@ -48,6 +52,7 @@ class MetadataClubsRecord extends FirestoreRecord {
     _clubCode = _asString(
         snapshotData['club_code'] ?? snapshotData['code'] ?? snapshotData['club_id']);
     _clubName = _asString(snapshotData['club_name']);
+    _homePoolLocation = _asString(snapshotData['home_pool_location']);
   }
 
   static String? _asString(dynamic v) {
@@ -158,12 +163,14 @@ Map<String, dynamic> createMetadataClubsRecordData({
   String? name,
   String? zoneId,
   String? zoneDisplayName,
+  String? homePoolLocation,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
       'name': name,
       'zone_id': zoneId,
       'zone_display_name': zoneDisplayName,
+      'home_pool_location': homePoolLocation,
     }.withoutNulls,
   );
 
@@ -181,7 +188,8 @@ class MetadataClubsRecordDocumentEquality
         e1?.zoneDisplayName == e2?.zoneDisplayName &&
         e1?.lscName == e2?.lscName &&
         e1?.clubCode == e2?.clubCode &&
-        e1?.clubName == e2?.clubName;
+        e1?.clubName == e2?.clubName &&
+        e1?.homePoolLocation == e2?.homePoolLocation;
   }
 
   @override
@@ -192,6 +200,7 @@ class MetadataClubsRecordDocumentEquality
         e?.lscName,
         e?.clubCode,
         e?.clubName,
+        e?.homePoolLocation,
       ]);
 
   @override

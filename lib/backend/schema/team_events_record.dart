@@ -120,8 +120,14 @@ class TeamEventsRecord {
         (data['start_time_local'] as String?)?.trim() ?? '';
     final parsedStart = _parseLocalStart(startDate, startTimeLocal);
 
-    final processedAtRaw = meta['processed_at'];
-    final processedAt = processedAtRaw is DateTime ? processedAtRaw : null;
+    DateTime? processedAt;
+    final pt = raw['processed_at'];
+    final pm = meta['processed_at'];
+    if (pt is DateTime) {
+      processedAt = pt;
+    } else if (pm is DateTime) {
+      processedAt = pm;
+    }
 
     final confidenceRaw = raw['parsing_confidence'];
     final confidence = confidenceRaw is num ? confidenceRaw.toDouble() : 0.0;
