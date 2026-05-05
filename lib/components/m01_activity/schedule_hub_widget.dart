@@ -8,6 +8,7 @@ import '/theme/swim_ui_tokens.dart';
 import 'schedule_display_item.dart';
 import 'training_schedule_tab.dart';
 import 'team_events_schedule.dart' show showScheduleEventDetailSheet;
+import 'upcoming_timeline_tab.dart';
 
 /// Four-tab Schedule experience: Upcoming, Training Schedule, All Events, From Coach.
 class ScheduleHubWidget extends StatefulWidget {
@@ -388,91 +389,14 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     required List<ScheduleBaseline> baselines,
     required double bottomPad,
   }) {
-    final featured = upcoming.isEmpty ? null : upcoming.first;
-    final nextFew =
-        upcoming.length <= 1 ? <ScheduleDisplayItem>[] : upcoming.sublist(1, upcoming.length.clamp(1, 6));
-
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(16, 14, 16, bottomPad),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              Text(
-                'Next Event',
-                style: GoogleFonts.sora(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: SwimUiTokens.textBannerTitle,
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (featured == null)
-                _EmptyPanel(
-                  title: 'No upcoming events',
-                  subtitle:
-                      'New schedules and coach updates will appear here once available.',
-                )
-              else
-                _FeaturedNextCard(
-                  item: featured,
-                  accent: _accent(featured.type),
-                  squadBg: _squadPillBg(featured.squadLabel),
-                  squadFg: _squadPillFg(featured.squadLabel),
-                  onTap: () => showScheduleEventDetailSheet(
-                    context,
-                    event: featured.record,
-                    baselines: baselines,
-                  ),
-                ),
-              const SizedBox(height: 22),
-              Text(
-                'Coming Up Next',
-                style: GoogleFonts.sora(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: SwimUiTokens.textBannerTitle,
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (featured == null || nextFew.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6.0),
-                  child: Text(
-                    featured == null
-                        ? ''
-                        : 'No additional upcoming items right now.',
-                    style: GoogleFonts.sora(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: SwimUiTokens.textMuted,
-                    ),
-                  ),
-                )
-              else
-                ...nextFew.map(
-                  (i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _CompactEventTile(
-                      item: i,
-                      accent: _accent(i.type),
-                      squadBg: _squadPillBg(i.squadLabel),
-                      squadFg: _squadPillFg(i.squadLabel),
-                      showChevron: true,
-                      dense: true,
-                      onTap: () => showScheduleEventDetailSheet(
-                        context,
-                        event: i.record,
-                        baselines: baselines,
-                      ),
-                    ),
-                  ),
-                ),
-            ]),
-          ),
-        ),
-      ],
+    return UpcomingTimelineTab(
+      items: upcoming,
+      bottomPad: bottomPad,
+      onOpenDetail: (item) => showScheduleEventDetailSheet(
+        context,
+        event: item.record,
+        baselines: baselines,
+      ),
     );
   }
 
@@ -916,162 +840,6 @@ class _EmptyPanel extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FeaturedNextCard extends StatelessWidget {
-  const _FeaturedNextCard({
-    required this.item,
-    required this.accent,
-    required this.squadBg,
-    required this.squadFg,
-    required this.onTap,
-  });
-
-  final ScheduleDisplayItem item;
-  final Color accent;
-  final Color squadBg;
-  final Color squadFg;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final typeLabel = teamEventTypeLabel(item.type).toUpperCase();
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE8EEF5)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(width: 5, color: accent),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _TypePill(label: typeLabel, accent: accent),
-                              const SizedBox(width: 6),
-                              if (item.squadLabel.isNotEmpty)
-                                _SquadPill(
-                                  label: item.squadLabel,
-                                  bg: squadBg,
-                                  fg: squadFg,
-                                ),
-                              const Spacer(),
-                              Text(
-                                item.dateShortLabel,
-                                style: GoogleFonts.sora(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: SwimUiTokens.textTitle,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            item.record.title.isEmpty
-                                ? '(Untitled)'
-                                : item.record.title,
-                            style: GoogleFonts.sora(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              height: 1.2,
-                              color: SwimUiTokens.textBannerTitle,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          if (item.locationDisplay.isNotEmpty)
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.place_outlined,
-                                  size: 18,
-                                  color: SwimUiTokens.textMuted,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    item.locationDisplay,
-                                    style: GoogleFonts.sora(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: SwimUiTokens.textTitle,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Divider(height: 1),
-                          ),
-                          if (item.timeDisplayLabel.isNotEmpty)
-                            Text(
-                              item.timeDisplayLabel,
-                              style: GoogleFonts.sora(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: SwimUiTokens.textTitle,
-                              ),
-                            ),
-                          if (item.drylandLabel != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Dryland ${item.drylandLabel}',
-                              style: GoogleFonts.sora(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: SwimUiTokens.textMuted,
-                              ),
-                            ),
-                          ],
-                          if (item.repeatSummary.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              item.repeatSummary,
-                              style: GoogleFonts.sora(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: SwimUiTokens.accentBlue,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
