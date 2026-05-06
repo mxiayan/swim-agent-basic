@@ -321,7 +321,7 @@ class _M01ActivityWidgetState extends State<M01ActivityWidget>
                               : null;
                           final card = Padding(
                             padding: const EdgeInsetsDirectional.fromSTEB(
-                                16.0, 0.0, 16.0, 0.0),
+                                24.0, 0.0, 24.0, 0.0),
                             child: Hero(
                               tag: heroTag,
                               flightShuttleBuilder: (

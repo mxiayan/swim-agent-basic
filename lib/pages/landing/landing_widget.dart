@@ -2,6 +2,7 @@ import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/theme/obsidian_volt_tokens.dart';
 import 'dart:math';
 import 'dart:ui';
 import '/index.dart';
@@ -104,9 +105,9 @@ class _LandingWidgetState extends State<LandingWidget>
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+        backgroundColor: ObsidianVoltTokens.bgBase,
         appBar: AppBar(
-          backgroundColor: FlutterFlowTheme.of(context).primary,
+          backgroundColor: ObsidianVoltTokens.bgSurface,
           automaticallyImplyLeading: false,
           title: Text(
             'Page Title',
@@ -117,7 +118,7 @@ class _LandingWidgetState extends State<LandingWidget>
                     fontStyle:
                         FlutterFlowTheme.of(context).headlineMedium.fontStyle,
                   ),
-                  color: Colors.white,
+                  color: ObsidianVoltTokens.textPrimary,
                   fontSize: 22.0,
                   letterSpacing: 0.0,
                   fontWeight:
@@ -144,7 +145,7 @@ class _LandingWidgetState extends State<LandingWidget>
                 width: MediaQuery.sizeOf(context).width * 1.0,
                 height: MediaQuery.sizeOf(context).height * 1.0,
                 decoration: BoxDecoration(
-                  color: Color(0xC8112E44),
+                  color: ObsidianVoltTokens.bgBase.withValues(alpha: 0.72),
                 ),
               ),
               Align(
@@ -161,8 +162,7 @@ class _LandingWidgetState extends State<LandingWidget>
                           width: MediaQuery.sizeOf(context).width * 1.0,
                           height: 341.5,
                           decoration: BoxDecoration(
-                            color: FlutterFlowTheme.of(context)
-                                .secondaryBackground,
+                            color: ObsidianVoltTokens.bgSurface,
                             borderRadius: BorderRadius.circular(40.0),
                           ),
                           child: Padding(
@@ -196,9 +196,7 @@ class _LandingWidgetState extends State<LandingWidget>
                                                           .titleMedium
                                                           .fontStyle,
                                                 ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondary,
+                                                color: ObsidianVoltTokens.accentText,
                                                 fontSize: 12.0,
                                                 letterSpacing: 0.0,
                                                 fontWeight:
@@ -242,6 +240,7 @@ class _LandingWidgetState extends State<LandingWidget>
                                                 ),
                                                 fontSize: 24.0,
                                                 letterSpacing: 0.0,
+                                                color: ObsidianVoltTokens.textPrimary,
                                                 fontWeight:
                                                     FlutterFlowTheme.of(context)
                                                         .displaySmall
@@ -265,8 +264,7 @@ class _LandingWidgetState extends State<LandingWidget>
                                     children: [
                                       Icon(
                                         Icons.location_pin,
-                                        color: FlutterFlowTheme.of(context)
-                                            .lightGrey,
+                                        color: ObsidianVoltTokens.textSecondary,
                                         size: 14.0,
                                       ),
                                       Padding(
@@ -290,9 +288,7 @@ class _LandingWidgetState extends State<LandingWidget>
                                                           .titleMedium
                                                           .fontStyle,
                                                 ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .lightGrey,
+                                                color: ObsidianVoltTokens.textSecondary,
                                                 fontSize: 14.0,
                                                 letterSpacing: 0.0,
                                                 fontWeight:
@@ -334,9 +330,7 @@ class _LandingWidgetState extends State<LandingWidget>
                                                           .bodySmall
                                                           .fontStyle,
                                                 ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryText,
+                                                color: ObsidianVoltTokens.textSecondary,
                                                 letterSpacing: 0.0,
                                                 fontWeight:
                                                     FlutterFlowTheme.of(context)
@@ -381,8 +375,7 @@ class _LandingWidgetState extends State<LandingWidget>
                                       iconPadding:
                                           EdgeInsetsDirectional.fromSTEB(
                                               0.0, 0.0, 0.0, 0.0),
-                                      color:
-                                          FlutterFlowTheme.of(context).tertiary,
+                                      color: ObsidianVoltTokens.accent,
                                       textStyle: FlutterFlowTheme.of(context)
                                           .titleSmall
                                           .override(
@@ -393,8 +386,7 @@ class _LandingWidgetState extends State<LandingWidget>
                                                       .titleSmall
                                                       .fontStyle,
                                             ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .primaryText,
+                                            color: ObsidianVoltTokens.bgBase,
                                             letterSpacing: 0.0,
                                             fontWeight: FontWeight.bold,
                                             fontStyle:
@@ -425,7 +417,7 @@ class _LandingWidgetState extends State<LandingWidget>
                           width: 100.0,
                           height: 100.0,
                           decoration: BoxDecoration(
-                            color: FlutterFlowTheme.of(context).turquoiseGreen,
+                            color: ObsidianVoltTokens.accent,
                             shape: BoxShape.circle,
                           ),
                           child: Padding(

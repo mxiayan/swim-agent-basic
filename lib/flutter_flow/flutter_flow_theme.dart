@@ -4,29 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '/theme/lavender_indigo_tokens.dart';
+import '/theme/obsidian_volt_tokens.dart';
+
 const _kFlutterFlowThemeModeKey = 'flutter_flow_theme_mode';
 
 abstract class FlutterFlowTheme {
   static ThemeMode themeMode = ThemeMode.system;
 
   static Future<void> initialize() async {
+    themeMode = ThemeMode.light;
     final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(_kFlutterFlowThemeModeKey);
-    if (stored == null) {
-      return;
-    }
-    for (final mode in ThemeMode.values) {
-      if (mode.name == stored) {
-        themeMode = mode;
-        return;
-      }
-    }
+    await prefs.setString(_kFlutterFlowThemeModeKey, ThemeMode.light.name);
   }
 
   static Future<void> saveThemeMode(ThemeMode mode) async {
-    themeMode = mode;
+    themeMode = ThemeMode.light;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kFlutterFlowThemeModeKey, mode.name);
+    await prefs.setString(_kFlutterFlowThemeModeKey, ThemeMode.light.name);
   }
 
   static FlutterFlowTheme of(BuildContext context) {
@@ -154,37 +149,31 @@ class LightModeTheme extends FlutterFlowTheme {
   @Deprecated('Use tertiary instead')
   Color get tertiaryColor => tertiary;
 
-  /// Energetic cyan / light blue — primary brand (tabs, chips, CTAs).
-  late Color primary = const Color(0xFF29B6F6);
-  late Color secondary = const Color(0xFFF0A202);
-  late Color tertiary = const Color(0xFF94DDBC);
-  late Color alternate = const Color(0xFFDA4167);
-  /// Default body text on white (meet titles use explicit black where needed).
-  late Color primaryText = const Color(0xFF0F172A);
-  /// Softer grey for secondary lines (“Showing meets…”, meta copy).
-  late Color secondaryText = const Color(0xFF94A3B8);
-  /// Pure white app scaffold.
-  late Color primaryBackground = const Color(0xFFFFFFFF);
-  /// Pure white cards (depth from shadow only).
-  late Color secondaryBackground = const Color(0xFFFFFFFF);
-  late Color accent1 = const Color(0xFF64748B);
-  late Color accent2 = const Color(0xFF94A3B8);
-  late Color accent3 = const Color(0xFFE2E8F0);
-  late Color accent4 = const Color(0xFFF1F5F9);
-  late Color success = const Color(0xFF04A24C);
-  late Color warning = const Color(0xFFFCDC0C);
-  late Color error = const Color(0xFFE21C3D);
-  late Color info = const Color(0xFF0288D1);
+  late Color primary = ObsidianVoltTokens.accent;
+  late Color secondary = ObsidianVoltTokens.eventMeetDot;
+  late Color tertiary = ObsidianVoltTokens.eventAdminDot;
+  late Color alternate = ObsidianVoltTokens.dangerCta;
+  late Color primaryText = ObsidianVoltTokens.textPrimary;
+  late Color secondaryText = ObsidianVoltTokens.textSecondary;
+  late Color primaryBackground = ObsidianVoltTokens.bgBase;
+  late Color secondaryBackground = ObsidianVoltTokens.bgSurface;
+  late Color accent1 = ObsidianVoltTokens.textTertiary;
+  late Color accent2 = ObsidianVoltTokens.borderSubtle;
+  late Color accent3 = ObsidianVoltTokens.borderMuted;
+  late Color accent4 = ObsidianVoltTokens.bgCard;
+  late Color success = LavenderIndigoTokens.success;
+  late Color warning = LavenderIndigoTokens.warning;
+  late Color error = LavenderIndigoTokens.danger;
+  late Color info = ObsidianVoltTokens.badgeEnteredText;
 
-  late Color primaryBtnText = const Color(0xFFFFFFFF);
-  /// Very light grey for chip outlines and hairlines.
-  late Color lineColor = const Color(0xFFE2E8F0);
-  late Color prussianBlue = const Color(0xFF29B6F6);
-  late Color marigold = const Color(0xFFF0A202);
-  late Color turquoiseGreen = const Color(0xFF94DDBC);
-  late Color cerise = const Color(0xFFDA4167);
-  late Color fireOpal = const Color(0xFFEB5E55);
-  late Color lightGrey = const Color(0xFFBBBBBB);
+  late Color primaryBtnText = LavenderIndigoTokens.bgSurface;
+  late Color lineColor = ObsidianVoltTokens.borderSubtle;
+  late Color prussianBlue = ObsidianVoltTokens.accent;
+  late Color marigold = ObsidianVoltTokens.eventMeetDot;
+  late Color turquoiseGreen = ObsidianVoltTokens.accentText;
+  late Color cerise = ObsidianVoltTokens.eventSocialDot;
+  late Color fireOpal = ObsidianVoltTokens.dangerCta;
+  late Color lightGrey = ObsidianVoltTokens.textSecondary;
 }
 
 abstract class Typography {
@@ -240,110 +229,111 @@ class ThemeTypography extends Typography {
 
   final FlutterFlowTheme theme;
 
-  String get displayLargeFamily => 'Sora';
+  String get displayLargeFamily => '';
   bool get displayLargeIsCustom => false;
-  TextStyle get displayLarge => GoogleFonts.sora(
+  TextStyle get displayLarge => TextStyle(
         color: theme.primaryText,
         fontWeight: FontWeight.normal,
         fontSize: 57.0,
       );
-  String get displayMediumFamily => 'Sora';
+  String get displayMediumFamily => '';
   bool get displayMediumIsCustom => false;
-  TextStyle get displayMedium => GoogleFonts.sora(
+  TextStyle get displayMedium => TextStyle(
         color: theme.primaryText,
         fontWeight: FontWeight.normal,
         fontSize: 45.0,
       );
-  String get displaySmallFamily => 'Sora';
+  String get displaySmallFamily => '';
   bool get displaySmallIsCustom => false;
-  TextStyle get displaySmall => GoogleFonts.sora(
+  TextStyle get displaySmall => TextStyle(
         color: theme.primaryText,
-        fontWeight: FontWeight.w800,
-        fontSize: 24.0,
+        fontWeight: FontWeight.w700,
+        fontSize: 22.0,
       );
-  String get headlineLargeFamily => 'Sora';
+  String get headlineLargeFamily => '';
   bool get headlineLargeIsCustom => false;
-  TextStyle get headlineLarge => GoogleFonts.sora(
+  TextStyle get headlineLarge => TextStyle(
         color: theme.primaryText,
-        fontWeight: FontWeight.normal,
-        fontSize: 32.0,
+        fontWeight: FontWeight.w700,
+        fontSize: 22.0,
       );
-  String get headlineMediumFamily => 'Sora';
+  String get headlineMediumFamily => '';
   bool get headlineMediumIsCustom => false;
-  TextStyle get headlineMedium => GoogleFonts.sora(
-        color: theme.secondaryText,
-        fontWeight: FontWeight.bold,
-        fontSize: 22.0,
-      );
-  String get headlineSmallFamily => 'Sora';
-  bool get headlineSmallIsCustom => false;
-  TextStyle get headlineSmall => GoogleFonts.sora(
+  TextStyle get headlineMedium => TextStyle(
         color: theme.primaryText,
-        fontWeight: FontWeight.w600,
-        fontSize: 20.0,
-      );
-  String get titleLargeFamily => 'Sora';
-  bool get titleLargeIsCustom => false;
-  TextStyle get titleLarge => GoogleFonts.sora(
-        color: theme.primaryText,
-        fontWeight: FontWeight.w500,
-        fontSize: 22.0,
-      );
-  String get titleMediumFamily => 'Sora';
-  bool get titleMediumIsCustom => false;
-  TextStyle get titleMedium => GoogleFonts.sora(
-        color: theme.primaryText,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w700,
         fontSize: 18.0,
       );
-  String get titleSmallFamily => 'Sora';
-  bool get titleSmallIsCustom => false;
-  TextStyle get titleSmall => GoogleFonts.sora(
-        color: theme.secondaryText,
-        fontWeight: FontWeight.normal,
+  String get headlineSmallFamily => '';
+  bool get headlineSmallIsCustom => false;
+  TextStyle get headlineSmall => TextStyle(
+        color: theme.primaryText,
+        fontWeight: FontWeight.w600,
         fontSize: 16.0,
       );
-  String get labelLargeFamily => 'Sora';
+  String get titleLargeFamily => '';
+  bool get titleLargeIsCustom => false;
+  TextStyle get titleLarge => TextStyle(
+        color: theme.primaryText,
+        fontWeight: FontWeight.w700,
+        fontSize: 18.0,
+      );
+  String get titleMediumFamily => '';
+  bool get titleMediumIsCustom => false;
+  TextStyle get titleMedium => TextStyle(
+        color: theme.primaryText,
+        fontWeight: FontWeight.w600,
+        fontSize: 16.0,
+      );
+  String get titleSmallFamily => '';
+  bool get titleSmallIsCustom => false;
+  TextStyle get titleSmall => TextStyle(
+        color: theme.secondaryText,
+        fontWeight: FontWeight.w500,
+        fontSize: 13.0,
+      );
+  String get labelLargeFamily => '';
   bool get labelLargeIsCustom => false;
-  TextStyle get labelLarge => GoogleFonts.sora(
+  TextStyle get labelLarge => TextStyle(
         color: theme.primaryText,
         fontWeight: FontWeight.w500,
         fontSize: 14.0,
       );
-  String get labelMediumFamily => 'Sora';
+  String get labelMediumFamily => '';
   bool get labelMediumIsCustom => false;
-  TextStyle get labelMedium => GoogleFonts.sora(
-        color: theme.primaryText,
+  TextStyle get labelMedium => TextStyle(
+        color: theme.secondaryText,
         fontWeight: FontWeight.w500,
         fontSize: 12.0,
+        letterSpacing: 0.02 * 12.0,
       );
-  String get labelSmallFamily => 'Sora';
+  String get labelSmallFamily => '';
   bool get labelSmallIsCustom => false;
-  TextStyle get labelSmall => GoogleFonts.sora(
-        color: theme.primaryText,
-        fontWeight: FontWeight.w500,
+  TextStyle get labelSmall => TextStyle(
+        color: theme.secondaryText,
+        fontWeight: FontWeight.w400,
         fontSize: 11.0,
       );
-  String get bodyLargeFamily => 'Sora';
+  String get bodyLargeFamily => '';
   bool get bodyLargeIsCustom => false;
-  TextStyle get bodyLarge => GoogleFonts.sora(
+  TextStyle get bodyLarge => TextStyle(
         color: theme.primaryText,
-        fontWeight: FontWeight.normal,
+        fontWeight: FontWeight.w400,
         fontSize: 16.0,
       );
-  String get bodyMediumFamily => 'Sora';
+  String get bodyMediumFamily => '';
   bool get bodyMediumIsCustom => false;
-  TextStyle get bodyMedium => GoogleFonts.sora(
+  TextStyle get bodyMedium => TextStyle(
         color: theme.primaryText,
-        fontWeight: FontWeight.normal,
+        fontWeight: FontWeight.w400,
         fontSize: 14.0,
       );
-  String get bodySmallFamily => 'Sora';
+  String get bodySmallFamily => '';
   bool get bodySmallIsCustom => false;
-  TextStyle get bodySmall => GoogleFonts.sora(
+  TextStyle get bodySmall => TextStyle(
         color: theme.secondaryText,
-        fontWeight: FontWeight.w300,
-        fontSize: 14.0,
+        fontWeight: FontWeight.w400,
+        fontSize: 13.0,
       );
 }
 
@@ -375,26 +365,15 @@ class FFRadius {
 class FFShadows {
   const FFShadows(this.theme);
   final FlutterFlowTheme theme;
-  BoxShadow get sm => const BoxShadow(
-      blurRadius: 3.0,
-      color: const Color(0x1A000000),
-      offset: const Offset(0.0, 1.0),
-      spreadRadius: 0.0);
-  BoxShadow get md => const BoxShadow(
-      blurRadius: 6.0,
-      color: const Color(0x1A000000),
-      offset: const Offset(0.0, 3.0),
-      spreadRadius: 0.0);
-  BoxShadow get lg => const BoxShadow(
-      blurRadius: 15.0,
-      color: const Color(0x1A000000),
-      offset: const Offset(0.0, 8.0),
-      spreadRadius: 0.0);
-  BoxShadow get xl => const BoxShadow(
-      blurRadius: 25.0,
-      color: const Color(0x1A000000),
-      offset: const Offset(0.0, 16.0),
-      spreadRadius: 0.0);
+  BoxShadow get sm => LavenderIndigoTokens.shadowSm.first;
+  BoxShadow get md => LavenderIndigoTokens.shadowMd.first;
+  BoxShadow get lg => LavenderIndigoTokens.shadowLg.first;
+  BoxShadow get xl => BoxShadow(
+        color: const Color.fromRGBO(99, 102, 241, 0.14),
+        blurRadius: 28,
+        offset: const Offset(0, 12),
+        spreadRadius: 0,
+      );
 }
 
 extension TextStyleHelper on TextStyle {

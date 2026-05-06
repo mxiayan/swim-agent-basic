@@ -11,6 +11,8 @@ import '/backend/schema/meet_preferences_record.dart';
 import '/backend/schema/personal_meet_resources.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/theme/obsidian_volt_tokens.dart';
+import '/theme/swim_ui_tokens.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
@@ -101,11 +103,11 @@ class MeetDetailView extends StatefulWidget {
 
 class _MeetDetailViewState extends State<MeetDetailView>
     with WidgetsBindingObserver {
-  static const Color _bg = Color(0xFFF1F5F9);
-  static const Color _cardBorder = Color(0xFFE2E8F0);
-  static const Color _slate700 = Color(0xFF334155);
-  static const Color _slate600 = Color(0xFF475569);
-  static const Color _slate500 = Color(0xFF64748B);
+  static const Color _bg = ObsidianVoltTokens.bgBase;
+  static Color get _cardBorder => ObsidianVoltTokens.borderDefault;
+  static const Color _slate700 = ObsidianVoltTokens.textPrimary;
+  static const Color _slate600 = ObsidianVoltTokens.textPrimary;
+  static const Color _slate500 = ObsidianVoltTokens.textSecondary;
   static const Color _enteredBg = Color(0xFFECFDF5);
   static const Color _enteredFg = Color(0xFF047857);
   static const Color _enteredBorder = Color(0xFFA7F3D0);
@@ -352,7 +354,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: ObsidianVoltTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
       ),
@@ -364,7 +366,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
               bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
             ),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 20.0),
+              padding: const EdgeInsets.fromLTRB(24.0, 12.0, 24.0, 20.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -969,7 +971,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: ObsidianVoltTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18.0)),
       ),
@@ -1040,7 +1042,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
     final current = _effectiveStatus;
     final choice = await showModalBottomSheet<MeetPreferenceStatus>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: ObsidianVoltTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18.0)),
       ),
@@ -1135,7 +1137,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
           backgroundColor: selected
               ? FlutterFlowTheme.of(context).primary
               : FlutterFlowTheme.of(context).primary.withValues(alpha: 0.88),
-          foregroundColor: Colors.white,
+          foregroundColor: ObsidianVoltTokens.bgBase,
           padding: const EdgeInsets.symmetric(vertical: 12.0),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(11.0)),
@@ -1398,7 +1400,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: ObsidianVoltTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
       ),
@@ -1878,7 +1880,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: ObsidianVoltTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
       ),
@@ -2420,7 +2422,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: ObsidianVoltTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
       ),
@@ -2659,7 +2661,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 16.0),
+          padding: const EdgeInsets.fromLTRB(24.0, 12.0, 24.0, 16.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2767,7 +2769,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: ObsidianVoltTokens.bgSurface,
         title: Text('Delete video?',
             style: GoogleFonts.sora(fontWeight: FontWeight.w700)),
         content: Text(
@@ -2811,7 +2813,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: ObsidianVoltTokens.bgSurface,
         title: Text(
           'Delete resource?',
           style: GoogleFonts.sora(fontWeight: FontWeight.w700),
@@ -2895,7 +2897,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
 
         return _softCard(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
+            padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2971,7 +2973,10 @@ class _MeetDetailViewState extends State<MeetDetailView>
                     decoration: BoxDecoration(
                       color: const Color(0xFFFAFCFF),
                       borderRadius: BorderRadius.circular(12.0),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(
+                        color: SwimUiTokens.cardSurfaceEdgeBorder,
+                        width: 1,
+                      ),
                     ),
                     child: Column(
                       children: [
@@ -3107,7 +3112,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
                   ),
                   PopupMenuButton<String>(
                     tooltip: 'More actions',
-                    color: Colors.white,
+                    color: ObsidianVoltTokens.bgSurface,
                     onSelected: (value) {
                       if (value == 'edit') {
                         _openPersonalResourceEditor(initial: entry);
@@ -3261,7 +3266,10 @@ class _MeetDetailViewState extends State<MeetDetailView>
         decoration: BoxDecoration(
           color: const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(10.0),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(
+            color: SwimUiTokens.cardSurfaceEdgeBorder,
+            width: 1,
+          ),
         ),
         alignment: Alignment.center,
         child: Icon(
@@ -3310,7 +3318,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
                     style: GoogleFonts.sora(
                       fontSize: 9.0,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: ObsidianVoltTokens.textPrimary,
                     ),
                   ),
                 ),
@@ -3384,7 +3392,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
     final hasEvents = displayEvents.isNotEmpty;
     return _softCard(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
+        padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -3584,7 +3592,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
                                   ],
                                   icon: const Icon(Icons.more_horiz_rounded,
                                       size: 18.0),
-                                  color: Colors.white,
+                                  color: ObsidianVoltTokens.bgSurface,
                                 ),
                             ],
                           ),
@@ -3610,7 +3618,10 @@ class _MeetDetailViewState extends State<MeetDetailView>
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10.0),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(
+                  color: SwimUiTokens.cardSurfaceEdgeBorder,
+                  width: 1,
+                ),
               ),
               child: Row(
                 children: [
@@ -3717,7 +3728,8 @@ class _MeetDetailViewState extends State<MeetDetailView>
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => Text(
                       'Could not load photo.',
-                      style: GoogleFonts.sora(color: Colors.white70),
+                      style: GoogleFonts.sora(
+                          color: ObsidianVoltTokens.textSecondary),
                     ),
                   ),
                 ),
@@ -3729,7 +3741,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
               child: IconButton(
                 onPressed: () => Navigator.pop(ctx),
                 icon: const Icon(Icons.close_rounded),
-                color: Colors.white,
+                color: ObsidianVoltTokens.textPrimary,
               ),
             ),
           ],
@@ -3778,7 +3790,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: ObsidianVoltTokens.bgSurface,
         borderRadius: BorderRadius.circular(16.0),
         border: Border.all(color: _cardBorder.withValues(alpha: 0.85)),
         boxShadow: [
@@ -3873,15 +3885,10 @@ class _MeetDetailViewState extends State<MeetDetailView>
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: ObsidianVoltTokens.bgSurface,
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(20.0),
               bottomRight: Radius.circular(20.0),
-            ),
-            border: Border(
-              bottom: BorderSide(
-                color: _cardBorder.withValues(alpha: 0.7),
-              ),
             ),
             boxShadow: [
               BoxShadow(
@@ -3892,7 +3899,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 18.0),
+            padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 18.0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -4166,7 +4173,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
     if (currentUserUid.isEmpty) {
       return _softCard(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
+          padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 16.0),
           child: body(null),
         ),
       );
@@ -4174,7 +4181,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
 
     return _softCard(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
+        padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 16.0),
         child: StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('users')
@@ -4258,7 +4265,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
 
     return _softCard(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
+        padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -4676,7 +4683,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
 
     return _softCard(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 14.0),
+        padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 14.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -5200,7 +5207,8 @@ class _PersonalResourceEditorSheetState
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => Text(
                       'Could not load photo.',
-                      style: GoogleFonts.sora(color: Colors.white70),
+                      style:
+                          GoogleFonts.sora(color: ObsidianVoltTokens.textSecondary),
                     ),
                   ),
                 ),
@@ -5212,7 +5220,7 @@ class _PersonalResourceEditorSheetState
               child: IconButton(
                 onPressed: () => Navigator.pop(ctx),
                 icon: const Icon(Icons.close_rounded),
-                color: Colors.white,
+                color: ObsidianVoltTokens.textPrimary,
                 tooltip: 'Close',
               ),
             ),
@@ -5296,7 +5304,7 @@ class _PersonalResourceEditorSheetState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: ObsidianVoltTokens.bgSurface,
         title: Text(
           'Delete resource?',
           style: GoogleFonts.sora(fontWeight: FontWeight.w700),
@@ -5489,7 +5497,7 @@ class _PersonalResourceEditorSheetState
                 fontSize: 14.0,
                 color: const Color(0xFF0F172A),
               ),
-              dropdownColor: Colors.white,
+              dropdownColor: ObsidianVoltTokens.bgSurface,
               iconEnabledColor: const Color(0xFF64748B),
               decoration: InputDecoration(
                 filled: true,
@@ -5684,10 +5692,10 @@ class _PersonalResourceEditorSheetState
                                   shape: BoxShape.circle,
                                 ),
                                 padding: const EdgeInsets.all(3.0),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.close_rounded,
                                   size: 12.0,
-                                  color: Colors.white,
+                                  color: ObsidianVoltTokens.textPrimary,
                                 ),
                               ),
                             ),
@@ -5984,11 +5992,11 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
         backgroundColor: Colors.black.withValues(alpha: 0.35),
         elevation: 0,
         scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: ObsidianVoltTokens.textPrimary),
         title: Text(
           widget.video.stroke,
           style: GoogleFonts.sora(
-            color: Colors.white,
+            color: ObsidianVoltTokens.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -5999,7 +6007,7 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
             : (c == null || !c.value.isInitialized)
                 ? Text(
                     'Could not open this video.',
-                    style: GoogleFonts.sora(color: Colors.white70),
+                    style: GoogleFonts.sora(color: ObsidianVoltTokens.textSecondary),
                   )
                 : Column(
                     children: [
@@ -6010,7 +6018,7 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                             if (vs.width == 0 || vs.height == 0) {
                               return const Center(
                                 child: CircularProgressIndicator(
-                                    color: Colors.white54),
+                                    color: ObsidianVoltTokens.textSecondary),
                               );
                             }
                             return Stack(
@@ -6047,7 +6055,7 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                                       child: Text(
                                         caption,
                                         style: GoogleFonts.sora(
-                                          color: Colors.white,
+                                          color: ObsidianVoltTokens.textPrimary,
                                           fontSize: 12.0,
                                           height: 1.3,
                                         ),
@@ -6083,7 +6091,7 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                               child: Row(
                                 children: [
                                   IconButton(
-                                    color: Colors.white,
+                                    color: ObsidianVoltTokens.textPrimary,
                                     onPressed: () => _stepFrame(-1),
                                     icon:
                                         const Icon(Icons.skip_previous_rounded),
@@ -6091,7 +6099,7 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                                   ),
                                   IconButton(
                                     iconSize: 42.0,
-                                    color: Colors.white,
+                                    color: ObsidianVoltTokens.textPrimary,
                                     onPressed: () {
                                       if (c.value.isPlaying) {
                                         c.pause();
@@ -6106,7 +6114,7 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                                     ),
                                   ),
                                   IconButton(
-                                    color: Colors.white,
+                                    color: ObsidianVoltTokens.textPrimary,
                                     onPressed: () => _stepFrame(1),
                                     icon: const Icon(Icons.skip_next_rounded),
                                     tooltip: 'Next frame',
@@ -6117,8 +6125,8 @@ class _LocalVideoPlayerPageState extends State<_LocalVideoPlayerPage> {
                                       'Slow Motion 0.5x',
                                       style: GoogleFonts.sora(
                                         color: _slowMotion
-                                            ? Colors.white
-                                            : Colors.white70,
+                                            ? ObsidianVoltTokens.textPrimary
+                                            : ObsidianVoltTokens.textSecondary,
                                         fontSize: 11.5,
                                       ),
                                     ),

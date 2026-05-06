@@ -7,6 +7,7 @@ import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/theme/swim_ui_tokens.dart';
+import '/theme/obsidian_volt_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -644,7 +645,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         : headerRow;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 0.0),
+      padding: const EdgeInsets.fromLTRB(24.0, 10.0, 24.0, 0.0),
       child: Container(
         decoration: BoxDecoration(
           color: surface,
@@ -707,7 +708,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       context: pageContext,
       useSafeArea: true,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: ObsidianVoltTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
       ),
@@ -770,11 +771,11 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         mainAxisSize: MainAxisSize.max,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
+            padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 0.0),
             child: _buildPrimarySegmentedControl(),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 0.0),
+            padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 0.0),
             child: _buildZoneAndFiltersRow(context, app),
           ),
           Expanded(
@@ -1007,7 +1008,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                             deadlineWeekCount > 0) ...[
                           Padding(
                             padding:
-                                const EdgeInsets.fromLTRB(20.0, 4.0, 20.0, 0.0),
+                                const EdgeInsets.fromLTRB(24.0, 4.0, 24.0, 0.0),
                             child: Wrap(
                               spacing: 8.0,
                               runSpacing: 8.0,
@@ -1016,9 +1017,9 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                 if (needsAction.isNotEmpty)
                                   _myMeetsSummaryChip(
                                     label: '${needsAction.length} Need Action',
-                                    background: const Color(0xFFF1F5F9),
-                                    border: const Color(0xFFE2E8F0),
-                                    foreground: SwimUiTokens.textBannerTitle,
+                                    background: ObsidianVoltTokens.bgSurface,
+                                    border: ObsidianVoltTokens.borderDefault,
+                                    foreground: ObsidianVoltTokens.textPrimary,
                                   ),
                                 if (deadlineWeekCount > 0)
                                   Tooltip(
@@ -1030,14 +1031,14 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                           ? '1 deadline this week'
                                           : '$deadlineWeekCount deadlines this week',
                                       background: anyDeadlineUrgent48h
-                                          ? const Color(0xFFFFF1F2)
-                                          : const Color(0xFFF8FAFC),
+                                          ? ObsidianVoltTokens.dangerCardBg
+                                          : ObsidianVoltTokens.urgentCardBg,
                                       border: anyDeadlineUrgent48h
-                                          ? const Color(0xFFFECACA)
-                                          : const Color(0xFFE2E8F0),
+                                          ? ObsidianVoltTokens.dangerCardBorder
+                                          : ObsidianVoltTokens.urgentCardBorder,
                                       foreground: anyDeadlineUrgent48h
-                                          ? const Color(0xFF9F1239)
-                                          : const Color(0xFF9A3412),
+                                          ? ObsidianVoltTokens.dangerCta
+                                          : ObsidianVoltTokens.urgentCta,
                                     ),
                                   ),
                               ],
@@ -1219,12 +1220,14 @@ class _MeetRefineSheetContent extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: 12.0, vertical: 7.0),
             decoration: BoxDecoration(
-              color: selected ? SwimUiTokens.accentBlueSheet : Colors.white,
+              color: selected
+                  ? ObsidianVoltTokens.tabSelectedBg
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(999.0),
               border: Border.all(
                 color: selected
-                    ? SwimUiTokens.accentBlueSheet
-                    : SwimUiTokens.borderSubtle,
+                    ? ObsidianVoltTokens.borderDefault
+                    : ObsidianVoltTokens.borderSubtle,
                 width: 1.0,
               ),
             ),
@@ -1233,7 +1236,9 @@ class _MeetRefineSheetContent extends StatelessWidget {
               style: GoogleFonts.sora(
                 fontSize: 12.0,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : SwimUiTokens.textBannerTitle,
+                color: selected
+                    ? ObsidianVoltTokens.textPrimary
+                    : ObsidianVoltTokens.textSecondary,
               ),
             ),
           ),
@@ -1258,9 +1263,9 @@ class _MeetRefineSheetContent extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        20.0,
+        24.0,
         10.0,
-        20.0,
+        24.0,
         MediaQuery.paddingOf(context).bottom + 16.0,
       ),
       child: SingleChildScrollView(
@@ -1272,7 +1277,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
                 width: 42.0,
                 height: 4.0,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD6DEE8),
+                  color: ObsidianVoltTokens.borderMuted,
                   borderRadius: BorderRadius.circular(999.0),
                 ),
               ),
@@ -1505,7 +1510,7 @@ class _MeetRefineSheetContent extends StatelessWidget {
               child: FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: SwimUiTokens.accentBlueSheet,
-                  foregroundColor: Colors.white,
+                  foregroundColor: ObsidianVoltTokens.bgBase,
                   padding: const EdgeInsets.symmetric(vertical: 14.0),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.0),

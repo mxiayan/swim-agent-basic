@@ -118,7 +118,7 @@ class _M05ActivityDashboardNewActivityCreatorWidgetState
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(16.0, 2.0, 16.0, 16.0),
+            padding: EdgeInsetsDirectional.fromSTEB(24.0, 2.0, 24.0, 16.0),
             child: Container(
               width: double.infinity,
               constraints: BoxConstraints(

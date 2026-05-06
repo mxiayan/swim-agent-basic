@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/theme/swim_ui_tokens.dart';
+import '/theme/obsidian_volt_tokens.dart';
 
 import 'schedule_display_item.dart';
 import 'training_schedule_tab.dart';
@@ -184,30 +185,30 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
   Color _accent(TeamEventType t) {
     switch (t) {
       case TeamEventType.training:
-        return const Color(0xFF15803D);
+        return ObsidianVoltTokens.eventTrainingDot;
       case TeamEventType.meet:
-        return const Color(0xFF2563EB);
+        return ObsidianVoltTokens.eventMeetDot;
       case TeamEventType.social:
-        return const Color(0xFFF59E0B);
+        return ObsidianVoltTokens.eventSocialDot;
       case TeamEventType.admin:
-        return const Color(0xFF7C3AED);
+        return ObsidianVoltTokens.eventAdminDot;
       case TeamEventType.unknown:
-        return const Color(0xFF64748B);
+        return ObsidianVoltTokens.textSecondary;
     }
   }
 
   Color _squadPillBg(String label) {
     final u = label.toUpperCase();
-    if (u.contains('JUNIOR')) return const Color(0xFFEEF2FF);
-    if (u.contains('SENIOR')) return const Color(0xFFE0F2FE);
-    return const Color(0xFFF1F5F9);
+    if (u.contains('JUNIOR')) return ObsidianVoltTokens.squadJuniorBg;
+    if (u.contains('SENIOR')) return ObsidianVoltTokens.squadSeniorBg;
+    return ObsidianVoltTokens.squadAllBg;
   }
 
   Color _squadPillFg(String label) {
     final u = label.toUpperCase();
-    if (u.contains('JUNIOR')) return const Color(0xFF4338CA);
-    if (u.contains('SENIOR')) return const Color(0xFF0369A1);
-    return const Color(0xFF475569);
+    if (u.contains('JUNIOR')) return ObsidianVoltTokens.squadJuniorText;
+    if (u.contains('SENIOR')) return ObsidianVoltTokens.squadSeniorText;
+    return ObsidianVoltTokens.squadAllText;
   }
 
   double _bottomContentPadding(BuildContext context) {
@@ -219,7 +220,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     final primary = FlutterFlowTheme.of(context).primary;
 
     return ColoredBox(
-      color: const Color(0xFFF8FAFC),
+      color: ObsidianVoltTokens.bgBase,
       child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: streamTeamRegistryDocument(widget.teamId),
         builder: (context, registrySnap) {
@@ -411,7 +412,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
           sliver: SliverToBoxAdapter(
             child: Row(
               children: [
@@ -451,7 +452,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
           sliver: SliverToBoxAdapter(
             child: Row(
               children: [
@@ -492,7 +493,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
           )
         else
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 6, 16, bottomPad),
+            padding: EdgeInsets.fromLTRB(24, 6, 24, bottomPad),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
@@ -565,7 +566,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
   ) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: ObsidianVoltTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -648,7 +649,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 10),
           sliver: SliverToBoxAdapter(
             child: Row(
               children: [
@@ -663,7 +664,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                       ),
                       prefixIcon: const Icon(Icons.search_rounded, size: 22),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: SwimUiTokens.surfaceCard,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 10,
@@ -671,12 +672,12 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            const BorderSide(color: Color(0xFFE2E8F0)),
+                            BorderSide(color: ObsidianVoltTokens.borderDefault),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            const BorderSide(color: Color(0xFFE2E8F0)),
+                            BorderSide(color: ObsidianVoltTokens.borderDefault),
                       ),
                     ),
                   ),
@@ -713,7 +714,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
           )
         else
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, bottomPad),
+            padding: EdgeInsets.fromLTRB(24, 4, 24, bottomPad),
             sliver: SliverList.separated(
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -745,7 +746,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
   ) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: ObsidianVoltTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -814,9 +815,9 @@ class _EmptyPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SwimUiTokens.surfaceCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8EEF5)),
+        border: Border.all(color: ObsidianVoltTokens.borderDefault, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -872,7 +873,7 @@ class _CompactEventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final typeLabel = teamEventTypeLabel(item.type).toUpperCase();
     return Material(
-      color: Colors.white,
+      color: SwimUiTokens.surfaceCard,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -880,7 +881,7 @@ class _CompactEventTile extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE8EEF5)),
+            border: Border.all(color: ObsidianVoltTokens.borderDefault, width: 0.5),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
@@ -1086,18 +1087,21 @@ class _CategoryChipsRow extends StatelessWidget {
                 label: Text(t == null ? 'All' : teamEventTypeLabel(t)),
                 selected: selected == t,
                 onSelected: (_) => onSelected(t),
-                selectedColor: primary,
+                selectedColor: ObsidianVoltTokens.tabSelectedBg,
                 labelStyle: GoogleFonts.sora(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: selected == t ? Colors.white : SwimUiTokens.textTitle,
+                  color: selected == t
+                      ? ObsidianVoltTokens.textPrimary
+                      : ObsidianVoltTokens.textSecondary,
                 ),
-                backgroundColor: const Color(0xFFEFF2F7),
+                backgroundColor: ObsidianVoltTokens.tabContainerBg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(999),
                   side: BorderSide(
-                    color:
-                        selected == t ? primary : const Color(0xFFE2E8F0),
+                    color: selected == t
+                        ? ObsidianVoltTokens.borderDefault
+                        : ObsidianVoltTokens.borderSubtle,
                   ),
                 ),
               ),
@@ -1129,9 +1133,10 @@ class _FilterDropdown<T> extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SwimUiTokens.surfaceCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border:
+            Border.all(color: ObsidianVoltTokens.borderDefault, width: 0.5),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(

@@ -8,6 +8,8 @@ import '/components/m05_activity_dashboard/m05_activity_dashboard_widget.dart';
 import '/pages/agent_home/agent_home_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/theme/lavender_indigo_tokens.dart';
+import '/theme/obsidian_volt_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -28,7 +30,7 @@ class _HomeWidgetState extends State<HomeWidget> {
   late HomeModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
-  static const double _bottomNavHeight = 68.0;
+  static const double _bottomNavHeight = 74.0;
 
   @override
   void initState() {
@@ -48,16 +50,13 @@ class _HomeWidgetState extends State<HomeWidget> {
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
 
-    final primaryBlue = FlutterFlowTheme.of(context).primary;
-    final muted = FlutterFlowTheme.of(context).secondaryText;
-
     return StreamBuilder<UsersRecord>(
       stream: UsersRecord.getDocument(currentUserReference!),
       builder: (context, snapshot) {
         // Customize what your widget looks like when it's loading.
         if (!snapshot.hasData) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF8FAFC),
+            backgroundColor: ObsidianVoltTokens.bgBase,
             body: Center(
               child: SizedBox(
                 width: 50.0,
@@ -79,12 +78,8 @@ class _HomeWidgetState extends State<HomeWidget> {
           },
           child: Scaffold(
             key: scaffoldKey,
-            backgroundColor: Colors.white,
-            bottomNavigationBar: _buildBottomNavigationBar(
-              context: context,
-              primaryBlue: primaryBlue,
-              muted: muted,
-            ),
+            backgroundColor: ObsidianVoltTokens.bgBase,
+            bottomNavigationBar: _buildBottomNavigationBar(context),
             body: SafeArea(
               top: true,
               bottom: false,
@@ -92,122 +87,12 @@ class _HomeWidgetState extends State<HomeWidget> {
                 mainAxisSize: MainAxisSize.max,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (FFAppState().activeTab == 0)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 6.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Orinda Aquatics',
-                            style: GoogleFonts.sora(
-                              fontSize: 15.0,
-                              fontWeight: FontWeight.w600,
-                              color: FlutterFlowTheme.of(context).secondaryText,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                          Container(
-                            width: 38.0,
-                            height: 38.0,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: FlutterFlowTheme.of(context).primary,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(2.5),
-                              child: ClipOval(
-                                child: Image.asset(
-                                  'assets/images/mcroskey-headshot.jpg',
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
+                  if (FFAppState().activeTab != 0)
                     Padding(
                       padding:
-                          const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 14.0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(
-                            mainAxisSize: MainAxisSize.max,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Orinda Aquatics',
-                                style: FlutterFlowTheme.of(context)
-                                    .displaySmall
-                                    .override(
-                                      font: GoogleFonts.sora(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .displaySmall
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .displaySmall
-                                            .fontStyle,
-                                      ),
-                                      fontSize: 28.0,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FontWeight.w700,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .displaySmall
-                                          .fontStyle,
-                                    ),
-                              ),
-                              Text(
-                                'Swim Season 2025 - 2026',
-                                style: FlutterFlowTheme.of(context)
-                                    .titleMedium
-                                    .override(
-                                      font: GoogleFonts.sora(
-                                        fontWeight: FontWeight.w400,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryText,
-                                      fontSize: 16.0,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FontWeight.w400,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            width: 40.0,
-                            height: 40.0,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: FlutterFlowTheme.of(context).primary,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(2.5),
-                              child: ClipOval(
-                                child: Image.asset(
-                                  'assets/images/mcroskey-headshot.jpg',
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                          const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 10.0),
+                      child: _SecondaryShellHeader(
+                        tabIndex: FFAppState().activeTab,
                       ),
                     ),
                   Expanded(
@@ -276,30 +161,16 @@ class _HomeWidgetState extends State<HomeWidget> {
     );
   }
 
-  Widget _buildBottomNavigationBar({
-    required BuildContext context,
-    required Color primaryBlue,
-    required Color muted,
-  }) {
+  Widget _buildBottomNavigationBar(BuildContext context) {
     return SafeArea(
       top: false,
       child: Container(
         margin: const EdgeInsets.fromLTRB(14.0, 0.0, 14.0, 8.0),
         height: _bottomNavHeight,
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF),
+          color: ObsidianVoltTokens.bottomNavBg,
           borderRadius: BorderRadius.circular(22.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 20.0,
-              offset: const Offset(0.0, 6.0),
-            ),
-          ],
-          border: Border.all(
-            color: const Color(0xFFE6ECF4),
-            width: 1.0,
-          ),
+          boxShadow: LavenderIndigoTokens.shadowNavUp,
         ),
         child: Row(
           children: [
@@ -307,43 +178,31 @@ class _HomeWidgetState extends State<HomeWidget> {
               label: 'Agent',
               icon: Icons.auto_awesome_rounded,
               tabIndex: 0,
-              primaryBlue: primaryBlue,
-              muted: muted,
             ),
             _buildBottomNavItem(
               label: 'Schedule',
               icon: Icons.calendar_today_rounded,
               tabIndex: 1,
-              primaryBlue: primaryBlue,
-              muted: muted,
             ),
             _buildBottomNavItem(
               label: 'Meets',
               icon: Icons.pool_rounded,
               tabIndex: 2,
-              primaryBlue: primaryBlue,
-              muted: muted,
             ),
             _buildBottomNavItem(
               label: 'Jobs',
               icon: Icons.work_outline_rounded,
               tabIndex: 3,
-              primaryBlue: primaryBlue,
-              muted: muted,
             ),
             _buildBottomNavItem(
               label: 'Swimmer',
               icon: Icons.person_outline_rounded,
               tabIndex: 4,
-              primaryBlue: primaryBlue,
-              muted: muted,
             ),
             _buildBottomNavItem(
               label: 'Admin',
               icon: Icons.shield_outlined,
               tabIndex: 5,
-              primaryBlue: primaryBlue,
-              muted: muted,
             ),
           ],
         ),
@@ -355,12 +214,10 @@ class _HomeWidgetState extends State<HomeWidget> {
     required String label,
     required IconData icon,
     required int tabIndex,
-    required Color primaryBlue,
-    required Color muted,
   }) {
     final selected = FFAppState().activeTab == tabIndex;
-    final iconColor = selected ? primaryBlue : muted.withValues(alpha: 0.78);
-    final labelColor = selected ? primaryBlue : muted.withValues(alpha: 0.86);
+    const activeColor = Color(0xFF6366F1);
+    const inactiveColor = Color(0xFFC5C8DC);
 
     return Expanded(
       child: Material(
@@ -379,17 +236,40 @@ class _HomeWidgetState extends State<HomeWidget> {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.max,
               children: [
-                Icon(icon, size: selected ? 20.5 : 20.0, color: iconColor),
-                const SizedBox(height: 4.0),
+                Padding(
+                  padding: EdgeInsets.only(bottom: selected ? 2.0 : 0.0),
+                  child: selected
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color.fromRGBO(99, 102, 241, 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            icon,
+                            size: 20,
+                            color: activeColor,
+                          ),
+                        )
+                      : Icon(
+                          icon,
+                          size: 20,
+                          color: inactiveColor,
+                        ),
+                ),
                 Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.sora(
-                    fontSize: 11.0,
+                    fontSize: 10,
                     letterSpacing: 0.0,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: labelColor,
+                    fontWeight:
+                        selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected ? activeColor : inactiveColor,
                   ),
                 ),
               ],
@@ -397,6 +277,102 @@ class _HomeWidgetState extends State<HomeWidget> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SecondaryShellHeader extends StatelessWidget {
+  const _SecondaryShellHeader({required this.tabIndex});
+
+  final int tabIndex;
+
+  static String _title(int tab) {
+    switch (tab) {
+      case 1:
+        return 'Schedule';
+      case 2:
+        return 'Meets';
+      case 3:
+        return 'Jobs';
+      case 4:
+        return 'Swimmer';
+      case 5:
+        return 'Admin';
+      default:
+        return '';
+    }
+  }
+
+  static String _subtitle(int tab) {
+    switch (tab) {
+      case 1:
+        return 'Team calendar & events';
+      case 2:
+        return 'Entries & heat sheets';
+      case 3:
+        return 'Volunteer shifts';
+      case 4:
+        return 'Profile & zones';
+      case 5:
+        return 'Volunteer dashboard';
+      default:
+        return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _title(tabIndex),
+                style: GoogleFonts.sora(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  height: 1.15,
+                  color: theme.primaryText,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _subtitle(tabIndex),
+                style: GoogleFonts.sora(
+                  fontSize: 13,
+                  height: 1.35,
+                  fontWeight: FontWeight.w400,
+                  color: theme.secondaryText,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: LavenderIndigoTokens.bgSurface,
+            border: Border.all(color: theme.primary, width: 1.5),
+            boxShadow: LavenderIndigoTokens.shadowSm,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(2.5),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/mcroskey-headshot.jpg',
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

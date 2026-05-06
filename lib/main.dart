@@ -14,6 +14,7 @@ import 'backend/firebase/firebase_config.dart';
 import 'backend/push_notifications.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
+import '/theme/obsidian_volt_tokens.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 
 void main() async {
@@ -55,9 +56,7 @@ class MyAppScrollBehavior extends MaterialScrollBehavior {
 }
 
 class _MyAppState extends State<MyApp> {
-  ThemeMode _themeMode = FlutterFlowTheme.themeMode;
-
-  /// Single instance; palette matches [LightModeTheme] in `flutter_flow_theme.dart`.
+  /// Theme tokens (Obsidian + Volt); class name retained for FlutterFlow compatibility.
   static final LightModeTheme _lightTheme = LightModeTheme();
 
   late AppStateNotifier _appStateNotifier;
@@ -120,14 +119,35 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
-  void setThemeMode(ThemeMode mode) => safeSetState(() {
-        _themeMode = mode;
-        FlutterFlowTheme.saveThemeMode(mode);
-      });
+  void setThemeMode(ThemeMode mode) =>
+      FlutterFlowTheme.saveThemeMode(mode);
 
   @override
   Widget build(BuildContext context) {
-    final light = _lightTheme;
+    final t = _lightTheme;
+    final colorScheme = ColorScheme.light(
+      primary: t.primary,
+      onPrimary: t.primaryBtnText,
+      secondary: t.secondary,
+      onSecondary: t.primaryText,
+      surface: t.secondaryBackground,
+      onSurface: t.primaryText,
+      error: t.error,
+      onError: t.primaryBtnText,
+      outline: ObsidianVoltTokens.borderDefault,
+      brightness: Brightness.light,
+    );
+
+    final themeData = ThemeData(
+      brightness: Brightness.light,
+      useMaterial3: false,
+      scaffoldBackgroundColor: t.primaryBackground,
+      canvasColor: t.primaryBackground,
+      primaryColor: t.primary,
+      colorScheme: colorScheme,
+      dividerColor: ObsidianVoltTokens.borderSubtle,
+    );
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'SwimAgentBasic',
@@ -138,29 +158,9 @@ class _MyAppState extends State<MyApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('en', '')],
-      theme: ThemeData(
-        brightness: Brightness.light,
-        useMaterial3: false,
-        scaffoldBackgroundColor: light.primaryBackground,
-        canvasColor: light.primaryBackground,
-        primaryColor: light.primary,
-        colorScheme: ColorScheme.light(
-          primary: light.primary,
-          onPrimary: light.primaryBtnText,
-          secondary: light.secondary,
-          onSecondary: light.primaryText,
-          surface: light.secondaryBackground,
-          onSurface: light.primaryText,
-          error: light.error,
-          onError: light.primaryBtnText,
-          outline: light.lineColor,
-        ),
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        useMaterial3: false,
-      ),
-      themeMode: _themeMode,
+      theme: themeData,
+      darkTheme: themeData,
+      themeMode: ThemeMode.light,
       routerConfig: _router,
     );
   }

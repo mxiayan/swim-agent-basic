@@ -86,7 +86,7 @@ class _Home07InvoicesWidgetState extends State<Home07InvoicesWidget>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 0.0, 0.0),
+                padding: EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 0.0, 0.0),
                 child: Text(
                   'Below are a summary of your invoices.',
                   style: FlutterFlowTheme.of(context).labelMedium.override(

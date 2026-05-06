@@ -1,4 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+import '/theme/lavender_indigo_tokens.dart';
 
 /// Replace mock sections with Firestore-backed lists later.
 enum AgentBriefingPriority {
@@ -121,6 +123,31 @@ class AgentRecentUpdateItem {
   final String? targetId;
 }
 
+@immutable
+class AgentTaskOverviewItem {
+  const AgentTaskOverviewItem({
+    required this.id,
+    required this.title,
+    required this.progressPercent,
+    required this.avatarPhotoAssets,
+    required this.previewColors,
+    this.thumbnailUrl,
+  });
+
+  final String id;
+  final String title;
+  final int progressPercent;
+
+  /// Circular photo avatars (asset paths), shown overlapping on the card.
+  final List<String> avatarPhotoAssets;
+
+  /// Gradient underlay when the network thumbnail fails to load.
+  final List<Color> previewColors;
+
+  /// Optional task preview screenshot URL; placeholder URL used when null/empty.
+  final String? thumbnailUrl;
+}
+
 /// Mock dataset for UI review — swap with Firestore queries later.
 abstract final class AgentHomeMockData {
   static List<AgentBriefingItem> briefingItems() => const [
@@ -230,6 +257,53 @@ abstract final class AgentHomeMockData {
           source: 'weekly email',
           detectedAt: 'Yesterday',
           targetType: AgentNavTargetType.announcement,
+        ),
+      ];
+
+  static List<AgentTaskOverviewItem> taskOverviewItems() => [
+        AgentTaskOverviewItem(
+          id: 'task1',
+          title: 'Meet entries — Brentwood Seawolves',
+          progressPercent: 72,
+          avatarPhotoAssets: const [
+            'assets/images/mcroskey-headshot.jpg',
+            'assets/images/mcroskey-headshot.jpg',
+            'assets/images/mcroskey-headshot.jpg',
+          ],
+          previewColors: [
+            LavenderIndigoTokens.primary,
+            const Color(0xFF8B5CF6),
+          ],
+          thumbnailUrl: null,
+        ),
+        AgentTaskOverviewItem(
+          id: 'task2',
+          title: 'Volunteer shift — timers',
+          progressPercent: 35,
+          avatarPhotoAssets: const [
+            'assets/images/mcroskey-headshot.jpg',
+            'assets/images/mcroskey-headshot.jpg',
+          ],
+          previewColors: [
+            const Color(0xFF6366F1),
+            const Color(0xFF38BDF8),
+          ],
+          thumbnailUrl: null,
+        ),
+        AgentTaskOverviewItem(
+          id: 'task3',
+          title: 'Team suit / photo week',
+          progressPercent: 90,
+          avatarPhotoAssets: const [
+            'assets/images/mcroskey-headshot.jpg',
+            'assets/images/mcroskey-headshot.jpg',
+            'assets/images/mcroskey-headshot.jpg',
+          ],
+          previewColors: [
+            const Color(0xFFA78BFA),
+            LavenderIndigoTokens.primary,
+          ],
+          thumbnailUrl: null,
         ),
       ];
 }

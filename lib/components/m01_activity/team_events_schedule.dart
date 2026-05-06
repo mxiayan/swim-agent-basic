@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '/backend/backend.dart';
 import '/theme/swim_ui_tokens.dart';
+import '/theme/obsidian_volt_tokens.dart';
 
 // ─── Display normalization (Firestore text may lag parser_hints / coach typos) ─
 
@@ -899,7 +900,7 @@ class _SquadFilterStrip extends StatelessWidget {
                   count: trainingTotal,
                   selected: selected == _TrainingSquadFilter.all,
                   onTap: () => onChanged(_TrainingSquadFilter.all),
-                  accent: const Color(0xFF334155),
+                  accent: ObsidianVoltTokens.textSecondary,
                 ),
                 const SizedBox(width: 8.0),
                 _Chip(
@@ -907,7 +908,7 @@ class _SquadFilterStrip extends StatelessWidget {
                   count: juniorCount,
                   selected: selected == _TrainingSquadFilter.junior,
                   onTap: () => onChanged(_TrainingSquadFilter.junior),
-                  accent: const Color(0xFF4338CA),
+                  accent: ObsidianVoltTokens.squadJuniorText,
                 ),
                 const SizedBox(width: 8.0),
                 _Chip(
@@ -915,7 +916,7 @@ class _SquadFilterStrip extends StatelessWidget {
                   count: seniorCount,
                   selected: selected == _TrainingSquadFilter.senior,
                   onTap: () => onChanged(_TrainingSquadFilter.senior),
-                  accent: const Color(0xFF0F766E),
+                  accent: ObsidianVoltTokens.squadSeniorText,
                 ),
               ],
             ),
@@ -943,9 +944,12 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? accent : Colors.white;
-    final fg = selected ? Colors.white : SwimUiTokens.textTitle;
-    final border = selected ? accent : SwimUiTokens.borderSubtle;
+    final bg =
+        selected ? ObsidianVoltTokens.tabSelectedBg : SwimUiTokens.surfaceCard;
+    final fg =
+        selected ? ObsidianVoltTokens.textPrimary : SwimUiTokens.textTitle;
+    final border =
+        selected ? accent : SwimUiTokens.cardSurfaceEdgeBorder;
     return Material(
       color: bg,
       borderRadius: BorderRadius.circular(999.0),
@@ -978,7 +982,7 @@ class _Chip extends StatelessWidget {
                   fontSize: 12.0,
                   fontWeight: FontWeight.w500,
                   color: selected
-                      ? Colors.white.withValues(alpha: 0.85)
+                      ? ObsidianVoltTokens.textSecondary
                       : SwimUiTokens.textMuted,
                 ),
               ),
@@ -1033,7 +1037,8 @@ class SeasonScheduleBaselineCard extends StatelessWidget {
           color: SwimUiTokens.surfaceCard,
           borderRadius:
               BorderRadius.circular(SwimUiTokens.radiusCard),
-          border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
+          border: Border.all(
+              color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1.0),
         ),
         child: Theme(
           data: Theme.of(context).copyWith(
@@ -1120,144 +1125,142 @@ class _TeamEventCard extends StatelessWidget {
     final locationLine = normalizeCoachLocationForUi(event.location);
     final isPast = _isPast(event);
 
-    final r = BorderRadius.circular(SwimUiTokens.radiusCard);
+    final rAsymmetric = BorderRadius.only(
+      topRight: Radius.circular(SwimUiTokens.radiusCard),
+      bottomRight: Radius.circular(SwimUiTokens.radiusCard),
+    );
 
-    // Left accent + gray outline: cannot use one BoxDecoration with
-    // borderRadius + non-uniform Border colors (Flutter asserts at paint).
-    // Uniform border on the outer box + a 4px strip in a Stack instead.
-    return ClipRRect(
-      borderRadius: r,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: SwimUiTokens.surfaceCard,
-          borderRadius: r,
-          border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: () => _showEventSheet(context, event, baselines),
-            child: Stack(
-              clipBehavior: Clip.hardEdge,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: Material(
+        color: ObsidianVoltTokens.bgSurface,
+        elevation: 2,
+        shadowColor: const Color.fromRGBO(99, 102, 241, 0.08),
+        shape: RoundedRectangleBorder(borderRadius: rAsymmetric),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _showEventSheet(context, event, baselines),
+          borderRadius: rAsymmetric,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 4.0,
-                    color: visual.accent,
-                  ),
+                Container(
+                  width: 3.0,
+                  color: visual.accent,
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4.0 + 12.0, 10.0, 12.0, 11.0),
-                  child: DefaultTextStyle.merge(
-                    style: const TextStyle(
-                      color: SwimUiTokens.textTitle,
-                      fontSize: 13.0,
-                      height: 1.32,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          event.title.isEmpty
-                              ? '(untitled event)'
-                              : event.title,
-                          style: GoogleFonts.sora(
-                            fontSize: 14.25,
-                            fontWeight: FontWeight.w700,
-                            height: 1.22,
-                            color: isPast
-                                ? SwimUiTokens.textMuted
-                                : SwimUiTokens.textBannerTitle,
-                          ),
-                        ),
-                        const SizedBox(height: 8.0),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _TypeBadge(visual: visual),
-                            const SizedBox(width: 8.0),
-                            if (event.appliesToGroups.isNotEmpty)
-                              Expanded(
-                                child: Wrap(
-                                  spacing: 5.0,
-                                  runSpacing: 3.0,
-                                  alignment: WrapAlignment.start,
-                                  children: event.appliesToGroups
-                                      .map((g) => _GroupChip(label: g))
-                                      .toList(),
-                                ),
-                              )
-                            else
-                              const Spacer(),
-                            if (dateLine.isNotEmpty)
-                              Text(
-                                dateLine,
-                                textAlign: TextAlign.right,
-                                style: GoogleFonts.sora(
-                                  fontSize: 11.25,
-                                  fontWeight: FontWeight.w600,
-                                  color: isPast
-                                      ? SwimUiTokens.textFaint
-                                      : SwimUiTokens.textTitle,
-                                  letterSpacing: 0.1,
-                                ),
-                              ),
-                          ],
-                        ),
-                        if (timeLine.isNotEmpty ||
-                            locationLine.isNotEmpty) ...[
-                          const SizedBox(height: 6.0),
-                          _IconLine(
-                            icon: Icons.access_time_rounded,
-                            text: [
-                              if (timeLine.isNotEmpty) timeLine,
-                              if (locationLine.isNotEmpty) locationLine,
-                            ].join('  ·  '),
-                          ),
-                        ],
-                        if (hints.drylandLine != null) ...[
-                          const SizedBox(height: 4.0),
-                          _IconLine(
-                            icon: Icons.fitness_center_rounded,
-                            text: hints.drylandLine!,
-                          ),
-                        ],
-                        if (event.isRecurring &&
-                            event.recurrenceRule.isNotEmpty) ...[
-                          const SizedBox(height: 3.0),
-                          _IconLine(
-                            icon: Icons.repeat_rounded,
-                            text: _humanRecurrence(event.recurrenceRule),
-                          ),
-                        ],
-                        if (event.entryDeadline.isNotEmpty) ...[
-                          const SizedBox(height: 3.0),
-                          _IconLine(
-                            icon: Icons.event_busy_rounded,
-                            text:
-                                'Entry deadline: ${event.entryDeadline}',
-                            emphasize: !isPast,
-                          ),
-                        ],
-                        if (event.details.isNotEmpty) ...[
-                          const SizedBox(height: 6.0),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        12.0, 10.0, 12.0, 11.0),
+                    child: DefaultTextStyle.merge(
+                      style: const TextStyle(
+                        color: SwimUiTokens.textTitle,
+                        fontSize: 13.0,
+                        height: 1.32,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            event.details,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            event.title.isEmpty
+                                ? '(untitled event)'
+                                : event.title,
                             style: GoogleFonts.sora(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w400,
-                              height: 1.38,
-                              color: SwimUiTokens.textMuted,
+                              fontSize: 14.25,
+                              fontWeight: FontWeight.w700,
+                              height: 1.22,
+                              color: isPast
+                                  ? SwimUiTokens.textMuted
+                                  : SwimUiTokens.textBannerTitle,
                             ),
                           ),
+                          const SizedBox(height: 8.0),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _TypeBadge(visual: visual),
+                              const SizedBox(width: 8.0),
+                              if (event.appliesToGroups.isNotEmpty)
+                                Expanded(
+                                  child: Wrap(
+                                    spacing: 5.0,
+                                    runSpacing: 3.0,
+                                    alignment: WrapAlignment.start,
+                                    children: event.appliesToGroups
+                                        .map((g) => _GroupChip(label: g))
+                                        .toList(),
+                                  ),
+                                )
+                              else
+                                const Spacer(),
+                              if (dateLine.isNotEmpty)
+                                Text(
+                                  dateLine,
+                                  textAlign: TextAlign.right,
+                                  style: GoogleFonts.sora(
+                                    fontSize: 11.25,
+                                    fontWeight: FontWeight.w600,
+                                    color: isPast
+                                        ? SwimUiTokens.textFaint
+                                        : ObsidianVoltTokens.textSecondary,
+                                    letterSpacing: 0.1,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          if (timeLine.isNotEmpty ||
+                              locationLine.isNotEmpty) ...[
+                            const SizedBox(height: 6.0),
+                            _IconLine(
+                              icon: Icons.access_time_rounded,
+                              text: [
+                                if (timeLine.isNotEmpty) timeLine,
+                                if (locationLine.isNotEmpty) locationLine,
+                              ].join('  ·  '),
+                            ),
+                          ],
+                          if (hints.drylandLine != null) ...[
+                            const SizedBox(height: 4.0),
+                            _IconLine(
+                              icon: Icons.fitness_center_rounded,
+                              text: hints.drylandLine!,
+                            ),
+                          ],
+                          if (event.isRecurring &&
+                              event.recurrenceRule.isNotEmpty) ...[
+                            const SizedBox(height: 3.0),
+                            _IconLine(
+                              icon: Icons.repeat_rounded,
+                              text: _humanRecurrence(event.recurrenceRule),
+                            ),
+                          ],
+                          if (event.entryDeadline.isNotEmpty) ...[
+                            const SizedBox(height: 3.0),
+                            _IconLine(
+                              icon: Icons.event_busy_rounded,
+                              text:
+                                  'Entry deadline: ${event.entryDeadline}',
+                              emphasize: !isPast,
+                            ),
+                          ],
+                          if (event.details.isNotEmpty) ...[
+                            const SizedBox(height: 6.0),
+                            Text(
+                              event.details,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.sora(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w400,
+                                height: 1.38,
+                                color: SwimUiTokens.textMuted,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -1364,9 +1367,7 @@ class _IconLine extends StatelessWidget {
         Icon(
           icon,
           size: 14.0,
-          color: emphasize
-              ? SwimUiTokens.accentBlue
-              : SwimUiTokens.textMuted,
+          color: ObsidianVoltTokens.textSecondary,
         ),
         const SizedBox(width: 6.0),
         Expanded(
@@ -1376,9 +1377,7 @@ class _IconLine extends StatelessWidget {
               fontSize: 12.5,
               fontWeight:
                   emphasize ? FontWeight.w600 : FontWeight.w500,
-              color: emphasize
-                  ? SwimUiTokens.accentBlue
-                  : SwimUiTokens.textTitle,
+              color: ObsidianVoltTokens.textSecondary,
               height: 1.35,
             ),
           ),
@@ -1429,9 +1428,10 @@ class _GroupChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF2FF),
+        color: ObsidianVoltTokens.squadAllBg,
         borderRadius: BorderRadius.circular(999.0),
-        border: Border.all(color: const Color(0xFFC7D2FE), width: 0.5),
+        border:
+            Border.all(color: ObsidianVoltTokens.borderDefault, width: 0.5),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 7.0, vertical: 2.0),
       child: Text(
@@ -1439,7 +1439,7 @@ class _GroupChip extends StatelessWidget {
         style: GoogleFonts.sora(
           fontSize: 10.0,
           fontWeight: FontWeight.w700,
-          color: const Color(0xFF4338CA),
+          color: ObsidianVoltTokens.squadAllText,
           letterSpacing: 0.4,
         ),
       ),
@@ -1672,7 +1672,7 @@ class _EventDetailSheet extends StatelessWidget {
 // ─── Visuals per event type ─────────────────────────────────────────────────
 
 class _TypeVisual {
-  const _TypeVisual({
+  _TypeVisual({
     required this.label,
     required this.icon,
     required this.accent,
@@ -1689,44 +1689,44 @@ class _TypeVisual {
 _TypeVisual _typeVisual(TeamEventType t) {
   switch (t) {
     case TeamEventType.meet:
-      return const _TypeVisual(
+      return _TypeVisual(
         label: 'MEET',
         icon: Icons.pool_rounded,
-        accent: Color(0xFF1D4ED8),
-        fill: Color(0xFFEFF6FF),
-        border: Color(0xFFBFDBFE),
+        accent: ObsidianVoltTokens.eventMeetDot,
+        fill: ObsidianVoltTokens.eventMeetCardTint,
+        border: ObsidianVoltTokens.eventMeetCardBorder,
       );
     case TeamEventType.training:
-      return const _TypeVisual(
+      return _TypeVisual(
         label: 'TRAINING',
         icon: Icons.fitness_center_rounded,
-        accent: Color(0xFF15803D),
-        fill: Color(0xFFF0FDF4),
-        border: Color(0xFFBBF7D0),
+        accent: ObsidianVoltTokens.eventTrainingDot,
+        fill: ObsidianVoltTokens.eventTrainingCardTint,
+        border: ObsidianVoltTokens.eventTrainingCardBorder,
       );
     case TeamEventType.social:
-      return const _TypeVisual(
+      return _TypeVisual(
         label: 'SOCIAL',
         icon: Icons.celebration_rounded,
-        accent: Color(0xFFB45309),
-        fill: Color(0xFFFFFBEB),
-        border: Color(0xFFFDE68A),
+        accent: ObsidianVoltTokens.eventSocialDot,
+        fill: ObsidianVoltTokens.eventSocialCardTint,
+        border: ObsidianVoltTokens.eventSocialCardBorder,
       );
     case TeamEventType.admin:
-      return const _TypeVisual(
+      return _TypeVisual(
         label: 'ADMIN',
         icon: Icons.assignment_outlined,
-        accent: Color(0xFF7C3AED),
-        fill: Color(0xFFF5F3FF),
-        border: Color(0xFFDDD6FE),
+        accent: ObsidianVoltTokens.eventAdminDot,
+        fill: ObsidianVoltTokens.eventAdminCardTint,
+        border: ObsidianVoltTokens.eventAdminCardBorder,
       );
     case TeamEventType.unknown:
-      return const _TypeVisual(
+      return _TypeVisual(
         label: 'OTHER',
         icon: Icons.event_note_rounded,
-        accent: Color(0xFF475569),
-        fill: Color(0xFFF1F5F9),
-        border: Color(0xFFE2E8F0),
+        accent: ObsidianVoltTokens.textSecondary,
+        fill: ObsidianVoltTokens.bgOverlay,
+        border: ObsidianVoltTokens.borderSubtle,
       );
   }
 }
@@ -1764,7 +1764,7 @@ class _ErrorState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline_rounded,
-                size: 36.0, color: Color(0xFFB91C1C)),
+                size: 36.0, color: ObsidianVoltTokens.dangerCta),
             const SizedBox(height: 10.0),
             Text(
               "Couldn't load schedule",
@@ -1865,7 +1865,7 @@ Future<void> showScheduleEventDetailSheet(
 }) async {
   await showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: ObsidianVoltTokens.bgSurface,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(18.0)),

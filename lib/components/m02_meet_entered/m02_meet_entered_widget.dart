@@ -11,6 +11,7 @@ import '/components/m02_meet/meet_list_quick_filter.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/theme/swim_ui_tokens.dart';
+import '/theme/obsidian_volt_tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -55,34 +56,35 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   late final Animation<double> _celebrateScale;
   late final Animation<double> _celebrateFade;
 
-  static const Color _verifiedGreen = Color(0xFF1D4ED8);
+  static Color get _verifiedGreen => ObsidianVoltTokens.badgeEnteredText;
 
   /// Interested + reminders on (sign-up / alerts).
-  static const Color _watchingAmber = Color(0xFFF59E0B);
+  static Color get _watchingAmber => ObsidianVoltTokens.badgeUpcomingText;
 
   /// Skipped — muted slate (no longer “action needed” like yellow/orange).
-  static const Color _skippedFill = Color(0xFFE2E8F0);
-  static const Color _skippedIcon = Color(0xFF64748B);
+  static Color get _skippedFill => ObsidianVoltTokens.bgOverlay;
+  static const Color _skippedIcon = ObsidianVoltTokens.textSecondary;
 
-  /// Pending entries / planning — orange family (complete sign-up or entries).
-  static const Color _pendingEntriesFill = Color(0xFFFFEDD5);
-  static const Color _pendingEntriesIcon = Color(0xFFEA580C);
-  static const Color _parentNoteBg = Color(0xFFF8FAFC);
-  static const Color _parentNoteDashBorder = Color(0xFFCBD5E1);
-  static const Color _softRedGlow = Color(0xFFFECACA);
+  /// Pending entries / planning — amber urgency family.
+  static Color get _pendingEntriesFill => ObsidianVoltTokens.urgentCardBg;
+  static Color get _pendingEntriesIcon => ObsidianVoltTokens.urgentCta;
 
-  /// Slightly stronger fills so pills read clearly on tinted section shells.
-  static const Color _badgeNewBg = Color(0xFFF1F5F9);
-  static const Color _badgeNewText = Color(0xFF475569);
-  static const Color _badgeNeedEntryBg = Color(0xFFFFE4C2);
-  static const Color _badgeNeedEntryText = Color(0xFFB45309);
-  static const Color _badgeEnteredBg = Color(0xFFF0FDF4);
-  static const Color _badgeEnteredText = Color(0xFF15803D);
-  static const Color _badgeCompletedBg = Color(0xFFEEF2FF);
-  static const Color _badgeCompletedText = Color(0xFF4338CA);
-  static const Color _badgeCompletedBorder = Color(0xFFC7D2FE);
-  static const Color _badgeNotGoingBg = Color(0xFFFEF2F2);
-  static const Color _badgeNotGoingText = Color(0xFFB91C1C);
+  static const Color _parentNoteBg = ObsidianVoltTokens.bgSurface;
+  static Color get _parentNoteDashBorder => ObsidianVoltTokens.borderSubtle;
+  static Color get _softRedGlow => ObsidianVoltTokens.dangerCardBorder;
+
+  /// Status pills — Obsidian + Volt tokens.
+  static Color get _badgeNewBg => ObsidianVoltTokens.bgCard;
+  static const Color _badgeNewText = ObsidianVoltTokens.textSecondary;
+  static Color get _badgeNeedEntryBg => ObsidianVoltTokens.badgeUpcomingBg;
+  static Color get _badgeNeedEntryText => ObsidianVoltTokens.badgeUpcomingText;
+  static Color get _badgeEnteredBg => ObsidianVoltTokens.badgeEnteredBg;
+  static Color get _badgeEnteredText => ObsidianVoltTokens.badgeEnteredText;
+  static Color get _badgeCompletedBg => ObsidianVoltTokens.badgeCompletedBg;
+  static Color get _badgeCompletedText => ObsidianVoltTokens.badgeCompletedText;
+  static Color get _badgeCompletedBorder => ObsidianVoltTokens.borderDefault;
+  static Color get _badgeNotGoingBg => ObsidianVoltTokens.dangerCardBg;
+  static Color get _badgeNotGoingText => ObsidianVoltTokens.dangerCta;
 
   /// Aligns calendar / clock / pin / sheet icons across logistics rows.
   static const double _logisticsIconColWidth = 22.0;
@@ -437,9 +439,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: ObsidianVoltTokens.bgCard,
               borderRadius: BorderRadius.circular(999.0),
-              border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
+              border: Border.all(
+                  color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1.0),
             ),
             child: Text(pill, style: _pillTextStyle()),
           ),
@@ -839,13 +842,13 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final shouldSkip = await showModalBottomSheet<bool>(
           context: context,
           useSafeArea: true,
-          backgroundColor: Colors.white,
+          backgroundColor: ObsidianVoltTokens.bgSurface,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
           ),
           builder: (sheetContext) {
             return Padding(
-              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 16.0),
+              padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 16.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -872,7 +875,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                     onPressed: () => Navigator.of(sheetContext).pop(false),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: SwimUiTokens.textMuted,
-                      side: const BorderSide(color: _meetSecondaryOutline),
+                      side: BorderSide(color: _meetSecondaryOutline),
                       minimumSize: const Size(double.infinity, 42.0),
                       shape: const RoundedRectangleBorder(
                         borderRadius: BorderRadius.all(Radius.circular(10.0)),
@@ -983,7 +986,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           alignment: Alignment.centerRight,
           padding: const EdgeInsetsDirectional.only(end: 20.0),
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
+            color: SwimUiTokens.swipeBackground,
             borderRadius: BorderRadius.circular(r),
           ),
           child: const Icon(
@@ -1180,7 +1183,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                             BorderRadius.circular(_meetCardCornerRadius),
                         clipBehavior: Clip.antiAlias,
                         child: Container(
-                          color: Colors.white,
+                          color: SwimUiTokens.surfaceCard,
                           child: Padding(
                             padding: const EdgeInsetsDirectional.fromSTEB(
                                 16.0, 14.0, 8.0, 10.0),
@@ -1351,7 +1354,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final fullCard = Padding(
       padding: grouped
           ? const EdgeInsets.only(top: 10.0, bottom: 4.0)
-          : const EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 22.0),
+          : const EdgeInsetsDirectional.fromSTEB(24.0, 12.0, 24.0, 22.0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.transparent,
@@ -1415,10 +1418,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                 const EdgeInsets.only(top: 2.0, bottom: 4.0),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFF7ED),
+                                color: ObsidianVoltTokens.urgentCardBg,
                                 borderRadius: BorderRadius.circular(8.0),
                                 border: Border.all(
-                                  color: const Color(0xFFFFE4C2),
+                                  color: ObsidianVoltTokens.urgentCardBorder,
                                   width: 0.5,
                                 ),
                               ),
@@ -1472,10 +1475,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                           children: [
                             DecoratedBox(
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFAFBFC),
+                                color: ObsidianVoltTokens.bgCard,
                                 borderRadius: BorderRadius.circular(10.0),
                                 border: Border.all(
-                                  color: const Color(0xFFE8EDF4),
+                                  color: ObsidianVoltTokens.borderDefault,
                                   width: 0.5,
                                 ),
                               ),
@@ -1588,7 +1591,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   /// Tighter horizontal inset so both labels fit without clipping.
   static const EdgeInsets _meetPendingPairPadding =
       EdgeInsets.symmetric(horizontal: 10.0, vertical: 0.0);
-  static const Color _meetSecondaryOutline = Color(0xFFE2E8F0);
+  static Color get _meetSecondaryOutline => ObsidianVoltTokens.borderMuted;
 
   TextStyle _meetPrimaryButtonTextStyle(Color color) => GoogleFonts.sora(
         fontWeight: FontWeight.w600,
@@ -1784,13 +1787,13 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   Color _badgePillBorderColor(MeetPreferenceStatus status) {
     switch (status) {
       case MeetPreferenceStatus.newStatus:
-        return const Color(0xFFB8D4FA);
+        return ObsidianVoltTokens.borderDefault;
       case MeetPreferenceStatus.needEntry:
-        return const Color(0xFFE0B888);
+        return ObsidianVoltTokens.urgentCardBorder;
       case MeetPreferenceStatus.entered:
-        return const Color(0xFFB8D4FA);
+        return ObsidianVoltTokens.eventTrainingCardBorder;
       case MeetPreferenceStatus.notGoing:
-        return const Color(0xFFC9D1DB);
+        return ObsidianVoltTokens.dangerCardBorder;
     }
   }
 
@@ -2047,9 +2050,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       width: 46.0,
       padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: ObsidianVoltTokens.dateBlockBg,
         borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+        border: Border.all(color: ObsidianVoltTokens.borderDefault, width: 1.0),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2059,7 +2062,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             style: GoogleFonts.sora(
               fontSize: 9.5,
               fontWeight: FontWeight.w700,
-              color: SwimUiTokens.textMuted,
+              color: ObsidianVoltTokens.dateBlockMonth,
               letterSpacing: 0.2,
             ),
           ),
@@ -2068,7 +2071,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             style: GoogleFonts.sora(
               fontSize: 17.0,
               fontWeight: FontWeight.w700,
-              color: SwimUiTokens.textTitle,
+              color: ObsidianVoltTokens.dateBlockDay,
               height: 1.1,
             ),
           ),
@@ -2151,10 +2154,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       decoration: BoxDecoration(
         color: backgroundColor,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: borderW),
+        border: Border.all(color: ObsidianVoltTokens.bgBase, width: borderW),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
+            color: ObsidianVoltTokens.bgBase.withValues(alpha: 0.35),
             blurRadius: blur,
             offset: const Offset(0.0, 2.0),
           ),
@@ -2184,7 +2187,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                 backgroundColor: _verifiedGreen,
                 child: Icon(
                   Icons.check_rounded,
-                  color: Colors.white,
+                  color: ObsidianVoltTokens.bgBase,
                   size: g,
                 ),
               ),
@@ -2208,7 +2211,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         backgroundColor: _watchingAmber,
         child: Icon(
           Icons.notifications_active_rounded,
-          color: Colors.white,
+          color: ObsidianVoltTokens.bgBase,
           size: g,
         ),
       ),
@@ -2283,7 +2286,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       style: OutlinedButton.styleFrom(
         foregroundColor: SwimUiTokens.textMuted,
         backgroundColor: Colors.transparent,
-        side: const BorderSide(color: _meetSecondaryOutline, width: 1.0),
+        side: BorderSide(color: _meetSecondaryOutline, width: 1.0),
         padding: _meetActionButtonPadding,
         minimumSize: const Size(double.infinity, _meetActionButtonHeight),
         maximumSize: const Size(double.infinity, _meetActionButtonHeight),
@@ -2330,9 +2333,9 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     Widget chip({
       required VoidCallback onTap,
       required Widget child,
-      Color fillColor = Colors.white,
+      Color fillColor = ObsidianVoltTokens.bgSurface,
       BorderSide outline =
-          const BorderSide(color: SwimUiTokens.borderSubtle, width: 1.0),
+          const BorderSide(color: Color.fromARGB(18, 255, 255, 255), width: 1.0),
       double? minHeight,
       EdgeInsetsGeometry padding =
           const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
@@ -2374,7 +2377,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       decoration: BoxDecoration(
         color: _parentNoteBg,
         borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
+        border: Border.all(
+            color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1.0),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -2383,11 +2387,14 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             child: chip(
               fillColor: SwimUiTokens.accentBlue,
               outline: BorderSide(
-                color: Color.lerp(SwimUiTokens.accentBlue, Colors.black, 0.14)!,
+                color: Color.lerp(
+                        SwimUiTokens.accentBlue, ObsidianVoltTokens.bgBase, 0.14)!,
                 width: 1.0,
               ),
-              splashColor: Colors.white.withValues(alpha: 0.22),
-              highlightColor: Colors.white.withValues(alpha: 0.12),
+              splashColor:
+                  ObsidianVoltTokens.bgBase.withValues(alpha: 0.22),
+              highlightColor:
+                  ObsidianVoltTokens.accentText.withValues(alpha: 0.12),
               minHeight: _meetActionButtonHeight,
               padding: _meetActionButtonPadding,
               onTap: () {
@@ -2399,7 +2406,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                 style: GoogleFonts.sora(
                   fontWeight: FontWeight.w700,
                   fontSize: 14.0,
-                  color: Colors.white,
+                  color: ObsidianVoltTokens.bgBase,
                 ),
               ),
             ),
@@ -2452,7 +2459,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
           data: SwitchThemeData(
             thumbColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return Colors.white;
+                return ObsidianVoltTokens.bgBase;
               }
               return null;
             }),
@@ -2483,7 +2490,8 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       decoration: BoxDecoration(
         color: _parentNoteBg,
         borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(color: SwimUiTokens.borderSubtle, width: 1.0),
+        border: Border.all(
+            color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1.0),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -2532,7 +2540,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       },
       style: OutlinedButton.styleFrom(
         foregroundColor: on ? SwimUiTokens.textTitle : SwimUiTokens.textMuted,
-        backgroundColor: Colors.white,
+        backgroundColor: ObsidianVoltTokens.bgSurface,
         side: BorderSide(
           color: on ? SwimUiTokens.textTitle : _meetSecondaryOutline,
           width: on ? 2.0 : 1.0,
@@ -2575,7 +2583,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
             : (on
                 ? SwimUiTokens.accentBlue
                 : SwimUiTokens.accentBlue.withValues(alpha: 0.92)),
-        foregroundColor: muted ? SwimUiTokens.textMuted : Colors.white,
+        foregroundColor: muted ? SwimUiTokens.textMuted : ObsidianVoltTokens.bgBase,
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0.0),
         minimumSize: const Size(72.0, _meetActionButtonHeight),
         maximumSize: const Size(double.infinity, _meetActionButtonHeight),
@@ -2588,7 +2596,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         style: GoogleFonts.sora(
           fontWeight: FontWeight.w700,
           fontSize: 12.5,
-          color: muted ? SwimUiTokens.textMuted : Colors.white,
+          color: muted ? SwimUiTokens.textMuted : ObsidianVoltTokens.bgBase,
         ),
       ),
     );
@@ -2793,7 +2801,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       style: OutlinedButton.styleFrom(
         foregroundColor: SwimUiTokens.textMuted,
         backgroundColor: Colors.transparent,
-        side: const BorderSide(color: _meetSecondaryOutline, width: 1.0),
+        side: BorderSide(color: _meetSecondaryOutline, width: 1.0),
         padding: _meetActionButtonPadding,
         minimumSize: const Size(double.infinity, _meetActionButtonHeight),
         maximumSize: const Size(double.infinity, _meetActionButtonHeight),
@@ -2856,7 +2864,7 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
     final pendingSecondaryStyle = OutlinedButton.styleFrom(
       foregroundColor: SwimUiTokens.textMuted,
       backgroundColor: Colors.transparent,
-      side: const BorderSide(color: _meetSecondaryOutline, width: 1.0),
+      side: BorderSide(color: _meetSecondaryOutline, width: 1.0),
       padding: _meetPendingPairPadding,
       minimumSize: const Size(double.infinity, _meetPendingPairButtonHeight),
       maximumSize: const Size(double.infinity, _meetPendingPairButtonHeight),
@@ -3104,7 +3112,6 @@ class _MeetCardFramePainter extends CustomPainter {
 
   static const double _radius = 14.0;
   static const double _stroke = 1.0;
-  static const Color _frameBlendBase = Color(0xFFE2E8F0);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -3112,7 +3119,8 @@ class _MeetCardFramePainter extends CustomPainter {
     final outer = RRect.fromRectAndRadius(rect, const Radius.circular(_radius));
     canvas.clipRRect(outer);
 
-    final strokeColor = Color.lerp(accent, _frameBlendBase, 0.72)!;
+    final strokeColor =
+        Color.lerp(accent, ObsidianVoltTokens.borderMuted, 0.72)!;
     final inset = _stroke / 2;
     final inner = RRect.fromRectAndRadius(
       rect.deflate(inset),
@@ -3168,7 +3176,7 @@ class _ParentNoteEditorSheetState extends State<_ParentNoteEditorSheet> {
       ),
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 24.0),
+          padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 24.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3197,17 +3205,17 @@ class _ParentNoteEditorSheetState extends State<_ParentNoteEditorSheet> {
                   fillColor: SwimUiTokens.surfaceCard,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide: const BorderSide(
+                    borderSide: BorderSide(
                         color: SwimUiTokens.borderSubtle, width: 1.0),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide: const BorderSide(
+                    borderSide: BorderSide(
                         color: SwimUiTokens.borderSubtle, width: 1.0),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
-                    borderSide: const BorderSide(
+                    borderSide: BorderSide(
                       color: SwimUiTokens.accentBlue,
                       width: 1.5,
                     ),
@@ -3218,9 +3226,9 @@ class _ParentNoteEditorSheetState extends State<_ParentNoteEditorSheet> {
               FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: SwimUiTokens.accentBlue,
-                  foregroundColor: Colors.white,
+                  foregroundColor: ObsidianVoltTokens.bgBase,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
+                      const EdgeInsets.symmetric(horizontal: 24.0, vertical: 0),
                   minimumSize: const Size(double.infinity, 40.0),
                   maximumSize: const Size(double.infinity, 40.0),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,

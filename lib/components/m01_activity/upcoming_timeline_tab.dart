@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '/backend/schema/team_events_record.dart';
+import '/theme/obsidian_volt_tokens.dart';
+import '/theme/swim_ui_tokens.dart';
 import 'schedule_display_item.dart';
 import 'team_events_schedule.dart' show normalizeCoachLocationForUi;
 
@@ -20,12 +22,10 @@ class UpcomingTimelineTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
-    final pageBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF4F7FA);
-    final surfaceBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final muted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final titleColor = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+    final pageBg = ObsidianVoltTokens.bgBase;
+    final surfaceBg = ObsidianVoltTokens.bgSurface;
+    final muted = ObsidianVoltTokens.textSecondary;
+    final titleColor = ObsidianVoltTokens.textPrimary;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -38,7 +38,7 @@ class UpcomingTimelineTab extends StatelessWidget {
             child: ColoredBox(
               color: pageBg,
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad),
+                padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -55,6 +55,10 @@ class UpcomingTimelineTab extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: surfaceBg,
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: SwimUiTokens.cardSurfaceEdgeBorder,
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         'No upcoming events',
@@ -100,7 +104,7 @@ class UpcomingTimelineTab extends StatelessWidget {
           child: ColoredBox(
             color: pageBg,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad),
+              padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -115,16 +119,13 @@ class UpcomingTimelineTab extends StatelessWidget {
                   Container(
                     decoration: BoxDecoration(
                       color: surfaceBg,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: isDark
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                      borderRadius:
+                          BorderRadius.circular(SwimUiTokens.radiusMd),
+                      border: Border.all(
+                        color: SwimUiTokens.cardSurfaceEdgeBorder,
+                        width: 1,
+                      ),
+                      boxShadow: SwimUiTokens.shadowCard,
                     ),
                     padding: const EdgeInsets.fromLTRB(0, 14, 14, 16),
                     child: Stack(
@@ -137,9 +138,7 @@ class UpcomingTimelineTab extends StatelessWidget {
                           width: 1.5,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.08)
-                                  : Colors.black.withValues(alpha: 0.08),
+                              color: ObsidianVoltTokens.timelineSpine,
                               borderRadius: BorderRadius.circular(999),
                             ),
                           ),
@@ -148,10 +147,13 @@ class UpcomingTimelineTab extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             if (showNow)
-                              const Padding(
-                                padding:
-                                    EdgeInsets.only(left: 26 + 8, bottom: 10),
-                                child: _NowBadge(),
+                              const Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding:
+                                      EdgeInsets.only(left: 26 + 8, bottom: 10),
+                                  child: _NowBadge(),
+                                ),
                               ),
                             ...rows.map(
                               (row) => row.build(
@@ -159,7 +161,6 @@ class UpcomingTimelineTab extends StatelessWidget {
                                 pageBg: pageBg,
                                 muted: muted,
                                 titleColor: titleColor,
-                                isDark: isDark,
                                 now: now,
                                 today: today,
                                 onTap: onOpenDetail,
@@ -294,7 +295,6 @@ abstract class _TimelineRow {
     required Color pageBg,
     required Color muted,
     required Color titleColor,
-    required bool isDark,
     required DateTime now,
     required DateTime today,
     required void Function(ScheduleDisplayItem item) onTap,
@@ -311,7 +311,6 @@ class _DividerRow implements _TimelineRow {
     required Color pageBg,
     required Color muted,
     required Color titleColor,
-    required bool isDark,
     required DateTime now,
     required DateTime today,
     required void Function(ScheduleDisplayItem item) onTap,
@@ -324,7 +323,7 @@ class _DividerRow implements _TimelineRow {
           fontSize: 10,
           letterSpacing: 0.5,
           fontWeight: FontWeight.w400,
-          color: muted,
+          color: ObsidianVoltTokens.textTertiary,
         ),
       ),
     );
@@ -342,7 +341,6 @@ class _EventRow implements _TimelineRow {
     required Color pageBg,
     required Color muted,
     required Color titleColor,
-    required bool isDark,
     required DateTime now,
     required DateTime today,
     required void Function(ScheduleDisplayItem item) onTap,
@@ -356,8 +354,8 @@ class _EventRow implements _TimelineRow {
         _isHappeningNow(item.record, now);
 
     final style = cancelled
-        ? _TimelinePalette.cancelled(isDark)
-        : _TimelinePalette.forType(item.record.eventType, isDark);
+        ? _TimelinePalette.cancelled()
+        : _TimelinePalette.forType(item.record.eventType);
 
     final dotRing = active && !cancelled;
 
@@ -366,11 +364,7 @@ class _EventRow implements _TimelineRow {
       height: 10,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: cancelled
-            ? (isDark
-                ? Colors.white.withValues(alpha: 0.12)
-                : Colors.black.withValues(alpha: 0.15))
-            : style.dot,
+        color: cancelled ? ObsidianVoltTokens.eventCancelledDot : style.dot,
         boxShadow: dotRing
             ? [
                 BoxShadow(
@@ -405,18 +399,14 @@ class _EventRow implements _TimelineRow {
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           decoration: BoxDecoration(
             color: cancelled
-                ? (isDark
-                    ? Colors.white.withValues(alpha: 0.04)
-                    : Colors.black.withValues(alpha: 0.04))
+                ? ObsidianVoltTokens.eventCancelledCardBg
                 : style.cardBg,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: cancelled
-                  ? (isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.06))
-                  : style.cardBorder,
-              width: 0.5,
+                  ? ObsidianVoltTokens.borderSubtle
+                  : SwimUiTokens.cardSurfaceEdgeBorder,
+              width: 1,
             ),
           ),
           child: Column(
@@ -428,15 +418,15 @@ class _EventRow implements _TimelineRow {
                   _TypeTag(
                     label: teamEventTypeLabel(item.record.eventType).toUpperCase(),
                     bg: cancelled
-                        ? (isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.black.withValues(alpha: 0.06))
+                        ? ObsidianVoltTokens.bgOverlay
                         : style.tagBg,
-                    fg: cancelled ? muted : style.tagText,
+                    fg: cancelled
+                        ? ObsidianVoltTokens.textTertiary
+                        : style.tagText,
                   ),
                   if (!cancelled && item.squadLabel.trim().isNotEmpty) ...[
                     const SizedBox(width: 8),
-                    _SquadTag(label: item.squadLabel, isDark: isDark),
+                    _SquadTag(label: item.squadLabel),
                   ],
                 ],
               ),
@@ -573,36 +563,35 @@ class _NowBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? const Color(0xFF38BDF8).withValues(alpha: 0.15)
-        : const Color(0xFFDBEAFE);
-    final fg = isDark ? const Color(0xFF38BDF8) : const Color(0xFF1D4ED8);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: bg,
+        color: ObsidianVoltTokens.nowBadgeBg,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: fg),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'Now',
-            style: GoogleFonts.sora(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: fg,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: ObsidianVoltTokens.accent,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 5),
+            Text(
+              'Now',
+              style: GoogleFonts.sora(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: ObsidianVoltTokens.nowBadgeText,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -641,10 +630,9 @@ class _TypeTag extends StatelessWidget {
 }
 
 class _SquadTag extends StatelessWidget {
-  const _SquadTag({required this.label, required this.isDark});
+  const _SquadTag({required this.label});
 
   final String label;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -653,20 +641,14 @@ class _SquadTag extends StatelessWidget {
     late Color fg;
 
     if (u.contains('JUNIOR') || u.contains('JR')) {
-      bg = isDark
-          ? const Color(0xFF639922).withValues(alpha: 0.2)
-          : const Color(0xFFEAF3DE);
-      fg = isDark ? const Color(0xFF97C459) : const Color(0xFF27500A);
+      bg = ObsidianVoltTokens.squadJuniorBg;
+      fg = ObsidianVoltTokens.squadJuniorText;
     } else if (u.contains('SENIOR') || u.contains('SR')) {
-      bg = isDark
-          ? const Color(0xFF378ADD).withValues(alpha: 0.2)
-          : const Color(0xFFE6F1FB);
-      fg = isDark ? const Color(0xFF85B7EB) : const Color(0xFF0C447C);
+      bg = ObsidianVoltTokens.squadSeniorBg;
+      fg = ObsidianVoltTokens.squadSeniorText;
     } else {
-      bg = isDark
-          ? const Color(0xFFC084FC).withValues(alpha: 0.15)
-          : const Color(0xFFEDE9FE);
-      fg = isDark ? const Color(0xFFE9D5FF) : const Color(0xFF4C1D95);
+      bg = ObsidianVoltTokens.squadAllBg;
+      fg = ObsidianVoltTokens.squadAllText;
     }
 
     return Container(
@@ -702,94 +684,56 @@ class _TimelinePalette {
   final Color cardBg;
   final Color cardBorder;
 
-  static _TimelinePalette forType(TeamEventType t, bool dark) {
+  static _TimelinePalette forType(TeamEventType t) {
     switch (t) {
       case TeamEventType.training:
         return _TimelinePalette(
-          dot: dark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-          tagBg: dark
-              ? const Color(0xFF38BDF8).withValues(alpha: 0.15)
-              : const Color(0xFFDBEAFE),
-          tagText: dark ? const Color(0xFF7DD3FC) : const Color(0xFF1E40AF),
-          cardBg: dark
-              ? const Color(0xFF38BDF8).withValues(alpha: 0.08)
-              : const Color(0xFFF0F7FF),
-          cardBorder: dark
-              ? const Color(0xFF38BDF8).withValues(alpha: 0.2)
-              : const Color(0xFF0284C7).withValues(alpha: 0.2),
+          dot: ObsidianVoltTokens.eventTrainingDot,
+          tagBg: ObsidianVoltTokens.eventTrainingTagBg,
+          tagText: ObsidianVoltTokens.eventTrainingTagText,
+          cardBg: ObsidianVoltTokens.eventTrainingCardTint,
+          cardBorder: ObsidianVoltTokens.eventTrainingCardBorder,
         );
       case TeamEventType.meet:
         return _TimelinePalette(
-          dot: dark ? const Color(0xFFFB923C) : const Color(0xFFEA580C),
-          tagBg: dark
-              ? const Color(0xFFFB923C).withValues(alpha: 0.15)
-              : const Color(0xFFFEF3C7),
-          tagText: dark ? const Color(0xFFFED7AA) : const Color(0xFF92400E),
-          cardBg: dark
-              ? const Color(0xFFFB923C).withValues(alpha: 0.08)
-              : const Color(0xFFFFF8F0),
-          cardBorder: dark
-              ? const Color(0xFFFB923C).withValues(alpha: 0.2)
-              : const Color(0xFFEA580C).withValues(alpha: 0.2),
+          dot: ObsidianVoltTokens.eventMeetDot,
+          tagBg: ObsidianVoltTokens.eventMeetTagBg,
+          tagText: ObsidianVoltTokens.eventMeetTagText,
+          cardBg: ObsidianVoltTokens.eventMeetCardTint,
+          cardBorder: ObsidianVoltTokens.eventMeetCardBorder,
         );
       case TeamEventType.admin:
         return _TimelinePalette(
-          dot: dark ? const Color(0xFFC084FC) : const Color(0xFF7C3AED),
-          tagBg: dark
-              ? const Color(0xFFC084FC).withValues(alpha: 0.15)
-              : const Color(0xFFEDE9FE),
-          tagText: dark ? const Color(0xFFE9D5FF) : const Color(0xFF4C1D95),
-          cardBg: dark
-              ? const Color(0xFFC084FC).withValues(alpha: 0.08)
-              : const Color(0xFFF7F4FE),
-          cardBorder: dark
-              ? const Color(0xFFC084FC).withValues(alpha: 0.2)
-              : const Color(0xFF7C3AED).withValues(alpha: 0.2),
+          dot: ObsidianVoltTokens.eventAdminDot,
+          tagBg: ObsidianVoltTokens.eventAdminTagBg,
+          tagText: ObsidianVoltTokens.eventAdminTagText,
+          cardBg: ObsidianVoltTokens.eventAdminCardTint,
+          cardBorder: ObsidianVoltTokens.eventAdminCardBorder,
         );
       case TeamEventType.social:
         return _TimelinePalette(
-          dot: dark ? const Color(0xFFF472B6) : const Color(0xFFDB2777),
-          tagBg: dark
-              ? const Color(0xFFF472B6).withValues(alpha: 0.15)
-              : const Color(0xFFFCE7F3),
-          tagText: dark ? const Color(0xFFFBCFE8) : const Color(0xFF831843),
-          cardBg: dark
-              ? const Color(0xFFF472B6).withValues(alpha: 0.08)
-              : const Color(0xFFFDF2F8),
-          cardBorder: dark
-              ? const Color(0xFFF472B6).withValues(alpha: 0.2)
-              : const Color(0xFFDB2777).withValues(alpha: 0.2),
+          dot: ObsidianVoltTokens.eventSocialDot,
+          tagBg: ObsidianVoltTokens.eventSocialTagBg,
+          tagText: ObsidianVoltTokens.eventSocialTagText,
+          cardBg: ObsidianVoltTokens.eventSocialCardTint,
+          cardBorder: ObsidianVoltTokens.eventSocialCardBorder,
         );
       case TeamEventType.unknown:
         return _TimelinePalette(
-          dot: dark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-          tagBg: dark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.06),
-          tagText: dark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
-          cardBg: dark
-              ? Colors.white.withValues(alpha: 0.04)
-              : const Color(0xFFF8FAFC),
-          cardBorder: dark
-              ? Colors.white.withValues(alpha: 0.1)
-              : Colors.black.withValues(alpha: 0.08),
+          dot: ObsidianVoltTokens.textSecondary,
+          tagBg: ObsidianVoltTokens.bgOverlay,
+          tagText: ObsidianVoltTokens.textSecondary,
+          cardBg: ObsidianVoltTokens.bgOverlay,
+          cardBorder: ObsidianVoltTokens.borderSubtle,
         );
     }
   }
 
-  static _TimelinePalette cancelled(bool dark) => _TimelinePalette(
-        dot: dark
-            ? Colors.white.withValues(alpha: 0.12)
-            : Colors.black.withValues(alpha: 0.15),
-        tagBg: dark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.black.withValues(alpha: 0.06),
-        tagText: dark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-        cardBg: dark
-            ? Colors.white.withValues(alpha: 0.04)
-            : Colors.black.withValues(alpha: 0.04),
-        cardBorder: dark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.black.withValues(alpha: 0.06),
+  static _TimelinePalette cancelled() => _TimelinePalette(
+        dot: ObsidianVoltTokens.eventCancelledDot,
+        tagBg: ObsidianVoltTokens.bgOverlay,
+        tagText: ObsidianVoltTokens.textTertiary,
+        cardBg: ObsidianVoltTokens.eventCancelledCardBg,
+        cardBorder: ObsidianVoltTokens.borderSubtle,
       );
 }

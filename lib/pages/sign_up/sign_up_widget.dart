@@ -5,6 +5,8 @@ import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/theme/obsidian_volt_tokens.dart';
+import '/theme/swim_ui_tokens.dart';
 import '/flutter_flow/form_field_controller.dart';
 import 'dart:ui';
 import '/index.dart';
@@ -103,7 +105,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: Color(0xFF0A1628),
+        backgroundColor: ObsidianVoltTokens.bgBase,
         body: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.max,
@@ -128,9 +130,9 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Color(0xCC0A1628),
-                            Color(0x660A1628),
-                            Color(0x000A1628)
+                            ObsidianVoltTokens.bgBase.withValues(alpha: 0.8),
+                            ObsidianVoltTokens.bgBase.withValues(alpha: 0.4),
+                            ObsidianVoltTokens.bgBase.withValues(alpha: 0),
                           ],
                           stops: [0.0, 0.4, 1.0],
                           begin: AlignmentDirectional(0.0, -1.0),
@@ -150,10 +152,10 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                             width: 56.0,
                             height: 56.0,
                             decoration: BoxDecoration(
-                              color: Color(0x1A00D4E8),
+                              color: ObsidianVoltTokens.accentBg,
                               borderRadius: BorderRadius.circular(16.0),
                               border: Border.all(
-                                color: Color(0xFF00D4E8),
+                                color: ObsidianVoltTokens.accent,
                                 width: 2.0,
                               ),
                             ),
@@ -161,7 +163,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                               alignment: AlignmentDirectional(0.0, 0.0),
                               child: Icon(
                                 Icons.pool_rounded,
-                                color: Color(0xFF00D4E8),
+                                color: ObsidianVoltTokens.accent,
                                 size: 30.0,
                               ),
                             ),
@@ -180,7 +182,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                           .displaySmall
                                           .fontStyle,
                                     ),
-                                    color: Colors.white,
+                                    color: ObsidianVoltTokens.textPrimary,
                                     fontSize: 34.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.bold,
@@ -203,7 +205,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                         .labelMedium
                                         .fontStyle,
                                   ),
-                                  color: Color(0xB300D4E8),
+                                  color: ObsidianVoltTokens.accentText,
                                   fontSize: 13.0,
                                   letterSpacing: 1.2,
                                   fontWeight: FlutterFlowTheme.of(context)
@@ -237,7 +239,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                       .headlineMedium
                                       .fontStyle,
                                 ),
-                                color: Colors.white,
+                                color: ObsidianVoltTokens.textPrimary,
                                 fontSize: 26.0,
                                 letterSpacing: 0.0,
                                 fontWeight: FontWeight.bold,
@@ -261,7 +263,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                     .bodyMedium
                                     .fontStyle,
                               ),
-                              color: Color(0x80FFFFFF),
+                              color: SwimUiTokens.textMuted,
                               fontSize: 14.0,
                               letterSpacing: 0.0,
                               fontWeight: FlutterFlowTheme.of(context)
@@ -279,10 +281,10 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: Color(0x0DFFFFFF),
+                          color: ObsidianVoltTokens.bgOverlay,
                           borderRadius: BorderRadius.circular(16.0),
                           border: Border.all(
-                            color: Color(0x1AFFFFFF),
+                            color: ObsidianVoltTokens.borderSubtle,
                             width: 1.0,
                           ),
                         ),
@@ -309,7 +311,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                             .bodyMedium
                                             .fontStyle,
                                       ),
-                                      color: Color(0x66FFFFFF),
+                                      color: ObsidianVoltTokens.textSecondary,
                                       letterSpacing: 0.0,
                                       fontWeight: FlutterFlowTheme.of(context)
                                           .bodyMedium
@@ -325,9 +327,9 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                       .secondaryText,
                                   size: 24.0,
                                 ),
-                                fillColor: FlutterFlowTheme.of(context).primary,
+                                fillColor: ObsidianVoltTokens.bgCard,
                                 elevation: 2.0,
-                                borderColor: Color(0x2600D4E8),
+                                borderColor: ObsidianVoltTokens.borderDefault,
                                 borderWidth: 1.5,
                                 borderRadius: 12.0,
                                 margin: EdgeInsetsDirectional.fromSTEB(
@@ -357,8 +359,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                           child: CircularProgressIndicator(
                                             valueColor:
                                                 AlwaysStoppedAnimation<Color>(
-                                              FlutterFlowTheme.of(context)
-                                                  .primary,
+                                              ObsidianVoltTokens.accent,
                                             ),
                                           ),
                                         ),
@@ -396,7 +397,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                                       .bodyMedium
                                                       .fontStyle,
                                             ),
-                                            color: Color(0x66FFFFFF),
+                                            color: ObsidianVoltTokens.textSecondary,
                                             letterSpacing: 0.0,
                                             fontWeight:
                                                 FlutterFlowTheme.of(context)
@@ -414,10 +415,9 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                             .secondaryText,
                                         size: 24.0,
                                       ),
-                                      fillColor:
-                                          FlutterFlowTheme.of(context).primary,
+                                      fillColor: ObsidianVoltTokens.bgCard,
                                       elevation: 2.0,
-                                      borderColor: Color(0x2600D4E8),
+                                      borderColor: ObsidianVoltTokens.borderDefault,
                                       borderWidth: 1.5,
                                       borderRadius: 12.0,
                                       margin: EdgeInsetsDirectional.fromSTEB(
@@ -451,7 +451,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                        color: Color(0x66FFFFFF),
+                                        color: ObsidianVoltTokens.textSecondary,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
                                             .bodyMedium
@@ -462,40 +462,40 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                       ),
                                   enabledBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0x2600D4E8),
+                                      color: ObsidianVoltTokens.borderDefault,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0xFF00D4E8),
+                                      color: ObsidianVoltTokens.accent,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   errorBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0xFFFF4444),
+                                      color: ObsidianVoltTokens.dangerCta,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   focusedErrorBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0xFFFF4444),
+                                      color: ObsidianVoltTokens.dangerCta,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   filled: true,
-                                  fillColor: Color(0x0DFFFFFF),
+                                  fillColor: ObsidianVoltTokens.bgOverlay,
                                   contentPadding:
                                       EdgeInsetsDirectional.fromSTEB(
                                           16.0, 18.0, 16.0, 18.0),
                                   prefixIcon: Icon(
                                     Icons.person_outline_rounded,
-                                    color: Color(0xFF00D4E8),
+                                    color: ObsidianVoltTokens.accent,
                                     size: 20.0,
                                   ),
                                 ),
@@ -510,7 +510,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                             .bodyMedium
                                             .fontStyle,
                                       ),
-                                      color: Colors.white,
+                                      color: ObsidianVoltTokens.textPrimary,
                                       letterSpacing: 0.0,
                                       fontWeight: FlutterFlowTheme.of(context)
                                           .bodyMedium
@@ -519,7 +519,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                cursorColor: Color(0xFF00D4E8),
+                                cursorColor: ObsidianVoltTokens.accent,
                                 validator: _model
                                     .swimmerNameTextControllerValidator
                                     .asValidator(context),
@@ -557,7 +557,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                        color: Color(0x66FFFFFF),
+                                        color: ObsidianVoltTokens.textSecondary,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
                                             .bodyMedium
@@ -568,40 +568,40 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                       ),
                                   enabledBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0x2600D4E8),
+                                      color: ObsidianVoltTokens.borderDefault,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0xFF00D4E8),
+                                      color: ObsidianVoltTokens.accent,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   errorBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0xFFFF4444),
+                                      color: ObsidianVoltTokens.dangerCta,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   focusedErrorBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0xFFFF4444),
+                                      color: ObsidianVoltTokens.dangerCta,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   filled: true,
-                                  fillColor: Color(0x0DFFFFFF),
+                                  fillColor: ObsidianVoltTokens.bgOverlay,
                                   contentPadding:
                                       EdgeInsetsDirectional.fromSTEB(
                                           16.0, 18.0, 16.0, 18.0),
                                   prefixIcon: Icon(
                                     Icons.mail_outline_rounded,
-                                    color: Color(0xFF00D4E8),
+                                    color: ObsidianVoltTokens.accent,
                                     size: 20.0,
                                   ),
                                 ),
@@ -616,7 +616,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                             .bodyMedium
                                             .fontStyle,
                                       ),
-                                      color: Colors.white,
+                                      color: ObsidianVoltTokens.textPrimary,
                                       letterSpacing: 0.0,
                                       fontWeight: FlutterFlowTheme.of(context)
                                           .bodyMedium
@@ -626,7 +626,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                           .fontStyle,
                                     ),
                                 keyboardType: TextInputType.emailAddress,
-                                cursorColor: Color(0xFF00D4E8),
+                                cursorColor: ObsidianVoltTokens.accent,
                                 validator: _model
                                     .emailAddressTextControllerValidator
                                     .asValidator(context),
@@ -653,7 +653,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                        color: Color(0x66FFFFFF),
+                                        color: ObsidianVoltTokens.textSecondary,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
                                             .bodyMedium
@@ -664,40 +664,40 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                       ),
                                   enabledBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0x2600D4E8),
+                                      color: ObsidianVoltTokens.borderDefault,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0xFF00D4E8),
+                                      color: ObsidianVoltTokens.accent,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   errorBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0xFFFF4444),
+                                      color: ObsidianVoltTokens.dangerCta,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   focusedErrorBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: Color(0xFFFF4444),
+                                      color: ObsidianVoltTokens.dangerCta,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   filled: true,
-                                  fillColor: Color(0x0DFFFFFF),
+                                  fillColor: ObsidianVoltTokens.bgOverlay,
                                   contentPadding:
                                       EdgeInsetsDirectional.fromSTEB(
                                           16.0, 18.0, 16.0, 18.0),
                                   prefixIcon: Icon(
                                     Icons.lock_outline_rounded,
-                                    color: Color(0xFF00D4E8),
+                                    color: ObsidianVoltTokens.accent,
                                     size: 20.0,
                                   ),
                                   suffixIcon: InkWell(
@@ -711,6 +711,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                       _model.passwordVisibility
                                           ? Icons.visibility_outlined
                                           : Icons.visibility_off_outlined,
+                                      color: ObsidianVoltTokens.textSecondary,
                                       size: 22,
                                     ),
                                   ),
@@ -726,7 +727,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                             .bodyMedium
                                             .fontStyle,
                                       ),
-                                      color: Colors.white,
+                                      color: ObsidianVoltTokens.textPrimary,
                                       letterSpacing: 0.0,
                                       fontWeight: FlutterFlowTheme.of(context)
                                           .bodyMedium
@@ -735,7 +736,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                cursorColor: Color(0xFF00D4E8),
+                                cursorColor: ObsidianVoltTokens.accent,
                                 validator: _model
                                     .passwordTextControllerValidator
                                     .asValidator(context),
@@ -753,8 +754,9 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                         decoration: BoxDecoration(
                           boxShadow: [
                             BoxShadow(
-                              blurRadius: 20.0,
-                              color: Color(0x6600D4E8),
+                              blurRadius: 16.0,
+                              color: ObsidianVoltTokens.accent
+                                  .withValues(alpha: 0.35),
                               offset: Offset(
                                 0.0,
                                 6.0,
@@ -762,10 +764,13 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                             )
                           ],
                           gradient: LinearGradient(
-                            colors: [Color(0xFF00D4E8), Color(0xFF0077B6)],
+                            colors: [
+                              ObsidianVoltTokens.accent,
+                              ObsidianVoltTokens.accentText,
+                            ],
                             stops: [0.0, 1.0],
-                            begin: AlignmentDirectional(1.0, 0.0),
-                            end: AlignmentDirectional(-1.0, 0),
+                            begin: AlignmentDirectional(1.0, -1.0),
+                            end: AlignmentDirectional(-1.0, 1.0),
                           ),
                           borderRadius: BorderRadius.circular(14.0),
                         ),
@@ -832,7 +837,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                         .titleMedium
                                         .fontStyle,
                                   ),
-                                  color: Colors.white,
+                                  color: ObsidianVoltTokens.bgBase,
                                   fontSize: 16.0,
                                   letterSpacing: 0.0,
                                   fontWeight: FontWeight.bold,
@@ -846,7 +851,6 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                               width: 0.0,
                             ),
                             borderRadius: BorderRadius.circular(14.0),
-                            hoverColor: Color(0xFF0077B6),
                             hoverElevation: 0.0,
                           ),
                         ),
@@ -872,15 +876,15 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                         .bodyMedium
                                         .fontStyle,
                                   ),
-                                  color: Color(0x80FFFFFF),
+                                  color: SwimUiTokens.textMuted,
                                   fontSize: 14.0,
                                   letterSpacing: 0.0,
                                   fontWeight: FlutterFlowTheme.of(context)
                                       .bodyMedium
                                       .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
                                 ),
                           ),
                           InkWell(
@@ -902,7 +906,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                    color: Color(0xFF00D4E8),
+                                    color: ObsidianVoltTokens.accent,
                                     fontSize: 14.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.bold,
@@ -926,8 +930,7 @@ class _SignUpWidgetState extends State<SignUpWidget> {
                                   .bodyMedium
                                   .fontStyle,
                             ),
-                            color: FlutterFlowTheme.of(context)
-                                .secondaryBackground,
+                            color: ObsidianVoltTokens.textTertiary,
                             letterSpacing: 0.0,
                             fontWeight: FlutterFlowTheme.of(context)
                                 .bodyMedium

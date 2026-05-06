@@ -9,8 +9,9 @@ import '/components/m01_activity/schedule_training_parse.dart';
 import '/components/m01_activity/team_events_schedule.dart'
     show readableScheduleBaselineBodyWidgets;
 import '/theme/swim_ui_tokens.dart';
+import '/theme/obsidian_volt_tokens.dart';
 
-const _kDrylandPurple = Color(0xFF9333EA);
+final Color _kDrylandPurple = ObsidianVoltTokens.eventAdminDot;
 
 const _weekDaysFull = [
   'Monday',
@@ -33,12 +34,12 @@ const _weekDaysAbbr = [
 ];
 
 Color _groupListAccent(int index) {
-  const palette = <Color>[
-    Color(0xFF7C3AED),
-    Color(0xFF16A34A),
-    Color(0xFFF97316),
-    Color(0xFF0EA5E9),
-    Color(0xFF64748B),
+  final palette = <Color>[
+    ObsidianVoltTokens.eventAdminDot,
+    ObsidianVoltTokens.accent,
+    ObsidianVoltTokens.eventMeetDot,
+    ObsidianVoltTokens.eventTrainingDot,
+    ObsidianVoltTokens.textSecondary,
   ];
   return palette[index % palette.length];
 }
@@ -266,7 +267,7 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
             child: SizedBox(
               height: 96,
               child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                padding: const EdgeInsets.fromLTRB(24, 10, 24, 6),
                 scrollDirection: Axis.horizontal,
                 itemCount: widget.baselines.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 10),
@@ -286,10 +287,13 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
                       width: 212,
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color:
+                            sel ? SwimUiTokens.surfaceElevated : SwimUiTokens.surfaceCard,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: sel ? widget.primary : const Color(0xFFE2E8F0),
+                          color: sel
+                              ? ObsidianVoltTokens.borderDefault
+                              : SwimUiTokens.cardSurfaceEdgeBorder,
                           width: sel ? 2 : 1,
                         ),
                       ),
@@ -328,7 +332,7 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
             ),
           ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 10),
           sliver: SliverToBoxAdapter(
             child: _SeasonScheduleHeroCard(
               title: baseline.title,
@@ -349,7 +353,7 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
         if (_segment == 1) ..._notesSlivers(baseline),
         if (docUrl != null)
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
             sliver: SliverToBoxAdapter(
               child: _ScheduleDocumentLinkTile(
                 primary: widget.primary,
@@ -387,7 +391,7 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
 
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
         sliver: SliverToBoxAdapter(
           child: Text(
             'Weekly schedule by group',
@@ -400,13 +404,13 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
         sliver: SliverToBoxAdapter(
           child: _SessionLegend(primary: widget.primary),
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (ctx, i) {
@@ -433,7 +437,7 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
         sliver: SliverToBoxAdapter(
           child: _BottomDisclaimerCard(primary: widget.primary),
         ),
@@ -447,7 +451,7 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
 
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
         sliver: SliverList(
           delegate: SliverChildListDelegate([
             if (snippet.trim().isNotEmpty)
@@ -508,9 +512,9 @@ class _TrainingEmpty extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SwimUiTokens.surfaceCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8EEF5)),
+        border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -565,22 +569,22 @@ class _SeasonScheduleHeroCard extends StatelessWidget {
   Color _statusBg() {
     switch (status) {
       case 'ENDED':
-        return const Color(0xFFF1F5F9);
+        return ObsidianVoltTokens.bgOverlay;
       case 'UPCOMING':
-        return const Color(0xFFFEF3C7);
+        return ObsidianVoltTokens.badgeUpcomingBg;
       default:
-        return const Color(0xFFD1FAE5);
+        return ObsidianVoltTokens.badgeCompletedBg;
     }
   }
 
   Color _statusFg() {
     switch (status) {
       case 'ENDED':
-        return const Color(0xFF64748B);
+        return ObsidianVoltTokens.textSecondary;
       case 'UPCOMING':
-        return const Color(0xFFB45309);
+        return ObsidianVoltTokens.badgeUpcomingText;
       default:
-        return const Color(0xFF047857);
+        return ObsidianVoltTokens.badgeCompletedText;
     }
   }
 
@@ -590,22 +594,15 @@ class _SeasonScheduleHeroCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SwimUiTokens.surfaceCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8EEF5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 10),
+            padding: const EdgeInsets.fromLTRB(24, 16, 8, 10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -692,7 +689,7 @@ class _SeasonScheduleHeroCard extends StatelessWidget {
                   : CrossFadeState.showFirst,
               firstChild: const SizedBox.shrink(),
               secondChild: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
                 child: Text(
                   note,
                   style: GoogleFonts.sora(
@@ -805,16 +802,16 @@ class _ScheduleDocumentLinkTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: SwimUiTokens.surfaceCard,
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE8EEF5)),
+            border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1),
           ),
           child: Row(
             children: [
@@ -880,7 +877,8 @@ class _GroupWeeklyTable extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: Table(
         border: TableBorder(
-          horizontalInside: const BorderSide(color: Color(0xFFF1F5F9)),
+          horizontalInside:
+              BorderSide(color: ObsidianVoltTokens.borderMuted),
         ),
         columnWidths: const {
           0: FixedColumnWidth(60),
@@ -889,13 +887,13 @@ class _GroupWeeklyTable extends StatelessWidget {
         },
         children: [
           TableRow(
-            decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
+            decoration: BoxDecoration(color: ObsidianVoltTokens.bgSurface),
             children: [
               headerCell(const SizedBox.shrink()),
               headerCell(
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.fitness_center_rounded,
                       size: 16,
                       color: _kDrylandPurple,
@@ -986,13 +984,13 @@ class _SessionLegend extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SwimUiTokens.surfaceCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE8EEF5)),
+        border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.fitness_center_rounded,
             size: 20,
             color: _kDrylandPurple,
@@ -1046,13 +1044,13 @@ class _GroupWeeklyCard extends StatelessWidget {
         : 'Schedule';
 
     return Material(
-      color: Colors.white,
+      color: SwimUiTokens.surfaceCard,
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE8EEF5)),
+          border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1095,13 +1093,13 @@ class _GroupWeeklyCard extends StatelessWidget {
                               if (group.codePill.isNotEmpty)
                                 _TinyPill(
                                   label: group.codePill,
-                                  fg: const Color(0xFF4338CA),
-                                  bg: const Color(0xFFEEF2FF),
+                                  fg: ObsidianVoltTokens.squadAllText,
+                                  bg: ObsidianVoltTokens.squadAllBg,
                                 ),
                               _TinyPill(
                                 label: freqLabel,
                                 fg: primary,
-                                bg: const Color(0xFFE0F2FE),
+                                bg: ObsidianVoltTokens.accentBg,
                               ),
                             ],
                           ),
@@ -1154,9 +1152,9 @@ class _BottomDisclaimerCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: ObsidianVoltTokens.accentBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
+        border: Border.all(color: ObsidianVoltTokens.accentBorder, width: 0.5),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1209,9 +1207,9 @@ class _NotesSectionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SwimUiTokens.surfaceCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8EEF5)),
+        border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

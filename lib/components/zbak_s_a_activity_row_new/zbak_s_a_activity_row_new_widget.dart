@@ -67,7 +67,7 @@ class _ZbakSAActivityRowNewWidgetState
           borderRadius: BorderRadius.circular(12.0),
         ),
         child: Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
+          padding: EdgeInsetsDirectional.fromSTEB(24.0, 16.0, 24.0, 16.0),
           child: Row(
             mainAxisSize: MainAxisSize.max,
             children: [

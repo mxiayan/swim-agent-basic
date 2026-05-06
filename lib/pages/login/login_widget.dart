@@ -3,6 +3,8 @@ import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/theme/obsidian_volt_tokens.dart';
+import '/theme/swim_ui_tokens.dart';
 import 'dart:ui';
 import '/index.dart';
 import 'package:easy_debounce/easy_debounce.dart';
@@ -64,14 +66,14 @@ class _LoginWidgetState extends State<LoginWidget> {
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: Color(0xFF0A1628),
+        backgroundColor: ObsidianVoltTokens.bgBase,
         body: Stack(
           children: [
             Container(
               width: double.infinity,
               height: double.infinity,
               decoration: BoxDecoration(
-                color: Color(0xFF0A1628),
+                color: ObsidianVoltTokens.bgBase,
               ),
               child: Padding(
                 padding: EdgeInsets.all(16.0),
@@ -83,7 +85,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                         width: double.infinity,
                         height: MediaQuery.sizeOf(context).height * 0.55,
                         decoration: BoxDecoration(
-                          color: Color(0xFF0A1628),
+                          color: ObsidianVoltTokens.bgBase,
                         ),
                         child: Stack(
                           children: [
@@ -99,9 +101,9 @@ class _LoginWidgetState extends State<LoginWidget> {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    Color(0x0A162800),
-                                    Color(0x0A162880),
-                                    Color(0x0A1628FF)
+                                    ObsidianVoltTokens.bgBase.withValues(alpha: 0),
+                                    ObsidianVoltTokens.bgBase.withValues(alpha: 0.5),
+                                    ObsidianVoltTokens.bgBase,
                                   ],
                                   stops: [0.0, 0.5, 1.0],
                                   begin: AlignmentDirectional(0.0, -1.0),
@@ -117,7 +119,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                       width: double.infinity,
                       height: MediaQuery.sizeOf(context).height * 0.45,
                       decoration: BoxDecoration(
-                        color: Color(0xFF0A1628),
+                        color: ObsidianVoltTokens.bgBase,
                       ),
                     ),
                   ],
@@ -149,10 +151,10 @@ class _LoginWidgetState extends State<LoginWidget> {
                                 width: 44.0,
                                 height: 44.0,
                                 decoration: BoxDecoration(
-                                  color: Color(0xFF1A4A8A),
+                                  color: ObsidianVoltTokens.bgSurface,
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: Color(0xFF2A6DD9),
+                                    color: ObsidianVoltTokens.borderDefault,
                                     width: 2.0,
                                   ),
                                 ),
@@ -160,7 +162,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                   alignment: AlignmentDirectional(0.0, 0.0),
                                   child: Icon(
                                     Icons.pool_rounded,
-                                    color: Color(0xFF4FC3F7),
+                                    color: ObsidianVoltTokens.accent,
                                     size: 24.0,
                                   ),
                                 ),
@@ -176,7 +178,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                             .displaySmall
                                             .fontStyle,
                                       ),
-                                      color: Colors.white,
+                                      color: ObsidianVoltTokens.textPrimary,
                                       fontSize: 34.0,
                                       letterSpacing: 0.0,
                                       fontWeight: FontWeight.bold,
@@ -204,7 +206,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                    color: Color(0xFF90CAF9),
+                                    color: ObsidianVoltTokens.textSecondary,
                                     fontSize: 14.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FlutterFlowTheme.of(context)
@@ -226,7 +228,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                     child: Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Color(0xFF0D1F3C),
+                        color: ObsidianVoltTokens.bgSurface,
                         boxShadow: [
                           BoxShadow(
                             blurRadius: 30.0,
@@ -239,7 +241,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                         ],
                         borderRadius: BorderRadius.circular(28.0),
                         border: Border.all(
-                          color: Color(0xFF1A3A6A),
+                          color: ObsidianVoltTokens.bgSurface,
                           width: 1.0,
                         ),
                       ),
@@ -259,7 +261,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                           .headlineMedium
                                           .fontStyle,
                                     ),
-                                    color: Colors.white,
+                                    color: ObsidianVoltTokens.textPrimary,
                                     fontSize: 24.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.bold,
@@ -281,7 +283,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                    color: Color(0xFF7090B8),
+                                    color: ObsidianVoltTokens.textSecondary,
                                     fontSize: 14.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FlutterFlowTheme.of(context)
@@ -296,10 +298,10 @@ class _LoginWidgetState extends State<LoginWidget> {
                               width: double.infinity,
                               height: 54.0,
                               decoration: BoxDecoration(
-                                color: Color(0xFF132040),
+                                color: ObsidianVoltTokens.bgCard,
                                 borderRadius: BorderRadius.circular(12.0),
                                 border: Border.all(
-                                  color: Color(0xFF1E3A6E),
+                                  color: ObsidianVoltTokens.borderDefault,
                                   width: 1.0,
                                 ),
                               ),
@@ -314,7 +316,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                           12.0, 0.0, 12.0, 0.0),
                                       child: Icon(
                                         Icons.mail_outline_rounded,
-                                        color: Color(0xFF4A90D9),
+                                        color: ObsidianVoltTokens.accent,
                                         size: 20.0,
                                       ),
                                     ),
@@ -349,7 +351,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                           .bodyMedium
                                                           .fontStyle,
                                                 ),
-                                                color: Color(0xFF4A6A8A),
+                                                color: ObsidianVoltTokens.textSecondary,
                                                 fontSize: 15.0,
                                                 letterSpacing: 0.0,
                                                 fontWeight:
@@ -410,7 +412,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                         .bodyMedium
                                                         .fontStyle,
                                               ),
-                                              color: Colors.white,
+                                              color: ObsidianVoltTokens.textPrimary,
                                               fontSize: 15.0,
                                               letterSpacing: 0.0,
                                               fontWeight:
@@ -424,7 +426,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                             ),
                                         keyboardType:
                                             TextInputType.emailAddress,
-                                        cursorColor: Color(0xFF4FC3F7),
+                                        cursorColor: ObsidianVoltTokens.accent,
                                         validator: _model
                                             .emailFieldTextControllerValidator
                                             .asValidator(context),
@@ -438,10 +440,10 @@ class _LoginWidgetState extends State<LoginWidget> {
                               width: double.infinity,
                               height: 54.0,
                               decoration: BoxDecoration(
-                                color: Color(0xFF132040),
+                                color: ObsidianVoltTokens.bgCard,
                                 borderRadius: BorderRadius.circular(12.0),
                                 border: Border.all(
-                                  color: Color(0xFF1E3A6E),
+                                  color: ObsidianVoltTokens.borderDefault,
                                   width: 1.0,
                                 ),
                               ),
@@ -456,7 +458,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                           12.0, 0.0, 12.0, 0.0),
                                       child: Icon(
                                         Icons.lock_outline_rounded,
-                                        color: Color(0xFF4A90D9),
+                                        color: ObsidianVoltTokens.accent,
                                         size: 20.0,
                                       ),
                                     ),
@@ -493,7 +495,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                           .bodyMedium
                                                           .fontStyle,
                                                 ),
-                                                color: Color(0xFF4A6A8A),
+                                                color: ObsidianVoltTokens.textSecondary,
                                                 fontSize: 15.0,
                                                 letterSpacing: 0.0,
                                                 fontWeight:
@@ -571,7 +573,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                         .bodyMedium
                                                         .fontStyle,
                                               ),
-                                              color: Colors.white,
+                                              color: ObsidianVoltTokens.textPrimary,
                                               fontSize: 15.0,
                                               letterSpacing: 0.0,
                                               fontWeight:
@@ -583,7 +585,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                       .bodyMedium
                                                       .fontStyle,
                                             ),
-                                        cursorColor: Color(0xFF4FC3F7),
+                                        cursorColor: ObsidianVoltTokens.accent,
                                         validator: _model
                                             .passwordFieldTextControllerValidator
                                             .asValidator(context),
@@ -609,7 +611,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                        color: Color(0xFF4FC3F7),
+                                        color: ObsidianVoltTokens.accent,
                                         fontSize: 13.0,
                                         letterSpacing: 0.0,
                                         fontWeight: FontWeight.w500,
@@ -628,7 +630,8 @@ class _LoginWidgetState extends State<LoginWidget> {
                                 boxShadow: [
                                   BoxShadow(
                                     blurRadius: 16.0,
-                                    color: Color(0x661565C0),
+                                    color: ObsidianVoltTokens.accent
+                                        .withValues(alpha: 0.35),
                                     offset: Offset(
                                       0.0,
                                       6.0,
@@ -637,8 +640,8 @@ class _LoginWidgetState extends State<LoginWidget> {
                                 ],
                                 gradient: LinearGradient(
                                   colors: [
-                                    Color(0xFF1565C0),
-                                    Color(0xFF1E88E5)
+                                    ObsidianVoltTokens.accent,
+                                    ObsidianVoltTokens.accentText,
                                   ],
                                   stops: [0.0, 1.0],
                                   begin: AlignmentDirectional(1.0, -1.0),
@@ -699,7 +702,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                   .titleSmall
                                                   .fontStyle,
                                         ),
-                                        color: Colors.white,
+                                        color: ObsidianVoltTokens.bgBase,
                                         fontSize: 16.0,
                                         letterSpacing: 0.0,
                                         fontWeight: FontWeight.bold,
@@ -724,7 +727,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                   width: 60.0,
                                   height: 1.0,
                                   decoration: BoxDecoration(
-                                    color: Color(0xFF1E3A6E),
+                                    color: ObsidianVoltTokens.borderDefault,
                                   ),
                                 ),
                                 Text(
@@ -742,7 +745,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                        color: Color(0xFF4A6A8A),
+                                        color: SwimUiTokens.textMuted,
                                         fontSize: 13.0,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
@@ -757,7 +760,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                   width: 60.0,
                                   height: 1.0,
                                   decoration: BoxDecoration(
-                                    color: Color(0xFF1E3A6E),
+                                    color: ObsidianVoltTokens.borderDefault,
                                   ),
                                 ),
                               ].divide(SizedBox(width: 12.0)),
@@ -769,7 +772,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                 color: Colors.transparent,
                                 borderRadius: BorderRadius.circular(14.0),
                                 border: Border.all(
-                                  color: Color(0xFF2A6DD9),
+                                  color: ObsidianVoltTokens.borderDefault,
                                   width: 2.0,
                                 ),
                               ),
@@ -795,7 +798,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                   .titleSmall
                                                   .fontStyle,
                                         ),
-                                        color: Color(0xFF4FC3F7),
+                                        color: ObsidianVoltTokens.accent,
                                         fontSize: 16.0,
                                         letterSpacing: 0.0,
                                         fontWeight: FontWeight.bold,
@@ -831,7 +834,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                        color: Color(0xFF7090B8),
+                                        color: ObsidianVoltTokens.textSecondary,
                                         fontSize: 13.0,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
@@ -854,7 +857,7 @@ class _LoginWidgetState extends State<LoginWidget> {
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                        color: Color(0xFF4FC3F7),
+                                        color: ObsidianVoltTokens.accent,
                                         fontSize: 13.0,
                                         letterSpacing: 0.0,
                                         fontWeight: FontWeight.w600,
