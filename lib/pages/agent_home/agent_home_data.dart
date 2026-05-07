@@ -148,6 +148,54 @@ class AgentTaskOverviewItem {
   final String? thumbnailUrl;
 }
 
+/// Priority pill on dashboard “recent task” cards (screenshot reference UI).
+enum AgentScreenshotTaskPriority {
+  medium,
+  high,
+}
+
+@immutable
+class AgentScreenshotRecentTask {
+  const AgentScreenshotRecentTask({
+    required this.id,
+    required this.title,
+    required this.timeRange,
+    required this.priority,
+    required this.progressPercent,
+    required this.avatarAssetPaths,
+    required this.daysLeftLabel,
+    this.scheduleDocId,
+    this.scheduleStartDate,
+  });
+
+  final String id;
+  final String title;
+  final String timeRange;
+  final AgentScreenshotTaskPriority priority;
+
+  /// 0–100 for donut + label.
+  final int progressPercent;
+  final List<String> avatarAssetPaths;
+  final String daysLeftLabel;
+
+  /// When set, tapping the row jumps Schedule and opens this `team_events` row.
+  final String? scheduleDocId;
+  final String? scheduleStartDate;
+}
+
+@immutable
+class AgentDashboardSummaryCounts {
+  const AgentDashboardSummaryCounts({
+    required this.upcoming,
+    required this.today,
+    required this.completed,
+  });
+
+  final int upcoming;
+  final int today;
+  final int completed;
+}
+
 /// Mock dataset for UI review — swap with Firestore queries later.
 abstract final class AgentHomeMockData {
   static List<AgentBriefingItem> briefingItems() => const [
@@ -304,6 +352,42 @@ abstract final class AgentHomeMockData {
             LavenderIndigoTokens.primary,
           ],
           thumbnailUrl: null,
+        ),
+      ];
+
+  /// Matches reference dashboard — wire to real aggregates later.
+  static AgentDashboardSummaryCounts dashboardSummaryCounts() =>
+      const AgentDashboardSummaryCounts(
+        upcoming: 16,
+        today: 4,
+        completed: 23,
+      );
+
+  static List<AgentScreenshotRecentTask> recentScreenTasks() => [
+        const AgentScreenshotRecentTask(
+          id: 'rt1',
+          title: 'Client Meeting',
+          timeRange: '09:30 am - 13:10 pm',
+          priority: AgentScreenshotTaskPriority.medium,
+          progressPercent: 54,
+          avatarAssetPaths: [
+            'assets/images/mcroskey-headshot.jpg',
+            'assets/images/mcroskey-headshot.jpg',
+            'assets/images/mcroskey-headshot.jpg',
+          ],
+          daysLeftLabel: '5 Days Left',
+        ),
+        const AgentScreenshotRecentTask(
+          id: 'rt2',
+          title: 'Branding logo',
+          timeRange: '09:30 am - 13:10 pm',
+          priority: AgentScreenshotTaskPriority.high,
+          progressPercent: 32,
+          avatarAssetPaths: [
+            'assets/images/mcroskey-headshot.jpg',
+            'assets/images/mcroskey-headshot.jpg',
+          ],
+          daysLeftLabel: '3 Days Left',
         ),
       ];
 }

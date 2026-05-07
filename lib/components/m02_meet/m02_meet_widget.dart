@@ -6,8 +6,11 @@ import '/components/m02_meet_entered/m02_meet_entered_widget.dart';
 import '/custom_code/actions/refresh_swimmer_app_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/theme/lavender_indigo_tokens.dart';
+import '/theme/swim_design_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
 import '/theme/obsidian_volt_tokens.dart';
+import '/widgets/swim_ui_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -251,60 +254,14 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   }
 
   Widget _buildPrimarySegmentedControl() {
-    Widget segment({
-      required String label,
-      required _MeetPrimaryView view,
-    }) {
-      final selected = _primaryView == view;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => setState(() => _primaryView = view),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            decoration: BoxDecoration(
-              color: selected ? SwimUiTokens.surfaceCard : Colors.transparent,
-              borderRadius: BorderRadius.circular(SwimUiTokens.radiusSm),
-              border: Border.all(
-                color:
-                    selected ? SwimUiTokens.borderSubtle : Colors.transparent,
-                width: 1.0,
-              ),
-              boxShadow: selected ? SwimUiTokens.shadowSegmentPill : null,
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.sora(
-                fontSize: 13.0,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                color: selected
-                    ? SwimUiTokens.textBannerTitle
-                    : SwimUiTokens.textMuted,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3.0),
-      decoration: BoxDecoration(
-        color: SwimUiTokens.surfaceCanvasSchedule,
-        borderRadius: BorderRadius.circular(SwimUiTokens.radiusSegmentShell),
-        border: Border.all(
-          color: SwimUiTokens.borderSegmentTrack,
-        ),
-      ),
-      child: Row(
-        children: [
-          segment(label: 'My Meets', view: _MeetPrimaryView.myMeets),
-          const SizedBox(width: 4.0),
-          segment(label: 'All Meets', view: _MeetPrimaryView.allMeets),
-        ],
-      ),
+    return AppSegmentedTabs(
+      labels: const ['My Meets', 'All Meets'],
+      selectedIndex:
+          _primaryView == _MeetPrimaryView.myMeets ? 0 : 1,
+      onChanged: (i) => setState(() {
+        _primaryView =
+            i == 0 ? _MeetPrimaryView.myMeets : _MeetPrimaryView.allMeets;
+      }),
     );
   }
 
@@ -350,33 +307,35 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
             OutlinedButton.icon(
               onPressed: () => _openMeetRefineSheet(context),
               icon: Icon(
-                Icons.tune_rounded,
-                size: 16.0,
-                color: SwimUiTokens.accentBlue,
+                Icons.filter_list_rounded,
+                size: 18.0,
+                color: LavenderIndigoTokens.primary,
               ),
               label: Text(
                 filtersOn ? 'Filters on' : 'Filters',
                 style: GoogleFonts.sora(
                   fontSize: 12.0,
-                  fontWeight: FontWeight.w600,
-                  color: SwimUiTokens.accentBlue,
+                  fontWeight: FontWeight.w700,
+                  color: LavenderIndigoTokens.primary,
                 ),
               ),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(
                   color: filtersOn
-                      ? SwimUiTokens.accentBlue
-                      : SwimUiTokens.borderSubtle,
+                      ? LavenderIndigoTokens.primary
+                          .withValues(alpha: 0.5)
+                      : SwimDsTokens.borderSoft,
                   width: 1.0,
                 ),
                 backgroundColor: filtersOn
-                    ? SwimUiTokens.accentBlue.withValues(alpha: 0.06)
-                    : SwimUiTokens.surfaceCard,
+                    ? LavenderIndigoTokens.primarySoft.withValues(alpha: 0.4)
+                    : SwimDsTokens.cardBackground,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(SwimUiTokens.radiusSm),
+                  borderRadius:
+                      BorderRadius.circular(SwimDsTokens.pillRadius),
                 ),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10.0, vertical: 7.0),
+                    const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               ),
@@ -389,7 +348,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                   width: 9.0,
                   height: 9.0,
                   decoration: BoxDecoration(
-                    color: SwimUiTokens.accentBlue,
+                    color: SwimDsTokens.dangerCoral,
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: SwimUiTokens.surfaceCanvas,
@@ -406,14 +365,12 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
 
   Widget _buildAllMeetsSearchRow() {
     return Container(
-      height: 38.0,
+      height: 46.0,
       decoration: BoxDecoration(
-        color: SwimUiTokens.surfaceCard,
-        borderRadius: BorderRadius.circular(SwimUiTokens.radiusMd),
-        border: Border.all(
-          color: SwimUiTokens.borderSubtle,
-          width: 1.0,
-        ),
+        color: SwimDsTokens.cardBackground,
+        borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
+        border: Border.all(color: SwimDsTokens.borderSoft, width: 1.0),
+        boxShadow: SwimDsTokens.cardShadowSoft,
       ),
       child: TextField(
         controller: _allMeetsSearchController,
@@ -423,16 +380,16 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
           border: InputBorder.none,
           hintText: 'Search meets by name, location, zone',
           hintStyle: GoogleFonts.sora(
-            fontSize: 12.5,
+            fontSize: 13,
             color: SwimUiTokens.textMuted,
           ),
           prefixIcon: Icon(Icons.search_rounded,
-              color: SwimUiTokens.textMuted, size: 18.0),
+              color: SwimUiTokens.textMuted, size: 22.0),
           suffixIcon: _allMeetsSearchController.text.isEmpty
               ? null
               : IconButton(
                   icon: Icon(Icons.close_rounded,
-                      color: SwimUiTokens.textMuted, size: 18.0),
+                      color: SwimUiTokens.textMuted, size: 20.0),
                   onPressed: () {
                     _allMeetsSearchController.clear();
                     setState(() {});
@@ -440,10 +397,96 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                 ),
         ),
         style: GoogleFonts.sora(
-          fontSize: 12.5,
+          fontSize: 13,
           fontWeight: FontWeight.w500,
           color: SwimUiTokens.textBannerTitle,
         ),
+      ),
+    );
+  }
+
+  /// Upcoming meets the parent has not decided on (new / no preference).
+  int _undecidedUpcomingMeetCount(
+    List<MonitoredMeetsRecord> meets,
+    Map<String, MeetPreferencesRecord> prefs,
+  ) {
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
+    var c = 0;
+    for (final m in meets) {
+      final p = prefs[m.reference.id];
+      final undecided = p == null || p.status == MeetPreferenceStatus.newStatus;
+      if (!undecided) continue;
+      final sd = m.startDate ?? m.startTime;
+      if (sd != null && DateTime(sd.year, sd.month, sd.day).isBefore(today)) {
+        continue;
+      }
+      c++;
+    }
+    return c;
+  }
+
+  Widget _agentMeetSuggestionCard({
+    required int undecidedCount,
+    required VoidCallback onReview,
+  }) {
+    return AppCard(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_awesome_rounded,
+                size: 18,
+                color: LavenderIndigoTokens.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Agent suggestion',
+                style: GoogleFonts.sora(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: LavenderIndigoTokens.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            undecidedCount == 1
+                ? 'You have 1 upcoming meet you have not decided on yet.'
+                : 'You have $undecidedCount upcoming meets not decided yet.',
+            style: GoogleFonts.sora(
+              fontSize: 13,
+              height: 1.35,
+              color: SwimUiTokens.textTitle,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: SwimDsTokens.tealApproved,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: onReview,
+              child: Text(
+                'Review All Meets',
+                style: GoogleFonts.sora(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -651,10 +694,10 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
           color: surface,
           borderRadius: BorderRadius.circular(SwimUiTokens.radiusSection),
           border: Border.all(
-            color: SwimUiTokens.borderSection,
-            width: 0.5,
+            color: SwimUiTokens.cardSurfaceEdgeBorder,
+            width: 1.0,
           ),
-          boxShadow: SwimUiTokens.shadowCardLift,
+          boxShadow: SwimUiTokens.shadowCard,
         ),
         child: Padding(
           padding: EdgeInsets.fromLTRB(14.0, 14.0, 14.0, bottomPad),
@@ -771,11 +814,21 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
         mainAxisSize: MainAxisSize.max,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 0.0),
+            padding: EdgeInsets.fromLTRB(
+              SwimDsTokens.pageHorizontalPadding,
+              SwimDsTokens.headerToTabsGap - 12,
+              SwimDsTokens.pageHorizontalPadding,
+              0,
+            ),
             child: _buildPrimarySegmentedControl(),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 0.0),
+            padding: EdgeInsets.fromLTRB(
+              SwimDsTokens.pageHorizontalPadding,
+              SwimDsTokens.tabsToContentGap,
+              SwimDsTokens.pageHorizontalPadding,
+              0,
+            ),
             child: _buildZoneAndFiltersRow(context, app),
           ),
           Expanded(
@@ -955,47 +1008,27 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                     );
                     final deadlineInsight =
                         _deadlineThisWeekInsightLine(needsAction, prefs);
+                    final undecidedUpcoming =
+                        _undecidedUpcomingMeetCount(filtered, prefs);
 
                     if (myMeets.isEmpty) {
                       return Center(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            32.0,
+                          padding: EdgeInsets.fromLTRB(
+                            SwimDsTokens.pageHorizontalPadding,
                             24.0,
-                            32.0,
+                            SwimDsTokens.pageHorizontalPadding,
                             32.0,
                           ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.event_available_outlined,
-                                size: 44.0,
-                                color: SwimUiTokens.textFaint,
-                              ),
-                              const SizedBox(height: 14.0),
-                              Text(
-                                'My Meets is empty',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.sora(
-                                  fontSize: 17.0,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.15,
-                                  color: SwimUiTokens.textBannerTitle,
-                                ),
-                              ),
-                              const SizedBox(height: 8.0),
-                              Text(
-                                'Switch to All Meets to browse, then follow or enter meets — they will appear here.',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.sora(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.4,
-                                  color: SwimUiTokens.textMuted,
-                                ),
-                              ),
-                            ],
+                          child: EmptyStateCard(
+                            title: 'My Meets is empty',
+                            message:
+                                'Browse all meets to follow, plan entries, or skip — your list builds from there.',
+                            icon: Icons.pool_outlined,
+                            ctaLabel: 'Browse All Meets',
+                            onCta: () => setState(
+                              () => _primaryView = _MeetPrimaryView.allMeets,
+                            ),
                           ),
                         ),
                       );
@@ -1109,6 +1142,32 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                             );
                           }).toList(),
                         ),
+                        if (entered.isEmpty)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              SwimDsTokens.pageHorizontalPadding,
+                              8,
+                              SwimDsTokens.pageHorizontalPadding,
+                              0,
+                            ),
+                            child: EmptyStateCard(
+                              title: 'No entered meets yet',
+                              message:
+                                  'Meets you enter will appear in this section.',
+                              icon: Icons.how_to_reg_outlined,
+                              ctaLabel: 'Browse All Meets',
+                              onCta: () => setState(
+                                () => _primaryView = _MeetPrimaryView.allMeets,
+                              ),
+                            ),
+                          ),
+                        if (entered.isNotEmpty && undecidedUpcoming > 0)
+                          _agentMeetSuggestionCard(
+                            undecidedCount: undecidedUpcoming,
+                            onReview: () => setState(
+                              () => _primaryView = _MeetPrimaryView.allMeets,
+                            ),
+                          ),
                         _buildMyMeetGroupedSection(
                           title: 'Other My Meets',
                           count: other.length,

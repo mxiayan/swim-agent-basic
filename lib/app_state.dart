@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '/backend/backend.dart';
-import '/backend/schema/structs/index.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 
@@ -166,6 +165,10 @@ class FFAppState extends ChangeNotifier {
   static const _kSwimmerGroup = 'ff_currentSwimmerGroup';
   static const _kSwimmerZone = 'ff_currentSwimmerZone';
   static const _kSwimmerZoneDisplay = 'ff_currentSwimmerZoneDisplayName';
+  static const _kSwimmerPracticeTierLabel =
+      'ff_swimmerPracticeTierLabel';
+  static const _kProfileAvatarPath = 'ff_profileAvatarLocalPath';
+  static const _kProfileAvatarWebB64 = 'ff_profileAvatarWebBase64';
   static const _kMeetFilterAge = 'ff_meetFilterShowAgeGroup';
   static const _kMeetFilterSenior = 'ff_meetFilterShowSenior';
   static const _kMeetFilterOther = 'ff_meetFilterShowOther';
@@ -188,6 +191,9 @@ class FFAppState extends ChangeNotifier {
     final rawDisp = prefs.getString(_kSwimmerZoneDisplay) ?? '';
     _currentSwimmerZoneDisplayName =
         isSwimmerZonePlaceholder(rawDisp) ? '' : rawDisp.trim();
+    _swimmerPracticeTierLabel = prefs.getString(_kSwimmerPracticeTierLabel) ?? '';
+    _profileAvatarLocalPath = prefs.getString(_kProfileAvatarPath) ?? '';
+    _profileAvatarWebBase64 = prefs.getString(_kProfileAvatarWebB64) ?? '';
     _meetFilterShowAgeGroup = prefs.getBool(_kMeetFilterAge) ?? true;
     _meetFilterShowSenior = prefs.getBool(_kMeetFilterSenior) ?? true;
     _meetFilterShowOther = prefs.getBool(_kMeetFilterOther) ?? true;
@@ -214,6 +220,9 @@ class FFAppState extends ChangeNotifier {
     await prefs.setString(_kSwimmerGroup, _currentSwimmerGroup);
     await prefs.setString(_kSwimmerZone, _currentSwimmerZone);
     await prefs.setString(_kSwimmerZoneDisplay, _currentSwimmerZoneDisplayName);
+    await prefs.setString(_kSwimmerPracticeTierLabel, _swimmerPracticeTierLabel);
+    await prefs.setString(_kProfileAvatarPath, _profileAvatarLocalPath);
+    await prefs.setString(_kProfileAvatarWebB64, _profileAvatarWebBase64);
   }
 
   Future<void> persistMeetUiState() async {
@@ -239,12 +248,18 @@ class FFAppState extends ChangeNotifier {
       _currentSwimmerGroup = '';
       _currentSwimmerZone = '';
       _currentSwimmerZoneDisplayName = '';
+      _swimmerPracticeTierLabel = '';
+      _profileAvatarLocalPath = '';
+      _profileAvatarWebBase64 = '';
     });
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kSwimmerName);
     await prefs.remove(_kSwimmerGroup);
     await prefs.remove(_kSwimmerZone);
     await prefs.remove(_kSwimmerZoneDisplay);
+    await prefs.remove(_kSwimmerPracticeTierLabel);
+    await prefs.remove(_kProfileAvatarPath);
+    await prefs.remove(_kProfileAvatarWebB64);
   }
 
   void update(VoidCallback callback) {
@@ -278,6 +293,29 @@ class FFAppState extends ChangeNotifier {
   String get currentSwimmerZoneDisplayName => _currentSwimmerZoneDisplayName;
   set currentSwimmerZoneDisplayName(String value) {
     _currentSwimmerZoneDisplayName = value;
+  }
+
+  /// Manual practice / age-group hint for Agent prioritization (empty = infer from club).
+  ///
+  /// Uses the same keywords as club/group parsing (e.g. "Junior / Age group", "Senior").
+  String _swimmerPracticeTierLabel = '';
+  String get swimmerPracticeTierLabel => _swimmerPracticeTierLabel;
+  set swimmerPracticeTierLabel(String value) {
+    _swimmerPracticeTierLabel = value;
+  }
+
+  /// Mobile/desktop: absolute path to copied gallery avatar under app documents.
+  String _profileAvatarLocalPath = '';
+  String get profileAvatarLocalPath => _profileAvatarLocalPath;
+  set profileAvatarLocalPath(String value) {
+    _profileAvatarLocalPath = value;
+  }
+
+  /// Web: base64-encoded JPEG/PNG bytes chosen from the gallery.
+  String _profileAvatarWebBase64 = '';
+  String get profileAvatarWebBase64 => _profileAvatarWebBase64;
+  set profileAvatarWebBase64(String value) {
+    _profileAvatarWebBase64 = value;
   }
 
   /// Human-readable zone for headers (skips "Unknown Zone"–style values).
@@ -531,4 +569,60 @@ class FFAppState extends ChangeNotifier {
   void insertAtIndexInCookSelected(int index, bool value) {
     cookSelected.insert(index, value);
   }
+
+  int _scheduleJumpGeneration = 0;
+  String? _pendingScheduleJumpDocId;
+  String? _pendingScheduleJumpStartDate;
+
+  /// Switches to Schedule tab and queues opening detail when that hub resolves
+  /// a matching `TeamEventsRecord`.
+  void openScheduleWithAgentEvent({
+    required String docId,
+    required String startDate,
+  }) {
+    update(() {
+      _scheduleJumpGeneration++;
+      _pendingScheduleJumpDocId = docId.trim();
+      _pendingScheduleJumpStartDate = startDate.trim();
+      _activeTab = 1;
+    });
+  }
+
+  /// Non-destructive read for Schedule hub (may rebuild before match exists).
+  ScheduleJumpTarget? peekPendingScheduleJump() {
+    final d = _pendingScheduleJumpDocId;
+    final s = _pendingScheduleJumpStartDate;
+    if (d == null || d.isEmpty) {
+      return null;
+    }
+    return ScheduleJumpTarget(
+      docId: d,
+      startDate: s ?? '',
+      generation: _scheduleJumpGeneration,
+    );
+  }
+
+  void clearPendingScheduleJump() {
+    if (_pendingScheduleJumpDocId == null &&
+        _pendingScheduleJumpStartDate == null) {
+      return;
+    }
+    _pendingScheduleJumpDocId = null;
+    _pendingScheduleJumpStartDate = null;
+    notifyListeners();
+  }
+}
+
+/// Payload for Agent → Schedule event drill-in (see [FFAppState.peekPendingScheduleJump]).
+@immutable
+class ScheduleJumpTarget {
+  const ScheduleJumpTarget({
+    required this.docId,
+    required this.startDate,
+    required this.generation,
+  });
+
+  final String docId;
+  final String startDate;
+  final int generation;
 }

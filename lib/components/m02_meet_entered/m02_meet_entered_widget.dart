@@ -11,6 +11,7 @@ import '/components/m02_meet/meet_list_quick_filter.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/theme/swim_ui_tokens.dart';
+import '/theme/swim_design_tokens.dart';
 import '/theme/obsidian_volt_tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -94,6 +95,27 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
   late final AnimationController _deadlinePulseController;
 
   DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  Widget _enteredResourcesRow(MonitoredMeetsRecord doc) {
+    String line(String label, bool has) => has ? '$label available' : '$label not added yet';
+    final parts = <String>[
+      line('Meet sheet', doc.hasMeetSheetUrl()),
+      line('Psych sheet', doc.hasPsychSheetUrl()),
+      line('Heat sheet', doc.hasHeatSheetUrl()),
+      line('Timeline', doc.hasTimelineUrl()),
+    ];
+    return Text(
+      'Resources: ${parts.join(' · ')}',
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.sora(
+        fontSize: 10.5,
+        height: 1.3,
+        fontWeight: FontWeight.w500,
+        color: SwimDsTokens.textSecondary,
+      ),
+    );
+  }
 
   /// Today falls on a calendar day between meet start and end (inclusive).
   bool _isMeetLive(MonitoredMeetsRecord m) {
@@ -1137,6 +1159,11 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                 color: SwimUiTokens.textTitle,
                               ),
                             ),
+                            _coachApprovedMeetChipIfNeeded(
+                              context,
+                              doc,
+                              compact: true,
+                            ),
                             if (metaLine != null) ...[
                               const SizedBox(height: 3.0),
                               Text(
@@ -1150,6 +1177,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                   color: SwimUiTokens.textMuted,
                                 ),
                               ),
+                            ],
+                            if (hEntered) ...[
+                              const SizedBox(height: 6.0),
+                              _enteredResourcesRow(doc),
                             ],
                           ],
                         ),
@@ -1210,6 +1241,10 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                                           height: 1.25,
                                           color: SwimUiTokens.textTitle,
                                         ),
+                                      ),
+                                      _coachApprovedMeetChipIfNeeded(
+                                        context,
+                                        doc,
                                       ),
                                       if (metaLine != null) ...[
                                         const SizedBox(height: 3.0),
@@ -1395,18 +1430,30 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
                               ),
                               child: Align(
                                 alignment: AlignmentDirectional.centerStart,
-                                child: Text(
-                                  valueOrDefault<String>(
-                                      doc.name, '[Meet Name]'),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.sora(
-                                    fontSize: titleSize,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.25,
-                                    letterSpacing: 0.0,
-                                    color: SwimUiTokens.textTitle,
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      valueOrDefault<String>(
+                                          doc.name, '[Meet Name]'),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.sora(
+                                        fontSize: titleSize,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.25,
+                                        letterSpacing: 0.0,
+                                        color: SwimUiTokens.textTitle,
+                                      ),
+                                    ),
+                                    _coachApprovedMeetChipIfNeeded(
+                                      context,
+                                      doc,
+                                      compact: grouped,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -1978,6 +2025,63 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
       return 'Not going';
     }
     return 'Not decided';
+  }
+
+  /// Season PDF / schedule cross-check (`coach_approved` on [MonitoredMeetsRecord]).
+  Widget _coachApprovedMeetChipIfNeeded(
+    BuildContext context,
+    MonitoredMeetsRecord doc, {
+    bool compact = false,
+  }) {
+    if (!doc.coachApproved) {
+      return const SizedBox.shrink();
+    }
+    final padH = compact ? 7.0 : 8.0;
+    final padV = compact ? 2.5 : 3.0;
+    final fs = compact ? 10.0 : 10.5;
+    final iconSz = compact ? 11.0 : 12.0;
+    const bg = Color(0xFFE8F5F4);
+    const border = Color(0xFFBFE3E5);
+    final fg = ObsidianVoltTokens.accent;
+    return Tooltip(
+      message:
+          'On your team’s official season schedule — coach-approved for entries.',
+      child: Padding(
+        padding: EdgeInsets.only(top: compact ? 3.0 : 4.0),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(6.0),
+            border: Border.all(color: border, width: 0.5),
+          ),
+          child: Padding(
+            padding:
+                EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.verified_outlined,
+                  size: iconSz,
+                  color: fg,
+                ),
+                SizedBox(width: compact ? 3.0 : 4.0),
+                Text(
+                  'Coach approved',
+                  style: GoogleFonts.sora(
+                    fontSize: fs,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.05,
+                    height: 1.0,
+                    color: fg,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Small pill beside the corner disk; sits in the card [Stack] (outside [ClipRRect]).

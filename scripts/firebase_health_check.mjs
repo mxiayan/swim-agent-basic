@@ -336,6 +336,9 @@ async function main() {
       bumpWarn();
     } else {
       ok(`Readable; sample size ${meetSnap.size} (max 50)`);
+      info(
+        'Optional: coach_approved (bool) on meet docs — set by coach-email parse / Agent pipeline.',
+      );
       const zoneIds = new Set();
       if (metaSnap) {
         for (const d of metaSnap.docs) {

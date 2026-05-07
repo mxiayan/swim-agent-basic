@@ -8,8 +8,11 @@ import '/backend/schedule_baseline.dart';
 import '/components/m01_activity/schedule_training_parse.dart';
 import '/components/m01_activity/team_events_schedule.dart'
     show readableScheduleBaselineBodyWidgets;
+import '/theme/lavender_indigo_tokens.dart';
+import '/theme/swim_design_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
 import '/theme/obsidian_volt_tokens.dart';
+import '/widgets/swim_ui_kit.dart';
 
 final Color _kDrylandPurple = ObsidianVoltTokens.eventAdminDot;
 
@@ -240,7 +243,12 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(24, 48, 24, widget.bottomPad),
+            padding: EdgeInsets.fromLTRB(
+              SwimDsTokens.pageHorizontalPadding,
+              48,
+              SwimDsTokens.pageHorizontalPadding,
+              widget.bottomPad,
+            ),
             sliver: const SliverToBoxAdapter(
               child: _TrainingEmpty(),
             ),
@@ -267,10 +275,16 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
             child: SizedBox(
               height: 96,
               child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(24, 10, 24, 6),
+                padding: EdgeInsets.fromLTRB(
+                  SwimDsTokens.pageHorizontalPadding,
+                  10,
+                  SwimDsTokens.pageHorizontalPadding,
+                  6,
+                ),
                 scrollDirection: Axis.horizontal,
                 itemCount: widget.baselines.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                separatorBuilder: (_, __) =>
+                    SizedBox(width: SwimDsTokens.cardSpacing),
                 itemBuilder: (ctx, i) {
                   final b = widget.baselines[i];
                   final sel = i == _baselineIdx;
@@ -285,17 +299,22 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
                       width: 212,
-                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      padding: const EdgeInsets.all(SwimDsTokens.cardPadding - 2),
                       decoration: BoxDecoration(
-                        color:
-                            sel ? SwimUiTokens.surfaceElevated : SwimUiTokens.surfaceCard,
-                        borderRadius: BorderRadius.circular(14),
+                        color: sel
+                            ? LavenderIndigoTokens.primarySoft
+                                .withValues(alpha: 0.55)
+                            : SwimDsTokens.cardBackground,
+                        borderRadius:
+                            BorderRadius.circular(SwimDsTokens.cardRadius),
                         border: Border.all(
                           color: sel
-                              ? ObsidianVoltTokens.borderDefault
-                              : SwimUiTokens.cardSurfaceEdgeBorder,
-                          width: sel ? 2 : 1,
+                              ? LavenderIndigoTokens.primary
+                                  .withValues(alpha: 0.45)
+                              : SwimDsTokens.borderSoft,
+                          width: sel ? 1.5 : 1,
                         ),
+                        boxShadow: SwimDsTokens.cardShadowSoft,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,7 +351,12 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
             ),
           ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 10),
+          padding: EdgeInsets.fromLTRB(
+            SwimDsTokens.pageHorizontalPadding,
+            8,
+            SwimDsTokens.pageHorizontalPadding,
+            10,
+          ),
           sliver: SliverToBoxAdapter(
             child: _SeasonScheduleHeroCard(
               title: baseline.title,
@@ -353,7 +377,12 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
         if (_segment == 1) ..._notesSlivers(baseline),
         if (docUrl != null)
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            padding: EdgeInsets.fromLTRB(
+              SwimDsTokens.pageHorizontalPadding,
+              8,
+              SwimDsTokens.pageHorizontalPadding,
+              0,
+            ),
             sliver: SliverToBoxAdapter(
               child: _ScheduleDocumentLinkTile(
                 primary: widget.primary,
@@ -373,7 +402,12 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
     if (parsed.groups.isEmpty) {
       return [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+          padding: EdgeInsets.fromLTRB(
+            SwimDsTokens.pageHorizontalPadding,
+            12,
+            SwimDsTokens.pageHorizontalPadding,
+            16,
+          ),
           sliver: SliverToBoxAdapter(
             child: Text(
               'Weekly breakdown isn’t available for this schedule yet.',
@@ -391,7 +425,12 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
 
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
+        padding: EdgeInsets.fromLTRB(
+          SwimDsTokens.pageHorizontalPadding,
+          4,
+          SwimDsTokens.pageHorizontalPadding,
+          8,
+        ),
         sliver: SliverToBoxAdapter(
           child: Text(
             'Weekly schedule by group',
@@ -404,20 +443,34 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+        padding: EdgeInsets.fromLTRB(
+          SwimDsTokens.pageHorizontalPadding,
+          0,
+          SwimDsTokens.pageHorizontalPadding,
+          12,
+        ),
         sliver: SliverToBoxAdapter(
           child: _SessionLegend(primary: widget.primary),
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+        padding: EdgeInsets.fromLTRB(
+          SwimDsTokens.pageHorizontalPadding,
+          0,
+          SwimDsTokens.pageHorizontalPadding,
+          12,
+        ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (ctx, i) {
               final g = parsed.groups[i];
               final expanded = _expandedByGroupId?[g.id] ?? false;
               return Padding(
-                padding: EdgeInsets.only(bottom: i == parsed.groups.length - 1 ? 0 : 12),
+                padding: EdgeInsets.only(
+                  bottom: i == parsed.groups.length - 1
+                      ? 0
+                      : SwimDsTokens.cardSpacing,
+                ),
                 child: _GroupWeeklyCard(
                   group: g,
                   groupIndex: i,
@@ -437,7 +490,12 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
         ),
       ),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
+        padding: EdgeInsets.fromLTRB(
+          SwimDsTokens.pageHorizontalPadding,
+          4,
+          SwimDsTokens.pageHorizontalPadding,
+          8,
+        ),
         sliver: SliverToBoxAdapter(
           child: _BottomDisclaimerCard(primary: widget.primary),
         ),
@@ -451,7 +509,12 @@ class _TrainingScheduleTabContentState extends State<TrainingScheduleTabContent>
 
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+        padding: EdgeInsets.fromLTRB(
+          SwimDsTokens.pageHorizontalPadding,
+          0,
+          SwimDsTokens.pageHorizontalPadding,
+          12,
+        ),
         sliver: SliverList(
           delegate: SliverChildListDelegate([
             if (snippet.trim().isNotEmpty)
@@ -509,36 +572,11 @@ class _TrainingEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
-      decoration: BoxDecoration(
-        color: SwimUiTokens.surfaceCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'No training schedule yet',
-            style: GoogleFonts.sora(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: SwimUiTokens.textBannerTitle,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Season workout schedules will appear here once added.',
-            style: GoogleFonts.sora(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              height: 1.35,
-              color: SwimUiTokens.textMuted,
-            ),
-          ),
-        ],
-      ),
+    return EmptyStateCard(
+      title: 'No training schedule selected',
+      message:
+          'Season workout schedules will appear here once your team adds them.',
+      icon: Icons.fitness_center_outlined,
     );
   }
 }
@@ -566,25 +604,14 @@ class _SeasonScheduleHeroCard extends StatelessWidget {
   final VoidCallback onToggleNotes;
   final ValueChanged<int> onSegmentChanged;
 
-  Color _statusBg() {
+  SwimStatusPillKind _statusPillKind() {
     switch (status) {
       case 'ENDED':
-        return ObsidianVoltTokens.bgOverlay;
+        return SwimStatusPillKind.notDecided;
       case 'UPCOMING':
-        return ObsidianVoltTokens.badgeUpcomingBg;
+        return SwimStatusPillKind.deadlineSoon;
       default:
-        return ObsidianVoltTokens.badgeCompletedBg;
-    }
-  }
-
-  Color _statusFg() {
-    switch (status) {
-      case 'ENDED':
-        return ObsidianVoltTokens.textSecondary;
-      case 'UPCOMING':
-        return ObsidianVoltTokens.badgeUpcomingText;
-      default:
-        return ObsidianVoltTokens.badgeCompletedText;
+        return SwimStatusPillKind.active;
     }
   }
 
@@ -594,9 +621,10 @@ class _SeasonScheduleHeroCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: SwimUiTokens.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1),
+        color: SwimDsTokens.cardBackground,
+        borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
+        border: Border.all(color: SwimDsTokens.borderSoft, width: 1),
+        boxShadow: SwimDsTokens.cardShadowSoft,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -638,24 +666,9 @@ class _SeasonScheduleHeroCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _statusBg(),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        status,
-                        style: GoogleFonts.sora(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
-                          color: _statusFg(),
-                        ),
-                      ),
+                    StatusPill(
+                      label: status,
+                      kind: _statusPillKind(),
                     ),
                     if (note.isNotEmpty)
                       IconButton(
@@ -974,6 +987,107 @@ class _GroupWeeklyTable extends StatelessWidget {
   }
 }
 
+/// One compact row per weekday for mobile (replaces dense table by default).
+class _GroupWeeklyMobileDays extends StatelessWidget {
+  const _GroupWeeklyMobileDays({
+    required this.group,
+    required this.primary,
+  });
+
+  final TrainingGroupDisplayModel group;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < 7; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: SwimDsTokens.cardBackground,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: SwimDsTokens.borderSoft),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _weekDaysFull[i],
+                    style: GoogleFonts.sora(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: SwimUiTokens.textBannerTitle,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.fitness_center_rounded,
+                        size: 16,
+                        color: _kDrylandPurple,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Dryland: ${_formatScheduleCellWithAmPm(
+                            _sessionCellForDay(
+                              group,
+                              _weekDaysFull[i],
+                              TrainingSessionKind.dryland,
+                            ),
+                            drylandColumn: true,
+                          )}',
+                          style: GoogleFonts.sora(
+                            fontSize: 12,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500,
+                            color: SwimUiTokens.textTitle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.pool_rounded, size: 16, color: primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'In-water: ${_formatScheduleCellWithAmPm(
+                            _sessionCellForDay(
+                              group,
+                              _weekDaysFull[i],
+                              TrainingSessionKind.inWater,
+                            ),
+                            drylandColumn: false,
+                          )}',
+                          style: GoogleFonts.sora(
+                            fontSize: 12,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500,
+                            color: SwimUiTokens.textTitle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _SessionLegend extends StatelessWidget {
   const _SessionLegend({required this.primary});
 
@@ -1021,7 +1135,7 @@ class _SessionLegend extends StatelessWidget {
   }
 }
 
-class _GroupWeeklyCard extends StatelessWidget {
+class _GroupWeeklyCard extends StatefulWidget {
   const _GroupWeeklyCard({
     required this.group,
     required this.groupIndex,
@@ -1037,26 +1151,42 @@ class _GroupWeeklyCard extends StatelessWidget {
   final VoidCallback onToggle;
 
   @override
+  State<_GroupWeeklyCard> createState() => _GroupWeeklyCardState();
+}
+
+class _GroupWeeklyCardState extends State<_GroupWeeklyCard> {
+  bool _showFullTable = false;
+
+  @override
+  void didUpdateWidget(covariant _GroupWeeklyCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.expanded) {
+      _showFullTable = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final accent = _groupListAccent(groupIndex);
-    final freqLabel = group.daysPerWeek > 0
-        ? '${group.daysPerWeek} days / week'
+    final accent = _groupListAccent(widget.groupIndex);
+    final freqLabel = widget.group.daysPerWeek > 0
+        ? '${widget.group.daysPerWeek} days / week'
         : 'Schedule';
 
     return Material(
-      color: SwimUiTokens.surfaceCard,
-      borderRadius: BorderRadius.circular(14),
+      color: SwimDsTokens.cardBackground,
+      borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
       clipBehavior: Clip.antiAlias,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder, width: 1),
+          borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
+          border: Border.all(color: SwimDsTokens.borderSoft, width: 1),
+          boxShadow: SwimDsTokens.cardShadowSoft,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             InkWell(
-              onTap: onToggle,
+              onTap: widget.onToggle,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
                 child: Row(
@@ -1069,7 +1199,8 @@ class _GroupWeeklyCard extends StatelessWidget {
                         color: accent.withValues(alpha: 0.14),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.groups_rounded, color: accent, size: 24),
+                      child:
+                          Icon(Icons.groups_rounded, color: accent, size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1077,7 +1208,7 @@ class _GroupWeeklyCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            group.name,
+                            widget.group.name,
                             style: GoogleFonts.sora(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -1090,16 +1221,15 @@ class _GroupWeeklyCard extends StatelessWidget {
                             runSpacing: 6,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              if (group.codePill.isNotEmpty)
+                              if (widget.group.codePill.isNotEmpty)
                                 _TinyPill(
-                                  label: group.codePill,
+                                  label: widget.group.codePill,
                                   fg: ObsidianVoltTokens.squadAllText,
                                   bg: ObsidianVoltTokens.squadAllBg,
                                 ),
-                              _TinyPill(
+                              StatusPill(
                                 label: freqLabel,
-                                fg: primary,
-                                bg: ObsidianVoltTokens.accentBg,
+                                kind: SwimStatusPillKind.training,
                               ),
                             ],
                           ),
@@ -1107,7 +1237,7 @@ class _GroupWeeklyCard extends StatelessWidget {
                       ),
                     ),
                     Icon(
-                      expanded
+                      widget.expanded
                           ? Icons.expand_less_rounded
                           : Icons.expand_more_rounded,
                       color: SwimUiTokens.textMuted,
@@ -1116,9 +1246,9 @@ class _GroupWeeklyCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (expanded) ...[
+            if (widget.expanded) ...[
               const Divider(height: 1),
-              if (group.days.isEmpty)
+              if (widget.group.days.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
                   child: Text(
@@ -1132,7 +1262,32 @@ class _GroupWeeklyCard extends StatelessWidget {
               else
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-                  child: _GroupWeeklyTable(group: group, primary: primary),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _GroupWeeklyMobileDays(
+                        group: widget.group,
+                        primary: widget.primary,
+                      ),
+                      TextButton(
+                        onPressed: () => setState(
+                          () => _showFullTable = !_showFullTable,
+                        ),
+                        child: Text(
+                          _showFullTable ? 'Hide full table' : 'View full table',
+                          style: GoogleFonts.sora(
+                            fontWeight: FontWeight.w700,
+                            color: SwimUiTokens.accentBlueSheet,
+                          ),
+                        ),
+                      ),
+                      if (_showFullTable)
+                        _GroupWeeklyTable(
+                          group: widget.group,
+                          primary: widget.primary,
+                        ),
+                    ],
+                  ),
                 ),
             ],
           ],

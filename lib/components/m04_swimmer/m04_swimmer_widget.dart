@@ -5,6 +5,8 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
+import '/theme/lavender_indigo_tokens.dart';
+import '/theme/swim_ui_tokens.dart';
 import 'dart:math';
 import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
@@ -97,7 +99,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
       width: MediaQuery.sizeOf(context).width * 1.0,
       height: MediaQuery.sizeOf(context).height * 1.0,
       decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).primaryBackground,
+        color: SwimUiTokens.surfaceCanvas,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.max,
@@ -115,45 +117,19 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                       maxWidth: 450.0,
                     ),
                     decoration: BoxDecoration(
-                      color: FlutterFlowTheme.of(context).secondaryBackground,
-                      boxShadow: [
-                        BoxShadow(
-                          blurRadius: 30.0,
-                          color: Color(0x33000000),
-                          offset: Offset(
-                            0.0,
-                            10.0,
-                          ),
-                        )
-                      ],
-                      borderRadius: BorderRadius.circular(40.0),
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
+                      color:
+                          FlutterFlowTheme.of(context).secondaryBackground,
+                      borderRadius: BorderRadius.circular(28.0),
+                      border: Border.all(
+                        color: SwimUiTokens.cardSurfaceEdgeBorder,
+                        width: 1.0,
                       ),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color:
-                              FlutterFlowTheme.of(context).secondaryBackground,
-                          boxShadow: [
-                            BoxShadow(
-                              blurRadius: 12.0,
-                              color: Color(0x1A000000),
-                              offset: Offset(
-                                0.0,
-                                4.0,
-                              ),
-                              spreadRadius: 0.0,
-                            )
-                          ],
-                          borderRadius: BorderRadius.circular(20.0),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
-                              24.0, 24.0, 24.0, 24.0),
-                          child: Column(
+                      boxShadow: SwimUiTokens.shadowCardLift,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.fromSTEB(
+                          24.0, 24.0, 24.0, 24.0),
+                      child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Row(
@@ -163,7 +139,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                     width: 80.0,
                                     height: 80.0,
                                     decoration: BoxDecoration(
-                                      color: Color(0xFFE8EDF2),
+                                      color: SwimUiTokens.surfaceMuted,
                                       borderRadius: BorderRadius.circular(40.0),
                                     ),
                                     child: ClipRRect(
@@ -200,7 +176,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                                           .headlineSmall
                                                           .fontStyle,
                                                 ),
-                                                color: Color(0xFF0D1B2A),
+                                                color: SwimUiTokens.textTitle,
                                                 letterSpacing: 0.0,
                                                 fontWeight: FontWeight.bold,
                                                 fontStyle:
@@ -249,7 +225,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                 width: double.infinity,
                                 height: 1.0,
                                 decoration: BoxDecoration(
-                                  color: Color(0xFFE0E3E7),
+                                  color: SwimUiTokens.borderSubtle,
                                 ),
                               ),
                               Column(
@@ -355,9 +331,9 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                               .secondaryText,
                                           size: 24.0,
                                         ),
-                                        fillColor: Color(0xFFF5F7FA),
+                                        fillColor: SwimUiTokens.surfaceMuted,
                                         elevation: 2.0,
-                                        borderColor: Color(0xFFE0E3E7),
+                                        borderColor: SwimUiTokens.borderSubtle,
                                         borderWidth: 1.0,
                                         borderRadius: 8.0,
                                         margin: EdgeInsetsDirectional.fromSTEB(
@@ -477,9 +453,9 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                               .secondaryText,
                                           size: 24.0,
                                         ),
-                                        fillColor: Color(0xFFF5F7FA),
+                                        fillColor: SwimUiTokens.surfaceMuted,
                                         elevation: 2.0,
-                                        borderColor: Color(0xFFE0E3E7),
+                                        borderColor: SwimUiTokens.borderSubtle,
                                         borderWidth: 1.0,
                                         borderRadius: 8.0,
                                         margin: EdgeInsetsDirectional.fromSTEB(
@@ -557,7 +533,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                           ),
                                       enabledBorder: OutlineInputBorder(
                                         borderSide: BorderSide(
-                                          color: Color(0xFFE0E3E7),
+                                          color: SwimUiTokens.borderSubtle,
                                           width: 1.0,
                                         ),
                                         borderRadius:
@@ -565,8 +541,8 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderSide: BorderSide(
-                                          color: Color(0x00000000),
-                                          width: 1.0,
+                                          color: LavenderIndigoTokens.primary,
+                                          width: 1.5,
                                         ),
                                         borderRadius:
                                             BorderRadius.circular(10.0),
@@ -588,7 +564,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                             BorderRadius.circular(10.0),
                                       ),
                                       filled: true,
-                                      fillColor: Color(0xFFF5F7FA),
+                                      fillColor: SwimUiTokens.surfaceMuted,
                                     ),
                                     style: FlutterFlowTheme.of(context)
                                         .bodyMedium
@@ -624,7 +600,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                 width: double.infinity,
                                 height: 1.0,
                                 decoration: BoxDecoration(
-                                  color: Color(0xFFE0E3E7),
+                                  color: SwimUiTokens.borderSubtle,
                                 ),
                               ),
                               Row(
@@ -649,7 +625,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                                         .bodyMedium
                                                         .fontStyle,
                                               ),
-                                              color: Color(0xFF0D1B2A),
+                                              color: SwimUiTokens.textTitle,
                                               letterSpacing: 0.0,
                                               fontWeight: FontWeight.w600,
                                               fontStyle:
@@ -693,7 +669,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                     width: 50.0,
                                     height: 28.0,
                                     decoration: BoxDecoration(
-                                      color: Color(0xFF1A3A5C),
+                                      color: LavenderIndigoTokens.primary,
                                       borderRadius: BorderRadius.circular(14.0),
                                     ),
                                     child: Padding(
@@ -737,7 +713,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                                   padding: EdgeInsets.all(8.0),
                                   iconPadding: EdgeInsetsDirectional.fromSTEB(
                                       0.0, 0.0, 0.0, 0.0),
-                                  color: Color(0xFF1A3A5C),
+                                  color: LavenderIndigoTokens.primary,
                                   textStyle: FlutterFlowTheme.of(context)
                                       .titleSmall
                                       .override(
@@ -767,9 +743,7 @@ class _M04SwimmerWidgetState extends State<M04SwimmerWidget>
                             ].divide(SizedBox(height: 16.0)),
                           ),
                         ),
-                      ),
-                    ),
-                  ).animateOnPageLoad(
+                      ).animateOnPageLoad(
                       animationsMap['containerOnPageLoadAnimation']!),
                 ),
               ],

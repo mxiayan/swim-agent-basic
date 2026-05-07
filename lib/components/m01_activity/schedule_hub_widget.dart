@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '/app_state.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
+import '/theme/lavender_indigo_tokens.dart';
+import '/theme/swim_design_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
+import '/widgets/swim_ui_kit.dart';
 import '/theme/obsidian_volt_tokens.dart';
 
 import 'schedule_display_item.dart';
@@ -24,24 +30,28 @@ class ScheduleHubWidget extends StatefulWidget {
   State<ScheduleHubWidget> createState() => _ScheduleHubWidgetState();
 }
 
-enum _SquadMenu { all, junior, senior }
-
 enum _DateMenu { all, thisWeek, thisMonth }
 
 class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     with SingleTickerProviderStateMixin {
+  int _lastHandledScheduleJumpGen = 0;
   late TabController _tabController;
   final TextEditingController _coachSearch = TextEditingController();
 
   TeamEventType? _allTypeFilter;
-  _SquadMenu _allSquadMenu = _SquadMenu.all;
   _DateMenu _allDateMenu = _DateMenu.all;
+
+  /// When true, schedule lists follow junior practice tier (hide senior-only rows).
+  late bool _scheduleJuniorTier;
+  late String _lastProfilePracticeTierLabel;
 
   TeamEventType? _coachTypeFilter;
 
   @override
   void initState() {
     super.initState();
+    _lastProfilePracticeTierLabel = FFAppState().swimmerPracticeTierLabel;
+    _scheduleJuniorTier = _juniorFromPracticeLabel(_lastProfilePracticeTierLabel);
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_onScheduleTabChanged);
     _coachSearch.addListener(() => setState(() {}));
@@ -84,17 +94,6 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     return parsed.year == today.year && parsed.month == today.month;
   }
 
-  int _compareStartAsc(TeamEventsRecord a, TeamEventsRecord b) {
-    if (a.parsedStart == null && b.parsedStart == null) {
-      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-    }
-    if (a.parsedStart == null) return 1;
-    if (b.parsedStart == null) return -1;
-    final c = a.parsedStart!.compareTo(b.parsedStart!);
-    if (c != 0) return c;
-    return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-  }
-
   bool _isUpcomingDay(TeamEventsRecord e, DateTime today) {
     if (e.parsedStart == null) return false;
     final d = DateTime(
@@ -105,16 +104,13 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     return !d.isBefore(today);
   }
 
-  bool _itemMatchesSquad(ScheduleDisplayItem i, _SquadMenu m) {
-    if (m == _SquadMenu.all) return true;
-    final s = i.squadLabel.toUpperCase();
-    if (s == 'ALL' || s.isEmpty) return true;
-    if (m == _SquadMenu.junior) {
-      return s.contains('JUNIOR');
+  static bool _juniorFromPracticeLabel(String raw) {
+    final t = raw.trim().toLowerCase();
+    if (t.contains('senior')) {
+      return false;
     }
-    return s.contains('SENIOR');
+    return true;
   }
-
   bool _recordMatchesDate(TeamEventsRecord e, _DateMenu m, DateTime today) {
     switch (m) {
       case _DateMenu.all:
@@ -126,11 +122,59 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     }
   }
 
-  List<TeamEventsRecord> _normalize(List<TeamEventsRecord> raw) {
-    final deduped = dedupeTeamEvents(raw);
-    final expanded = expandScheduleList(deduped);
-    expanded.sort(_compareStartAsc);
-    return expanded;
+  List<TeamEventsRecord> _normalize(List<TeamEventsRecord> raw) =>
+      normalizeTeamEventsList(raw);
+
+  void _handleAgentScheduleJumpIfNeeded(
+    BuildContext context,
+    List<TeamEventsRecord> normalized,
+    List<ScheduleBaseline> baselines,
+  ) {
+    final jump = FFAppState().peekPendingScheduleJump();
+    if (jump == null) {
+      return;
+    }
+    if (jump.generation == _lastHandledScheduleJumpGen) {
+      return;
+    }
+    TeamEventsRecord? match;
+    for (final e in normalized) {
+      if (e.docId == jump.docId &&
+          e.startDate.trim() == jump.startDate.trim()) {
+        match = e;
+        break;
+      }
+    }
+    if (match == null) {
+      for (final e in normalized) {
+        if (e.docId == jump.docId) {
+          match = e;
+          break;
+        }
+      }
+    }
+    if (match == null) {
+      if (normalized.isNotEmpty) {
+        _lastHandledScheduleJumpGen = jump.generation;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          FFAppState().clearPendingScheduleJump();
+        });
+      }
+      return;
+    }
+    _lastHandledScheduleJumpGen = jump.generation;
+    final event = match;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      FFAppState().clearPendingScheduleJump();
+      if (!context.mounted) return;
+      await showScheduleEventDetailSheet(
+        context,
+        event: event,
+        baselines: baselines,
+      );
+    });
   }
 
   List<ScheduleDisplayItem> _toDisplay(
@@ -150,7 +194,9 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
       if (_allTypeFilter != null && e.eventType != _allTypeFilter) {
         return false;
       }
-      if (!_itemMatchesSquad(i, _allSquadMenu)) return false;
+      if (!i.matchesPracticeTierFilter(forJuniorTier: _scheduleJuniorTier)) {
+        return false;
+      }
       if (!_recordMatchesDate(e, _allDateMenu, today)) return false;
       return true;
     }).toList();
@@ -177,8 +223,10 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
   void _clearAllFilters() {
     setState(() {
       _allTypeFilter = null;
-      _allSquadMenu = _SquadMenu.all;
       _allDateMenu = _DateMenu.all;
+      _lastProfilePracticeTierLabel = FFAppState().swimmerPracticeTierLabel;
+      _scheduleJuniorTier =
+          _juniorFromPracticeLabel(_lastProfilePracticeTierLabel);
     });
   }
 
@@ -218,6 +266,17 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
   @override
   Widget build(BuildContext context) {
     final primary = FlutterFlowTheme.of(context).primary;
+    final app = context.watch<FFAppState>();
+    final tierLabel = app.swimmerPracticeTierLabel;
+    if (tierLabel != _lastProfilePracticeTierLabel) {
+      final captured = tierLabel;
+      _lastProfilePracticeTierLabel = captured;
+      final jr = _juniorFromPracticeLabel(captured);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _scheduleJuniorTier = jr);
+      });
+    }
 
     return ColoredBox(
       color: ObsidianVoltTokens.bgBase,
@@ -258,6 +317,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
               }
 
               final normalized = _normalize(snap.data!);
+              _handleAgentScheduleJumpIfNeeded(context, normalized, baselines);
               final displayAll = _toDisplay(normalized, baselines);
               final today = _todayDay();
 
@@ -266,16 +326,35 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
               final upcomingDisplay =
                   _toDisplay(upcomingRecords, baselines);
 
+              final upcomingFiltered = upcomingDisplay
+                  .where(
+                    (i) => i.matchesPracticeTierFilter(
+                      forJuniorTier: _scheduleJuniorTier,
+                    ),
+                  )
+                  .toList();
+
               final filteredAll =
                   _filterAllEvents(displayAll, today);
               final groupedRows = _groupByMonthHeader(filteredAll);
-              final coachItems = _filterCoachFeed(displayAll);
+              final coachItems = _filterCoachFeed(displayAll)
+                  .where(
+                    (i) => i.matchesPracticeTierFilter(
+                      forJuniorTier: _scheduleJuniorTier,
+                    ),
+                  )
+                  .toList();
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 8.0),
+                    padding: EdgeInsets.fromLTRB(
+                      SwimDsTokens.pageHorizontalPadding,
+                      SwimDsTokens.smallGap,
+                      SwimDsTokens.pageHorizontalPadding,
+                      SwimDsTokens.tabsToContentGap,
+                    ),
                     child: _buildScheduleSegmentedControl(),
                   ),
                   Expanded(
@@ -284,7 +363,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                       children: [
                         _buildUpcomingTab(
                           context: context,
-                          upcoming: upcomingDisplay,
+                          upcoming: upcomingFiltered,
                           baselines: baselines,
                           bottomPad: _bottomContentPadding(context),
                         ),
@@ -319,68 +398,16 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     );
   }
 
-  /// Matches Meets page segmented shell (`m02_meet_widget.dart` primary control).
+  /// Matches Meets page segmented shell — shared [AppSegmentedTabs].
   Widget _buildScheduleSegmentedControl() {
-    Widget segment(int index, String label) {
-      final selected = _tabController.index == index;
-      return Expanded(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (_tabController.index != index) {
-              _tabController.animateTo(index);
-            }
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            decoration: BoxDecoration(
-              color: selected ? SwimUiTokens.surfaceCard : Colors.transparent,
-              borderRadius: BorderRadius.circular(SwimUiTokens.radiusSm),
-              border: Border.all(
-                color:
-                    selected ? SwimUiTokens.borderSubtle : Colors.transparent,
-                width: 1.0,
-              ),
-              boxShadow: selected ? SwimUiTokens.shadowSegmentPill : null,
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.sora(
-                fontSize: 12.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                color: selected
-                    ? SwimUiTokens.textBannerTitle
-                    : SwimUiTokens.textMuted,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3.0),
-      decoration: BoxDecoration(
-        color: SwimUiTokens.surfaceCanvasSchedule,
-        borderRadius: BorderRadius.circular(SwimUiTokens.radiusSegmentShell),
-        border: Border.all(color: SwimUiTokens.borderSegmentTrack),
-      ),
-      child: Row(
-        children: [
-          segment(0, 'Upcoming'),
-          const SizedBox(width: 4.0),
-          segment(1, 'Training'),
-          const SizedBox(width: 4.0),
-          segment(2, 'Events'),
-          const SizedBox(width: 4.0),
-          segment(3, 'Coach'),
-        ],
-      ),
+    return AppSegmentedTabs(
+      labels: const ['Today', 'Training', 'Events', 'Coach'],
+      selectedIndex: _tabController.index,
+      onChanged: (i) {
+        if (_tabController.index != i) {
+          _tabController.animateTo(i);
+        }
+      },
     );
   }
 
@@ -412,7 +439,12 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+          padding: EdgeInsets.fromLTRB(
+            SwimDsTokens.pageHorizontalPadding,
+            12,
+            SwimDsTokens.pageHorizontalPadding,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
             child: Row(
               children: [
@@ -452,21 +484,16 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+          padding: EdgeInsets.fromLTRB(
+            SwimDsTokens.pageHorizontalPadding,
+            0,
+            SwimDsTokens.pageHorizontalPadding,
+            8,
+          ),
           sliver: SliverToBoxAdapter(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
-                  child: _FilterDropdown<_SquadMenu>(
-                    label: _squadLabel(_allSquadMenu),
-                    items: _SquadMenu.values,
-                    itemLabel: _squadLabel,
-                    value: _allSquadMenu,
-                    onChanged: (v) =>
-                        setState(() => _allSquadMenu = v ?? _SquadMenu.all),
-                  ),
-                ),
-                const SizedBox(width: 10),
                 Expanded(
                   child: _FilterDropdown<_DateMenu>(
                     label: _dateLabel(_allDateMenu),
@@ -477,23 +504,40 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                         setState(() => _allDateMenu = v ?? _DateMenu.all),
                   ),
                 ),
+                const SizedBox(width: 10),
+                _JuniorSeniorScheduleToggle(
+                  juniorSelected: _scheduleJuniorTier,
+                  onChanged: (junior) =>
+                      setState(() => _scheduleJuniorTier = junior),
+                ),
               ],
             ),
           ),
         ),
         if (groupedRows.isEmpty)
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(24, 48, 24, bottomPad),
-            sliver: const SliverToBoxAdapter(
-              child: _EmptyPanel(
+            padding: EdgeInsets.fromLTRB(
+              SwimDsTokens.pageHorizontalPadding,
+              48,
+              SwimDsTokens.pageHorizontalPadding,
+              bottomPad,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: EmptyStateCard(
                 title: 'No events found',
-                subtitle: 'Try changing your filters.',
+                message: 'Try changing your filters or date range.',
+                icon: Icons.event_busy_outlined,
               ),
             ),
           )
         else
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(24, 6, 24, bottomPad),
+            padding: EdgeInsets.fromLTRB(
+              SwimDsTokens.pageHorizontalPadding,
+              6,
+              SwimDsTokens.pageHorizontalPadding,
+              bottomPad,
+            ),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
@@ -514,7 +558,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                   }
                   final i = entry.item!;
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
+                    padding: EdgeInsets.only(bottom: SwimDsTokens.cardSpacing),
                     child: _CompactEventTile(
                       item: i,
                       accent: _accent(i.type),
@@ -522,6 +566,8 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                       squadFg: _squadPillFg(i.squadLabel),
                       showTimeRow: true,
                       showChevron: true,
+                      showLeadingDateTile: true,
+                      showPreview: true,
                       onTap: () => showScheduleEventDetailSheet(
                         context,
                         event: i.record,
@@ -536,17 +582,6 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
           ),
       ],
     );
-  }
-
-  String _squadLabel(_SquadMenu m) {
-    switch (m) {
-      case _SquadMenu.all:
-        return 'All Squads';
-      case _SquadMenu.junior:
-        return 'Junior';
-      case _SquadMenu.senior:
-        return 'Senior';
-    }
   }
 
   String _dateLabel(_DateMenu m) {
@@ -649,7 +684,12 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 10),
+          padding: EdgeInsets.fromLTRB(
+            SwimDsTokens.pageHorizontalPadding,
+            12,
+            SwimDsTokens.pageHorizontalPadding,
+            10,
+          ),
           sliver: SliverToBoxAdapter(
             child: Row(
               children: [
@@ -662,22 +702,34 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                         fontSize: 13.5,
                         color: SwimUiTokens.textMuted,
                       ),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 22),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        size: 22,
+                        color: SwimUiTokens.textMuted,
+                      ),
                       filled: true,
-                      fillColor: SwimUiTokens.surfaceCard,
+                      fillColor: SwimDsTokens.cardBackground,
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                        horizontal: 14,
+                        vertical: 14,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide:
-                            BorderSide(color: ObsidianVoltTokens.borderDefault),
+                        borderRadius:
+                            BorderRadius.circular(SwimDsTokens.cardRadius),
+                        borderSide: BorderSide.none,
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide:
-                            BorderSide(color: ObsidianVoltTokens.borderDefault),
+                        borderRadius:
+                            BorderRadius.circular(SwimDsTokens.cardRadius),
+                        borderSide: BorderSide(color: SwimDsTokens.borderSoft),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(SwimDsTokens.cardRadius),
+                        borderSide: BorderSide(
+                          color: LavenderIndigoTokens.primary
+                              .withValues(alpha: 0.4),
+                        ),
                       ),
                     ),
                   ),
@@ -703,31 +755,38 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
         ),
         if (items.isEmpty)
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(24, 36, 24, bottomPad),
-            sliver: const SliverToBoxAdapter(
-              child: _EmptyPanel(
+            padding: EdgeInsets.fromLTRB(
+              SwimDsTokens.pageHorizontalPadding,
+              36,
+              SwimDsTokens.pageHorizontalPadding,
+              bottomPad,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: EmptyStateCard(
                 title: 'No coach updates yet',
-                subtitle:
-                    'Parsed messages from coach emails will appear here.',
+                message:
+                    'Parsed coach messages will appear here when your team posts them.',
+                icon: Icons.forum_outlined,
               ),
             ),
           )
         else
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(24, 4, 24, bottomPad),
+            padding: EdgeInsets.fromLTRB(
+              SwimDsTokens.pageHorizontalPadding,
+              4,
+              SwimDsTokens.pageHorizontalPadding,
+              bottomPad,
+            ),
             sliver: SliverList.separated(
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (_, __) =>
+                  SizedBox(height: SwimDsTokens.cardSpacing),
               itemBuilder: (context, idx) {
                 final i = items[idx];
-                return _CompactEventTile(
+                return _CoachUpdateCard(
                   item: i,
-                  accent: _accent(i.type),
-                  squadBg: _squadPillBg(i.squadLabel),
-                  squadFg: _squadPillFg(i.squadLabel),
-                  showPreview: true,
-                  showChevron: true,
-                  onTap: () => showScheduleEventDetailSheet(
+                  onOpen: () => showScheduleEventDetailSheet(
                     context,
                     event: i.record,
                     baselines: baselines,
@@ -769,7 +828,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Use category chips on the main view for type. Advanced squad/date filters match the All Events tab logic in a future update.',
+                      'Use category chips on the main view for type. Junior/Senior on the Events tab filters squads there and on Upcoming/Coach.',
                       style: GoogleFonts.sora(
                         fontSize: 12.5,
                         color: SwimUiTokens.textMuted,
@@ -798,51 +857,221 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
   }
 }
 
+class _JuniorSeniorScheduleToggle extends StatelessWidget {
+  const _JuniorSeniorScheduleToggle({
+    required this.juniorSelected,
+    required this.onChanged,
+  });
+
+  final bool juniorSelected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget segment({required String label, required bool selected, required VoidCallback onTap}) {
+      return GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? SwimUiTokens.surfaceCard : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? SwimUiTokens.borderSubtle : Colors.transparent,
+            ),
+            boxShadow: selected ? SwimUiTokens.shadowSegmentPill : null,
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.sora(
+              fontSize: 11.5,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              color: selected
+                  ? SwimUiTokens.textBannerTitle
+                  : SwimUiTokens.textMuted,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: SwimUiTokens.surfaceCanvasSchedule,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: SwimUiTokens.borderSegmentTrack),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          segment(
+            label: 'Junior',
+            selected: juniorSelected,
+            onTap: () => onChanged(true),
+          ),
+          segment(
+            label: 'Senior',
+            selected: !juniorSelected,
+            onTap: () => onChanged(false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GroupedRow {
   _GroupedRow({this.header, this.item});
   final String? header;
   final ScheduleDisplayItem? item;
 }
 
-class _EmptyPanel extends StatelessWidget {
-  const _EmptyPanel({required this.title, required this.subtitle});
-  final String title;
-  final String subtitle;
+String _scheduleCoachCategoryLabel(TeamEventType t) {
+  switch (t) {
+    case TeamEventType.meet:
+      return 'Meet Entry';
+    case TeamEventType.training:
+      return 'Training Change';
+    case TeamEventType.admin:
+      return 'Announcement';
+    case TeamEventType.social:
+      return 'Social';
+    case TeamEventType.unknown:
+      return 'Announcement';
+  }
+}
+
+SwimStatusPillKind _scheduleCoachCategoryPillKind(TeamEventType t) {
+  switch (t) {
+    case TeamEventType.meet:
+      return SwimStatusPillKind.meet;
+    case TeamEventType.training:
+      return SwimStatusPillKind.training;
+    case TeamEventType.admin:
+      return SwimStatusPillKind.today;
+    case TeamEventType.social:
+      return SwimStatusPillKind.newUpdate;
+    case TeamEventType.unknown:
+      return SwimStatusPillKind.neutral;
+  }
+}
+
+class _CoachUpdateCard extends StatelessWidget {
+  const _CoachUpdateCard({
+    required this.item,
+    required this.onOpen,
+  });
+
+  final ScheduleDisplayItem item;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
-      decoration: BoxDecoration(
-        color: SwimUiTokens.surfaceCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ObsidianVoltTokens.borderDefault, width: 0.5),
-      ),
+    final ps = item.record.parsedStart;
+    final dateStr = ps != null
+        ? DateFormat.yMMMd().format(ps)
+        : item.dateShortLabel;
+    final rawSource = item.record.sourceSection.trim();
+    final source = rawSource.isNotEmpty
+        ? rawSource
+        : (item.record.sender.trim().isNotEmpty ? 'Coach' : 'Team schedule');
+
+    return AppCard(
+      onTap: onOpen,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: GoogleFonts.sora(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: SwimUiTokens.textBannerTitle,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  item.record.title.isEmpty ? 'Update' : item.record.title,
+                  style: GoogleFonts.sora(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: SwimDsTokens.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                dateStr,
+                style: GoogleFonts.sora(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: SwimDsTokens.textSecondary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: GoogleFonts.sora(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              height: 1.35,
-              color: SwimUiTokens.textMuted,
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              StatusPill(
+                label: _scheduleCoachCategoryLabel(item.type),
+                kind: _scheduleCoachCategoryPillKind(item.type),
+              ),
+              StatusPill(
+                label: source,
+                kind: SwimStatusPillKind.neutral,
+              ),
+            ],
+          ),
+          if (item.summaryPreview.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              item.summaryPreview,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.sora(
+                fontSize: 13,
+                height: 1.35,
+                color: SwimDsTokens.textSecondary,
+              ),
+            ),
+          ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: onOpen,
+              style: TextButton.styleFrom(
+                foregroundColor: SwimDsTokens.tealApproved,
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'View full message',
+                style: GoogleFonts.sora(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+SwimStatusPillKind _eventTypePillKind(TeamEventType t) {
+  switch (t) {
+    case TeamEventType.meet:
+      return SwimStatusPillKind.meet;
+    case TeamEventType.training:
+      return SwimStatusPillKind.training;
+    case TeamEventType.social:
+      return SwimStatusPillKind.newUpdate;
+    case TeamEventType.admin:
+      return SwimStatusPillKind.today;
+    case TeamEventType.unknown:
+      return SwimStatusPillKind.neutral;
   }
 }
 
@@ -856,7 +1085,7 @@ class _CompactEventTile extends StatelessWidget {
     this.showChevron = false,
     this.showTimeRow = false,
     this.showPreview = false,
-    this.dense = false,
+    this.showLeadingDateTile = false,
   });
 
   final ScheduleDisplayItem item;
@@ -867,188 +1096,146 @@ class _CompactEventTile extends StatelessWidget {
   final bool showChevron;
   final bool showTimeRow;
   final bool showPreview;
-  final bool dense;
+  final bool showLeadingDateTile;
 
   @override
   Widget build(BuildContext context) {
-    final typeLabel = teamEventTypeLabel(item.type).toUpperCase();
+    final typeLabel = teamEventTypeLabel(item.type);
+    final ps = item.record.parsedStart;
+    final month =
+        ps != null ? DateFormat('MMM').format(ps) : '—';
+    final day = ps != null ? '${ps.day}' : '—';
+
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            StatusPill(
+              label: typeLabel,
+              kind: _eventTypePillKind(item.type),
+            ),
+            const SizedBox(width: 6),
+            if (item.squadLabel.isNotEmpty)
+              StatusPill(
+                label: item.squadLabel,
+                kind: SwimStatusPillKind.notDecided,
+              ),
+            if (!showLeadingDateTile) ...[
+              const Spacer(),
+              Text(
+                item.dateShortLabel,
+                style: GoogleFonts.sora(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: SwimUiTokens.textTitle,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          item.record.title.isEmpty ? '(Untitled)' : item.record.title,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.sora(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+            color: SwimUiTokens.textBannerTitle,
+          ),
+        ),
+        if (showTimeRow && item.timeDisplayLabel.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            item.timeDisplayLabel,
+            style: GoogleFonts.sora(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: SwimUiTokens.textMuted,
+            ),
+          ),
+        ],
+        if (item.locationDisplay.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            item.locationDisplay,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.sora(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: SwimUiTokens.textMuted,
+            ),
+          ),
+        ],
+        if (showPreview && item.summaryPreview.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            item.summaryPreview,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.sora(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              height: 1.35,
+              color: SwimUiTokens.textMuted,
+            ),
+          ),
+        ],
+      ],
+    );
+
     return Material(
-      color: SwimUiTokens.surfaceCard,
-      borderRadius: BorderRadius.circular(14),
+      color: SwimDsTokens.cardBackground,
+      borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: ObsidianVoltTokens.borderDefault, width: 0.5),
+            borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
+            border: Border.all(color: SwimDsTokens.borderSoft, width: 1),
+            boxShadow: SwimDsTokens.cardShadowSoft,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
             child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(width: 4, color: accent),
+                  if (!showLeadingDateTile)
+                    Container(width: 4, color: accent),
+                  if (showLeadingDateTile) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10, top: 12, bottom: 12),
+                      child: SwimDateTile(
+                        monthAbbrev: month,
+                        dayText: day,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   Expanded(
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        12,
-                        dense ? 10 : 12,
-                        8,
-                        dense ? 10 : 12,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+                      child: body,
+                    ),
+                  ),
+                  if (showChevron)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6, top: 12),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        color: SwimUiTokens.textMuted,
                       ),
-                      child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _TypePill(label: typeLabel, accent: accent),
-                            const SizedBox(width: 6),
-                            if (item.squadLabel.isNotEmpty)
-                              _SquadPill(
-                                label: item.squadLabel,
-                                bg: squadBg,
-                                fg: squadFg,
-                              ),
-                            const Spacer(),
-                            Text(
-                              item.dateShortLabel,
-                              style: GoogleFonts.sora(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: SwimUiTokens.textTitle,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          item.record.title.isEmpty
-                              ? '(Untitled)'
-                              : item.record.title,
-                          maxLines: dense ? 2 : 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.sora(
-                            fontSize: dense ? 13.5 : 14,
-                            fontWeight: FontWeight.w700,
-                            height: 1.25,
-                            color: SwimUiTokens.textBannerTitle,
-                          ),
-                        ),
-                        if (showTimeRow && item.timeDisplayLabel.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            item.timeDisplayLabel,
-                            style: GoogleFonts.sora(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: SwimUiTokens.textMuted,
-                            ),
-                          ),
-                        ],
-                        if (item.locationDisplay.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            item.locationDisplay,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.sora(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: SwimUiTokens.textMuted,
-                            ),
-                          ),
-                        ],
-                        if (showPreview && item.summaryPreview.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            item.summaryPreview,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.sora(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              height: 1.35,
-                              color: SwimUiTokens.textMuted,
-                            ),
-                          ),
-                        ],
-                      ],
                     ),
-                  ),
-                ),
-                if (showChevron)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6, top: 12),
-                    child: Icon(
-                      Icons.chevron_right_rounded,
-                      color: SwimUiTokens.textMuted,
-                    ),
-                  ),
-              ],
-            ),
+                ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TypePill extends StatelessWidget {
-  const _TypePill({required this.label, required this.accent});
-  final String label;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.sora(
-          fontSize: 9.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.4,
-          color: accent,
-        ),
-      ),
-    );
-  }
-}
-
-class _SquadPill extends StatelessWidget {
-  const _SquadPill({
-    required this.label,
-    required this.bg,
-    required this.fg,
-  });
-  final String label;
-  final Color bg;
-  final Color fg;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.sora(
-          fontSize: 9.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.3,
-          color: fg,
         ),
       ),
     );

@@ -206,3 +206,23 @@ List<TeamEventsRecord> expandScheduleList(List<TeamEventsRecord> input) {
   }
   return out;
 }
+
+/// Stable ascending sort for calendar rows (parsable dates first).
+int compareTeamEventsStartAsc(TeamEventsRecord a, TeamEventsRecord b) {
+  if (a.parsedStart == null && b.parsedStart == null) {
+    return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+  }
+  if (a.parsedStart == null) return 1;
+  if (b.parsedStart == null) return -1;
+  final c = a.parsedStart!.compareTo(b.parsedStart!);
+  if (c != 0) return c;
+  return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+}
+
+/// Dedupe + expand recurring training rows + stable sort — same pipeline as Schedule hub.
+List<TeamEventsRecord> normalizeTeamEventsList(List<TeamEventsRecord> raw) {
+  final deduped = dedupeTeamEvents(raw);
+  final expanded = expandScheduleList(deduped);
+  expanded.sort(compareTeamEventsStartAsc);
+  return expanded;
+}

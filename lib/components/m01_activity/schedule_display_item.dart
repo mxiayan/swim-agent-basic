@@ -33,6 +33,17 @@ class ScheduleDisplayItem {
 
   TeamEventType get type => record.eventType;
 
+  /// Hides senior-only rows for junior viewers and junior-only rows for senior viewers.
+  /// [ALL], ambiguous, and non-squad-specific rows stay visible for both.
+  bool matchesPracticeTierFilter({required bool forJuniorTier}) {
+    final s = squadLabel.toUpperCase().trim();
+    if (s.isEmpty || s == 'ALL') return true;
+    if (forJuniorTier) {
+      return s != 'SENIOR';
+    }
+    return s != 'JUNIOR';
+  }
+
   factory ScheduleDisplayItem.fromRecord(
     TeamEventsRecord e,
     List<ScheduleBaseline> baselines,
@@ -113,6 +124,8 @@ class ScheduleDisplayItem {
     bool textHas(String s) {
       final t = s.toLowerCase();
       return t.contains('junior') ||
+          t.contains('age group') ||
+          t.contains('age-group') ||
           RegExp(r'\bjr\.?\b').hasMatch(t) ||
           t.contains('jr pm') ||
           t.contains('jr group');

@@ -49,6 +49,13 @@ function signupIsOpen(data, meetId) {
   return status !== "pending" && entryUrlFromMeetData(data, meetId).length > 0;
 }
 
+/**
+ * Monitored meets pipeline (hourly job + coach email):
+ * - Set `coach_approved: true` when the meet is cited in a parsed coach email.
+ * - The Flutter client surfaces this as a "Coach approved" chip and boosts Agent priority.
+ * - When signup opens (`signupIsOpen`), urgent ranking matches volunteer signup openings.
+ */
+
 exports.onMonitoredMeetSignupOpened = functions.firestore
   .document("monitored_meets/{meetId}")
   .onWrite(async (change, context) => {

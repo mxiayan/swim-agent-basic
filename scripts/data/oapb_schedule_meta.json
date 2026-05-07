@@ -1,0 +1,15 @@
+{
+  "team_id": "oapb",
+  "team_name": "Orinda Aquatics",
+  "season": "2025-2026",
+  "source": {
+    "source_type": "pdf",
+    "source_name": "Orinda Aquatics 2025-2026 Meet/Event Schedule",
+    "subject_to_change": true
+  },
+  "collection_recommendation": {
+    "recommended_collection": "team_schedule_items",
+    "recommended_path": "teams/{team_id}/schedule_items/{schedule_item_id}",
+    "reason": "This structure works better than one large team_schedule document because every meet, event, break, training phase, and note can be stored, queried, filtered, updated, and shown independently."
+  }
+}

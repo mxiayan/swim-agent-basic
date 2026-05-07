@@ -125,6 +125,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Season PDF schedule rows: teams/{team_id}/schedule_items/{schedule_item_id}
+    match /teams/{teamId}/schedule_items/{itemId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     match /activities/{document} {
       allow create: if true;
       allow read: if true;

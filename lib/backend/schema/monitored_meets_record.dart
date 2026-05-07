@@ -94,6 +94,11 @@ class MonitoredMeetsRecord extends FirestoreRecord {
   List<String> get eligibleZones => _eligibleZones ?? const <String>[];
   bool hasEligibleZones() => _eligibleZones != null && _eligibleZones!.isNotEmpty;
 
+  /// Coach email / digest pipeline tagged this meet as team-approved for families.
+  bool? _coachApproved;
+  bool get coachApproved => _coachApproved ?? false;
+  bool hasCoachApproved() => _coachApproved != null;
+
   /// USA Swimming / OME meet id when stored on the doc (`meet_id`); else doc id.
   String? _meetIdField;
   String? _entryUrlRaw;
@@ -266,6 +271,23 @@ class MonitoredMeetsRecord extends FirestoreRecord {
       const ['eligible_zones', 'eligibleZones', 'EligibleZones'],
     );
 
+    final coachApr =
+        snapshotData['coach_approved'] ?? snapshotData['coachApproved'];
+    if (coachApr == null) {
+      _coachApproved = null;
+    } else if (coachApr == true) {
+      _coachApproved = true;
+    } else if (coachApr == false) {
+      _coachApproved = false;
+    } else if (coachApr is num && coachApr != 0) {
+      _coachApproved = true;
+    } else if (coachApr is String &&
+        const {'true', '1', 'yes'}.contains(coachApr.toLowerCase().trim())) {
+      _coachApproved = true;
+    } else {
+      _coachApproved = false;
+    }
+
     _meetZone ??= _deriveMeetZoneFromRegion(snapshotData);
   }
 
@@ -414,6 +436,7 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
   String? locationAddress,
   String? venueId,
   String? locationSource,
+  bool? coachApproved,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -427,6 +450,7 @@ Map<String, dynamic> createMonitoredMeetsRecordData({
       'location_address': locationAddress,
       'venue_id': venueId,
       'location_source': locationSource,
+      'coach_approved': coachApproved,
     }.withoutNulls,
   );
 
@@ -453,7 +477,8 @@ class MonitoredMeetsRecordDocumentEquality
         e1?.locationSource == e2?.locationSource &&
         const ListEquality<String>().equals(e1?.meetClasses, e2?.meetClasses) &&
         e1?.imageUrl == e2?.imageUrl &&
-        const ListEquality<String>().equals(e1?.eligibleZones, e2?.eligibleZones);
+        const ListEquality<String>().equals(e1?.eligibleZones, e2?.eligibleZones) &&
+        e1?.coachApproved == e2?.coachApproved;
   }
 
   @override
@@ -473,6 +498,7 @@ class MonitoredMeetsRecordDocumentEquality
         const ListEquality<String>().hash(e?.meetClasses ?? const <String>[]),
         e?.imageUrl,
         const ListEquality<String>().hash(e?.eligibleZones ?? const <String>[]),
+        e?.coachApproved,
       ]);
 
   @override

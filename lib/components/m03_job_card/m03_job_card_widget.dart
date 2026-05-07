@@ -2,6 +2,7 @@ import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/theme/swim_ui_tokens.dart';
 import 'dart:math';
 import 'dart:ui';
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -170,16 +171,7 @@ class _M03JobCardWidgetState extends State<M03JobCardWidget>
                 color: widget!.signedUp == true
                     ? FlutterFlowTheme.of(context).tertiary
                     : FlutterFlowTheme.of(context).secondary,
-                boxShadow: [
-                  BoxShadow(
-                    blurRadius: 30.0,
-                    color: Color(0x33000000),
-                    offset: Offset(
-                      0.0,
-                      10.0,
-                    ),
-                  )
-                ],
+                boxShadow: SwimUiTokens.shadowCardLift,
                 borderRadius: BorderRadius.circular(30.0),
               ),
               child: Column(
@@ -477,16 +469,7 @@ class _M03JobCardWidgetState extends State<M03JobCardWidget>
             ),
             decoration: BoxDecoration(
               color: FlutterFlowTheme.of(context).secondaryBackground,
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 30.0,
-                  color: Color(0x33000000),
-                  offset: Offset(
-                    0.0,
-                    10.0,
-                  ),
-                )
-              ],
+              boxShadow: SwimUiTokens.shadowCardLift,
               borderRadius: BorderRadius.circular(30.0),
             ),
             child: Padding(

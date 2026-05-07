@@ -5,9 +5,12 @@ import 'obsidian_volt_tokens.dart';
 
 /// Shared layout chrome tokens — lavender surfaces + indigo accents (light-only).
 abstract final class SwimUiTokens {
-  // Surfaces
-  static const Color surfaceCanvas = ObsidianVoltTokens.bgBase;
-  static const Color surfaceCanvasSchedule = ObsidianVoltTokens.bgBase;
+  /// Shared Agent-style canvas — single shell behind tabs + main lists.
+  static const Color surfaceCanvasAgent = Color(0xFFF0F4F8);
+
+  /// Primary scroll canvas behind cards — aligned with Agent tab gray.
+  static const Color surfaceCanvas = surfaceCanvasAgent;
+  static const Color surfaceCanvasSchedule = surfaceCanvasAgent;
   static const Color surfaceCard = ObsidianVoltTokens.bgSurface;
   static Color get surfaceMuted => LavenderIndigoTokens.bgSurfaceAlt;
 

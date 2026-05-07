@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '/backend/schema/team_events_record.dart';
 import '/theme/obsidian_volt_tokens.dart';
-import '/theme/swim_ui_tokens.dart';
+import '/theme/swim_design_tokens.dart';
+import '/widgets/swim_ui_kit.dart';
 import 'schedule_display_item.dart';
 import 'team_events_schedule.dart' show normalizeCoachLocationForUi;
 
@@ -23,7 +25,6 @@ class UpcomingTimelineTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pageBg = ObsidianVoltTokens.bgBase;
-    final surfaceBg = ObsidianVoltTokens.bgSurface;
     final muted = ObsidianVoltTokens.textSecondary;
     final titleColor = ObsidianVoltTokens.textPrimary;
 
@@ -38,7 +39,12 @@ class UpcomingTimelineTab extends StatelessWidget {
             child: ColoredBox(
               color: pageBg,
               child: Padding(
-                padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad),
+                padding: EdgeInsets.fromLTRB(
+                  SwimDsTokens.pageHorizontalPadding,
+                  SwimDsTokens.smallGap,
+                  SwimDsTokens.pageHorizontalPadding,
+                  bottomPad,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -49,25 +55,12 @@ class UpcomingTimelineTab extends StatelessWidget {
                       titleColor: titleColor,
                       muted: muted,
                     ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: surfaceBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: SwimUiTokens.cardSurfaceEdgeBorder,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        'No upcoming events',
-                        style: GoogleFonts.sora(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: muted,
-                        ),
-                      ),
+                    SizedBox(height: SwimDsTokens.cardSpacing),
+                    EmptyStateCard(
+                      title: 'No events today',
+                      message:
+                          'Upcoming practices and meets will appear on your timeline.',
+                      icon: Icons.event_note_outlined,
                     ),
                   ],
                 ),
@@ -79,23 +72,13 @@ class UpcomingTimelineTab extends StatelessWidget {
     }
 
     final sorted = List<ScheduleDisplayItem>.from(items)
-      ..sort((a, b) {
-        final pa = a.record.parsedStart;
-        final pb = b.record.parsedStart;
-        if (pa == null && pb == null) {
-          return a.record.title.compareTo(b.record.title);
-        }
-        if (pa == null) return 1;
-        if (pb == null) return -1;
-        return pa.compareTo(pb);
-      });
+      ..sort((a, b) => _compareTimelineItems(a, b, now: now, today: today));
 
     final cancelled =
         sorted.where((i) => _isCancelled(i.record)).length;
     final headerDay = _headerAnchorDay(sorted, today);
 
-    final rows = _buildRows(sorted, today);
-    final showNow = sorted.any((i) => _isHappeningNow(i.record, now));
+    final rows = _buildRows(sorted, today, now);
 
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -104,7 +87,12 @@ class UpcomingTimelineTab extends StatelessWidget {
           child: ColoredBox(
             color: pageBg,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad),
+              padding: EdgeInsets.fromLTRB(
+                SwimDsTokens.pageHorizontalPadding,
+                SwimDsTokens.smallGap,
+                SwimDsTokens.pageHorizontalPadding,
+                bottomPad,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -115,19 +103,19 @@ class UpcomingTimelineTab extends StatelessWidget {
                     titleColor: titleColor,
                     muted: muted,
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: SwimDsTokens.sectionTitleToContentGap + 2),
                   Container(
                     decoration: BoxDecoration(
-                      color: surfaceBg,
+                      color: SwimDsTokens.cardBackground,
                       borderRadius:
-                          BorderRadius.circular(SwimUiTokens.radiusMd),
+                          BorderRadius.circular(SwimDsTokens.cardRadius),
                       border: Border.all(
-                        color: SwimUiTokens.cardSurfaceEdgeBorder,
+                        color: SwimDsTokens.borderSoft,
                         width: 1,
                       ),
-                      boxShadow: SwimUiTokens.shadowCard,
+                      boxShadow: SwimDsTokens.cardShadowSoft,
                     ),
-                    padding: const EdgeInsets.fromLTRB(0, 14, 14, 16),
+                    padding: const EdgeInsets.fromLTRB(0, 14, 12, 16),
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
@@ -146,15 +134,6 @@ class UpcomingTimelineTab extends StatelessWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (showNow)
-                              const Align(
-                                alignment: Alignment.centerLeft,
-                                child: Padding(
-                                  padding:
-                                      EdgeInsets.only(left: 26 + 8, bottom: 10),
-                                  child: _NowBadge(),
-                                ),
-                              ),
                             ...rows.map(
                               (row) => row.build(
                                 context,
@@ -180,6 +159,41 @@ class UpcomingTimelineTab extends StatelessWidget {
     );
   }
 
+  static int _todaySubsectionRank(
+    TeamEventsRecord e,
+    DateTime now,
+    DateTime today,
+  ) {
+    final ps = e.parsedStart;
+    if (ps == null) return 2;
+    if (_isHappeningNow(e, now)) return 0;
+    if (ps.hour < 12) return 1;
+    return 2;
+  }
+
+  static int _compareTimelineItems(
+    ScheduleDisplayItem a,
+    ScheduleDisplayItem b, {
+    required DateTime now,
+    required DateTime today,
+  }) {
+    final pa = a.record.parsedStart;
+    final pb = b.record.parsedStart;
+    if (pa == null && pb == null) {
+      return a.record.title.compareTo(b.record.title);
+    }
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    final da = DateTime(pa.year, pa.month, pa.day);
+    final db = DateTime(pb.year, pb.month, pb.day);
+    final dayCmp = da.compareTo(db);
+    if (dayCmp != 0) return dayCmp;
+    final ra = _todaySubsectionRank(a.record, now, today);
+    final rb = _todaySubsectionRank(b.record, now, today);
+    if (ra != rb) return ra.compareTo(rb);
+    return pa.compareTo(pb);
+  }
+
   static DateTime _headerAnchorDay(
     List<ScheduleDisplayItem> sorted,
     DateTime today,
@@ -197,6 +211,7 @@ class UpcomingTimelineTab extends StatelessWidget {
   static List<_TimelineRow> _buildRows(
     List<ScheduleDisplayItem> sorted,
     DateTime today,
+    DateTime now,
   ) {
     final out = <_TimelineRow>[];
     String? lastDiv;
@@ -205,8 +220,8 @@ class UpcomingTimelineTab extends StatelessWidget {
       final ps = item.record.parsedStart;
 
       final divLabel = ps == null
-          ? 'DATE TBD'
-          : _sectionDividerLabel(ps, today);
+          ? 'Date TBD'
+          : _sectionDividerLabel(item.record, ps, today, now);
 
       if (divLabel != lastDiv) {
         out.add(_DividerRow(divLabel));
@@ -219,24 +234,38 @@ class UpcomingTimelineTab extends StatelessWidget {
     return out;
   }
 
-  /// MORNING / EVENING for today; TOMORROW; weekday header for later dates.
-  static String _sectionDividerLabel(DateTime ps, DateTime today) {
+  /// Now / Morning / Afternoon for today; Tomorrow; weekday for later dates.
+  static String _sectionDividerLabel(
+    TeamEventsRecord e,
+    DateTime ps,
+    DateTime today,
+    DateTime now,
+  ) {
     final day = DateTime(ps.year, ps.month, ps.day);
     final diff = day.difference(today).inDays;
 
     if (diff == 0) {
-      return ps.hour < 12 ? 'MORNING' : 'EVENING';
+      if (_isHappeningNow(e, now)) return 'Now';
+      if (ps.hour < 12) return 'Morning';
+      return 'Afternoon';
     }
     if (diff == 1) {
-      return 'TOMORROW';
+      return 'Tomorrow';
     }
-    const wds = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    const mos = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
-    ];
-    return '${wds[day.weekday - 1]}, ${mos[day.month - 1]} ${day.day}';
+    return DateFormat('EEE, MMM d').format(day);
   }
+}
+
+String? _agentHintForEvent(ScheduleDisplayItem item) {
+  final blob = '${item.record.details} ${item.summaryPreview}'.toLowerCase();
+  if (blob.contains('15 min') || blob.contains('fifteen minute')) {
+    return 'Leave 15 minutes early';
+  }
+  if (blob.contains('coach') &&
+      (blob.contains('update') || blob.contains('note'))) {
+    return 'Coach update available';
+  }
+  return null;
 }
 
 bool _isCancelled(TeamEventsRecord e) {
@@ -318,15 +347,30 @@ class _DividerRow implements _TimelineRow {
     return Padding(
       padding: const EdgeInsets.only(left: 26 + 8, top: 12, bottom: 8),
       child: Text(
-        label,
+        label.toUpperCase(),
         style: GoogleFonts.sora(
           fontSize: 10,
-          letterSpacing: 0.5,
-          fontWeight: FontWeight.w400,
-          color: ObsidianVoltTokens.textTertiary,
+          letterSpacing: 0.6,
+          fontWeight: FontWeight.w700,
+          color: SwimDsTokens.textSecondary,
         ),
       ),
     );
+  }
+}
+
+SwimStatusPillKind _typePillKind(TeamEventType t) {
+  switch (t) {
+    case TeamEventType.meet:
+      return SwimStatusPillKind.meet;
+    case TeamEventType.training:
+      return SwimStatusPillKind.training;
+    case TeamEventType.social:
+      return SwimStatusPillKind.newUpdate;
+    case TeamEventType.admin:
+      return SwimStatusPillKind.today;
+    case TeamEventType.unknown:
+      return SwimStatusPillKind.neutral;
   }
 }
 
@@ -390,24 +434,29 @@ class _EventRow implements _TimelineRow {
     if (loc.isNotEmpty) detailParts.add(loc);
     final detailText = detailParts.join(' · ');
 
+    final hint = _agentHintForEvent(item);
+
+    final typeLabel = teamEventTypeLabel(item.record.eventType);
     Widget card = Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
         onTap: () => onTap(item),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          padding: const EdgeInsets.all(SwimDsTokens.cardPadding - 4),
           decoration: BoxDecoration(
             color: cancelled
                 ? ObsidianVoltTokens.eventCancelledCardBg
-                : style.cardBg,
-            borderRadius: BorderRadius.circular(10),
+                : SwimDsTokens.cardBackground,
+            borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
             border: Border.all(
               color: cancelled
                   ? ObsidianVoltTokens.borderSubtle
-                  : SwimUiTokens.cardSurfaceEdgeBorder,
+                  : SwimDsTokens.borderSoft,
               width: 1,
             ),
+            boxShadow:
+                cancelled ? null : SwimDsTokens.cardShadowSoft,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,27 +464,31 @@ class _EventRow implements _TimelineRow {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _TypeTag(
-                    label: teamEventTypeLabel(item.record.eventType).toUpperCase(),
-                    bg: cancelled
-                        ? ObsidianVoltTokens.bgOverlay
-                        : style.tagBg,
-                    fg: cancelled
-                        ? ObsidianVoltTokens.textTertiary
-                        : style.tagText,
-                  ),
+                  if (!cancelled)
+                    StatusPill(
+                      label: typeLabel,
+                      kind: _typePillKind(item.record.eventType),
+                    )
+                  else
+                    StatusPill(
+                      label: 'CANCELLED',
+                      kind: SwimStatusPillKind.neutral,
+                    ),
                   if (!cancelled && item.squadLabel.trim().isNotEmpty) ...[
                     const SizedBox(width: 8),
-                    _SquadTag(label: item.squadLabel),
+                    StatusPill(
+                      label: item.squadLabel,
+                      kind: SwimStatusPillKind.notDecided,
+                    ),
                   ],
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 item.record.title.isEmpty ? '(Untitled)' : item.record.title,
                 style: GoogleFonts.sora(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                   height: 1.3,
                   color: titleColor,
                   decoration:
@@ -443,14 +496,39 @@ class _EventRow implements _TimelineRow {
                 ),
               ),
               if (detailText.isNotEmpty) ...[
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   detailText,
                   style: GoogleFonts.sora(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: muted,
                   ),
+                ),
+              ],
+              if (hint != null && !cancelled) ...[
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 14,
+                      color: SwimDsTokens.primaryPurple.withValues(alpha: 0.85),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        hint,
+                        style: GoogleFonts.sora(
+                          fontSize: 11.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                          color: SwimDsTokens.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],
@@ -462,7 +540,7 @@ class _EventRow implements _TimelineRow {
     if (cancelled) {
       card = Opacity(opacity: 0.38, child: card);
     } else if (futureWrap) {
-      card = Opacity(opacity: 0.5, child: card);
+      card = Opacity(opacity: 0.72, child: card);
     }
 
     return Padding(
@@ -538,8 +616,8 @@ class _TimelineHeader extends StatelessWidget {
           Text(
             title,
             style: GoogleFonts.sora(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
               color: titleColor,
             ),
           ),
@@ -553,117 +631,6 @@ class _TimelineHeader extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NowBadge extends StatelessWidget {
-  const _NowBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: ObsidianVoltTokens.nowBadgeBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: ObsidianVoltTokens.accent,
-              ),
-            ),
-            const SizedBox(width: 5),
-            Text(
-              'Now',
-              style: GoogleFonts.sora(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: ObsidianVoltTokens.nowBadgeText,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TypeTag extends StatelessWidget {
-  const _TypeTag({
-    required this.label,
-    required this.bg,
-    required this.fg,
-  });
-
-  final String label;
-  final Color bg;
-  final Color fg;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.sora(
-          fontSize: 9,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.18,
-          color: fg,
-        ),
-      ),
-    );
-  }
-}
-
-class _SquadTag extends StatelessWidget {
-  const _SquadTag({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final u = label.toUpperCase();
-    late Color bg;
-    late Color fg;
-
-    if (u.contains('JUNIOR') || u.contains('JR')) {
-      bg = ObsidianVoltTokens.squadJuniorBg;
-      fg = ObsidianVoltTokens.squadJuniorText;
-    } else if (u.contains('SENIOR') || u.contains('SR')) {
-      bg = ObsidianVoltTokens.squadSeniorBg;
-      fg = ObsidianVoltTokens.squadSeniorText;
-    } else {
-      bg = ObsidianVoltTokens.squadAllBg;
-      fg = ObsidianVoltTokens.squadAllText;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.sora(
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-          color: fg,
-        ),
       ),
     );
   }
