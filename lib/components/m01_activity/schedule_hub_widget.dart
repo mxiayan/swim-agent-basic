@@ -15,7 +15,7 @@ import '/theme/obsidian_volt_tokens.dart';
 import 'schedule_display_item.dart';
 import 'training_schedule_tab.dart';
 import 'team_events_schedule.dart' show showScheduleEventDetailSheet;
-import 'upcoming_timeline_tab.dart';
+import 'dynamic_schedule_timeline.dart';
 
 /// Four-tab Schedule experience: Upcoming, Training Schedule, All Events, From Coach.
 class ScheduleHubWidget extends StatefulWidget {
@@ -417,7 +417,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     required List<ScheduleBaseline> baselines,
     required double bottomPad,
   }) {
-    return UpcomingTimelineTab(
+    return DynamicScheduleTimeline(
       items: upcoming,
       bottomPad: bottomPad,
       onOpenDetail: (item) => showScheduleEventDetailSheet(
