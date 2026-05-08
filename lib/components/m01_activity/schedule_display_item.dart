@@ -3,6 +3,7 @@ import '/backend/schedule_baseline.dart';
 
 import 'team_events_schedule.dart'
     show
+        StandingGridBaselineHints,
         normalizeCoachLocationForUi,
         standingGridBaselineHints;
 
@@ -50,8 +51,7 @@ class ScheduleDisplayItem {
   ) {
     final hints = standingGridBaselineHints(e, baselines);
     final primary = _formatPrimaryTime(e);
-    var timeDisp =
-        primary.isNotEmpty ? primary : (hints.scheduleSummary ?? '');
+    var timeDisp = _mergePrimaryAndBaselineTime(primary, hints);
     timeDisp = _compactPoolTimeLabel(timeDisp);
     final dry = hints.drylandLine != null
         ? _compactDrylandLabel(hints.drylandLine!)
@@ -71,6 +71,27 @@ class ScheduleDisplayItem {
       summaryPreview: _truncate(e.details, 140),
       searchBlob: _searchBlob(e),
     );
+  }
+
+  /// Prefer baseline **range** (two clock tokens) when Firestore only has start.
+  static String _mergePrimaryAndBaselineTime(
+    String primary,
+    StandingGridBaselineHints hints,
+  ) {
+    final p = primary.trim();
+    final summary = hints.scheduleSummary?.trim();
+    if (summary == null || summary.isEmpty) {
+      return p;
+    }
+    final baselineCompact = _compactPoolTimeLabel(summary);
+    if (p.isEmpty) return baselineCompact;
+    if (_hasTwoClockTokens(p)) return p;
+    if (_hasTwoClockTokens(baselineCompact)) return baselineCompact;
+    return p;
+  }
+
+  static bool _hasTwoClockTokens(String s) {
+    return RegExp(r'\d{1,2}:\d{2}').allMatches(s).length >= 2;
   }
 
   static String _compactPoolTimeLabel(String raw) {
@@ -188,6 +209,11 @@ class ScheduleDisplayItem {
     final start = e.startTimeLocal.isNotEmpty ? fmt(e.startTimeLocal) : '';
     final end = e.endTimeLocal.isNotEmpty ? fmt(e.endTimeLocal) : '';
     if (start.isEmpty && end.isEmpty) return '';
+    if (start.isEmpty) {
+      // Do not surface end-only as the primary time: it becomes a one-token label,
+      // blocks baseline merge, and reads as a false "start" (e.g. 8:00pm) on the timeline.
+      return '';
+    }
     if (end.isEmpty) return start;
     return '$start – $end';
   }

@@ -20,7 +20,10 @@
     "seed-metadata-clubs-zones:dry-run": "node seed_metadata_clubs_zones.mjs --dry-run --zone-id=Z2 --zone-display='Pacific Swimming Zone 2' data/pacific_swimming_zone2_clubs.json",
     "seed-metadata-clubs-zones:apply": "node seed_metadata_clubs_zones.mjs --zone-id=Z2 --zone-display='Pacific Swimming Zone 2' data/pacific_swimming_zone2_clubs.json",
     "seed-teams-zone:dry-run": "node seed_teams_from_json.mjs --dry-run --lsc-name='Pacific Swimming' data/pacific_swimming_zone2_clubs.json",
-    "seed-teams-zone:apply": "node seed_teams_from_json.mjs --lsc-name='Pacific Swimming' data/pacific_swimming_zone2_clubs.json"
+    "seed-teams-zone:apply": "node seed_teams_from_json.mjs --lsc-name='Pacific Swimming' data/pacific_swimming_zone2_clubs.json",
+    "backfill-team-events-end:inspect": "node backfill_team_event_end_times.mjs --inspect",
+    "backfill-team-events-end:dry-run": "node backfill_team_event_end_times.mjs --dry-run --rules team_event_end_time_rules.json",
+    "backfill-team-events-end:apply": "node backfill_team_event_end_times.mjs --apply --rules team_event_end_time_rules.json"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0"

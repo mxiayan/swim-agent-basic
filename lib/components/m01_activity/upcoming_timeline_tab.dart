@@ -273,21 +273,6 @@ bool _isCancelled(TeamEventsRecord e) {
   return s.contains('cancel');
 }
 
-DateTime? _eventEndLocal(TeamEventsRecord e) {
-  final s = e.parsedStart;
-  if (s == null) return null;
-  final t = e.endTimeLocal.trim();
-  final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(t);
-  if (m == null) return null;
-  return DateTime(
-    s.year,
-    s.month,
-    s.day,
-    int.parse(m.group(1)!),
-    int.parse(m.group(2)!),
-  );
-}
-
 bool _isHappeningNow(TeamEventsRecord e, DateTime now) {
   if (_isCancelled(e)) return false;
   final start = e.parsedStart;
@@ -296,9 +281,12 @@ bool _isHappeningNow(TeamEventsRecord e, DateTime now) {
   final sd = DateTime(start.year, start.month, start.day);
   if (sd != day) return false;
 
-  final end = _eventEndLocal(e);
+  final end = e.parsedEnd;
   if (end != null) {
     return !now.isBefore(start) && !now.isAfter(end);
+  }
+  if (e.endTimeLocal.trim().isNotEmpty) {
+    return false;
   }
   return !now.isBefore(start);
 }

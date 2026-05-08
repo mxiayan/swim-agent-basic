@@ -1,0 +1,26 @@
+{
+  "_comment": "Copy to team_event_end_time_rules.json and edit. First matching rule wins.",
+  "rules": [
+    {
+      "team_id": "oapb",
+      "event_type": "TRAINING",
+      "title_contains_any": ["junior group", "junior"],
+      "start_time_local": "18:45",
+      "end_time_local": "20:00"
+    },
+    {
+      "team_id": "oapb",
+      "event_type": "TRAINING",
+      "title_contains_any": ["junior group", "junior"],
+      "start_time_local": "19:30",
+      "end_time_local": "21:00"
+    },
+    {
+      "team_id": "oapb",
+      "event_type": "TRAINING",
+      "title_contains_any": ["senior"],
+      "start_time_local": "18:45",
+      "end_time_local": "20:30"
+    }
+  ]
+}

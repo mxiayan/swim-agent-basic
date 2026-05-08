@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -6,8 +8,201 @@ import '/backend/schema/team_events_record.dart';
 import '/theme/obsidian_volt_tokens.dart';
 import '/theme/swim_design_tokens.dart';
 import '/widgets/swim_ui_kit.dart';
+import 'current_time_indicator.dart';
 import 'schedule_display_item.dart';
 import 'team_events_schedule.dart' show normalizeCoachLocationForUi;
+
+/// Left column: start (+ end when known). Middle: dot + spine. Right: card.
+const double _kTimelineTimeCol = 56;
+const double _kTimelineDotCol = 28;
+const double _kTimelineLeading = _kTimelineTimeCol + _kTimelineDotCol;
+
+/// Vertical spine x-offset inside [_TimelineCard] (through event dots).
+const double _kTimelineSpineLeft = _kTimelineTimeCol + 10;
+
+/// Short venue-style label for list rows (detail sheet keeps full address).
+String shortLocationForTimeline(String raw) {
+  final n = normalizeCoachLocationForUi(raw).trim();
+  if (n.isEmpty) return '';
+  final byComma =
+      n.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+  if (byComma.length >= 2 && n.length > 34) {
+    return byComma.first;
+  }
+  final lines =
+      n.split(RegExp(r'\r?\n')).where((s) => s.trim().isNotEmpty).toList();
+  if (lines.length >= 2 && n.length > 34) {
+    return lines.first.trim();
+  }
+  if (n.length > 44) return '${n.substring(0, 41)}…';
+  return n;
+}
+
+DateTime? _dateFromYyyyMmDd(String s) {
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(s.trim());
+  if (m == null) return null;
+  return DateTime(
+    int.parse(m.group(1)!),
+    int.parse(m.group(2)!),
+    int.parse(m.group(3)!),
+  );
+}
+
+bool _isMidnightWall(DateTime d) =>
+    d.hour == 0 && d.minute == 0 && d.second == 0 && d.millisecond == 0;
+
+/// Firestore [parsedStart] can be midnight when [startTimeLocal] failed strict parse;
+/// recover using [parseHourMinuteLocal] so labels and grouping match the real session time.
+DateTime? _effectiveEventStart(TeamEventsRecord e) {
+  final p = e.parsedStart;
+  final day = _dateFromYyyyMmDd(e.startDate);
+  final hm = TeamEventsRecord.parseHourMinuteLocal(e.startTimeLocal);
+
+  if (p != null) {
+    if (_isMidnightWall(p) &&
+        hm != null &&
+        e.startTimeLocal.trim().isNotEmpty) {
+      final d0 = day ?? DateTime(p.year, p.month, p.day);
+      return DateTime(d0.year, d0.month, d0.day, hm.hour, hm.minute);
+    }
+    return p;
+  }
+  if (day != null && hm != null) {
+    return DateTime(day.year, day.month, day.day, hm.hour, hm.minute);
+  }
+  return null;
+}
+
+DateTime? _effectiveEventEnd(TeamEventsRecord e) {
+  final p = e.parsedEnd;
+  final day = _dateFromYyyyMmDd(e.startDate);
+  final hm = TeamEventsRecord.parseHourMinuteLocal(e.endTimeLocal);
+
+  if (p != null) {
+    if (_isMidnightWall(p) && hm != null && e.endTimeLocal.trim().isNotEmpty) {
+      final d0 = day ?? DateTime(p.year, p.month, p.day);
+      return DateTime(d0.year, d0.month, d0.day, hm.hour, hm.minute);
+    }
+    return p;
+  }
+  if (day != null && hm != null) {
+    return DateTime(day.year, day.month, day.day, hm.hour, hm.minute);
+  }
+  return null;
+}
+
+/// Start clock for UI: omits bogus midnight when no usable local time was parsed
+/// (Firestore often stores date-only → midnight placeholder).
+DateTime? _reliableEventStartForDisplay(TeamEventsRecord e) {
+  final raw = _effectiveEventStart(e);
+  if (raw == null) return null;
+  if (!_isMidnightWall(raw)) return raw;
+  final hm = TeamEventsRecord.parseHourMinuteLocal(e.startTimeLocal);
+  if (hm != null && e.startTimeLocal.trim().isNotEmpty) {
+    final day = _dateFromYyyyMmDd(e.startDate) ??
+        DateTime(raw.year, raw.month, raw.day);
+    return DateTime(day.year, day.month, day.day, hm.hour, hm.minute);
+  }
+  return null;
+}
+
+/// End clock for UI; same midnight filtering as start.
+DateTime? _reliableEventEndForDisplay(TeamEventsRecord e) {
+  final raw = _effectiveEventEnd(e);
+  if (raw == null) return null;
+  if (!_isMidnightWall(raw)) return raw;
+  final hm = TeamEventsRecord.parseHourMinuteLocal(e.endTimeLocal);
+  if (hm != null && e.endTimeLocal.trim().isNotEmpty) {
+    final day = _dateFromYyyyMmDd(e.startDate) ??
+        DateTime(raw.year, raw.month, raw.day);
+    return DateTime(day.year, day.month, day.day, hm.hour, hm.minute);
+  }
+  return null;
+}
+
+String _fmtClock(DateTime d) => DateFormat('h:mm a').format(d);
+
+bool _sameWallClock(DateTime a, DateTime b) =>
+    a.year == b.year &&
+    a.month == b.month &&
+    a.day == b.day &&
+    a.hour == b.hour &&
+    a.minute == b.minute;
+
+/// Anchor date for turning parsed clock tokens into [DateTime]s.
+DateTime? _eventCalendarDay(TeamEventsRecord e) {
+  final p = e.parsedStart;
+  if (p != null) return DateTime(p.year, p.month, p.day);
+  return _dateFromYyyyMmDd(e.startDate);
+}
+
+({int hour, int minute})? _parseClockSegment(String segment) {
+  final s = segment.trim();
+  if (s.isEmpty) return null;
+  final direct = TeamEventsRecord.parseHourMinuteLocal(s);
+  if (direct != null) return direct;
+  final m = RegExp(
+    r'(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?|\d{1,2}:\d{2}\s*[AaPp][Mm])',
+    caseSensitive: false,
+  ).firstMatch(s);
+  if (m == null) return null;
+  return TeamEventsRecord.parseHourMinuteLocal(m.group(1)!.trim());
+}
+
+/// Parses [ScheduleDisplayItem.timeDisplayLabel] (often from squad baselines when
+/// Firestore `start_time_local` / `end_time_local` are blank — e.g. `6:45 PM – 8:00 PM`).
+({DateTime? start, DateTime? end}) _clocksFromTimeDisplayLabel(
+  ScheduleDisplayItem item,
+) {
+  var raw = item.timeDisplayLabel.trim();
+  if (raw.isEmpty) return (start: null, end: null);
+
+  raw = raw.replaceAll(RegExp(r'\s+'), ' ');
+  raw = raw.replaceAll(RegExp(r'\([^)]*\)'), '').trim();
+  if (raw.isEmpty) return (start: null, end: null);
+
+  final day = _eventCalendarDay(item.record);
+  if (day == null) return (start: null, end: null);
+
+  List<String> parts = raw.split(RegExp(r'\s*[–\-]\s*'));
+  if (parts.length < 2) {
+    parts = raw.split(RegExp(r'\s+to\s+', caseSensitive: false));
+  }
+  if (parts.length >= 2) {
+    final a = _parseClockSegment(parts[0]);
+    final b = _parseClockSegment(parts[1]);
+    if (a != null && b != null) {
+      return (
+        start: DateTime(day.year, day.month, day.day, a.hour, a.minute),
+        end: DateTime(day.year, day.month, day.day, b.hour, b.minute),
+      );
+    }
+  }
+
+  final one = _parseClockSegment(raw);
+  if (one != null) {
+    return (
+      start: DateTime(day.year, day.month, day.day, one.hour, one.minute),
+      end: null,
+    );
+  }
+
+  return (start: null, end: null);
+}
+
+/// Structured Firestore times when valid; otherwise coach-ingest / baseline label.
+({DateTime? start, DateTime? end}) _timelineClocksForItem(
+  ScheduleDisplayItem item,
+) {
+  final rs = _reliableEventStartForDisplay(item.record);
+  final re = _reliableEventEndForDisplay(item.record);
+  final fb = _clocksFromTimeDisplayLabel(item);
+
+  final start = rs ?? fb.start;
+  final end = re ?? fb.end;
+
+  return (start: start, end: end);
+}
 
 /// Scroll-driven schedule timeline for the **Today** tab: collapsing date header,
 /// spine progress, Now marker, Up Next emphasis, past summary chip, and
@@ -53,6 +248,9 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
   double _scrollOffset = 0;
   DateTime? _visibleSectionDay;
   bool _pastExpanded = false;
+  Timer? _clockTicker;
+  /// Null until first layout; then whether the now line intersects the viewport.
+  bool? _nowLineVisibleInViewport;
 
   DateTime get _now => widget.currentDateTime ?? DateTime.now();
 
@@ -60,10 +258,17 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _clockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateNowLineVisibility();
+    });
   }
 
   @override
   void dispose() {
+    _clockTicker?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -76,6 +281,7 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
       setState(() => _scrollOffset = px);
     }
     _scheduleVisibleDayUpdate();
+    _scheduleNowLineVisibility();
   }
 
   void _scheduleVisibleDayUpdate() {
@@ -83,6 +289,31 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
       if (!mounted) return;
       _updateVisibleDayFromScroll();
     });
+  }
+
+  void _scheduleNowLineVisibility() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _updateNowLineVisibility();
+    });
+  }
+
+  void _updateNowLineVisibility() {
+    final ctx = _nowMarkerKey.currentContext;
+    if (ctx == null) {
+      return;
+    }
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached) return;
+    final dy = box.localToGlobal(Offset.zero).dy;
+    final h = box.size.height;
+    final mq = MediaQuery.of(context);
+    final top = mq.padding.top + _headerMin + 2;
+    final bottom = mq.size.height - mq.padding.bottom - 88;
+    final visible = dy < bottom && dy + h > top;
+    if (_nowLineVisibleInViewport != visible) {
+      setState(() => _nowLineVisibleInViewport = visible);
+    }
   }
 
   void _updateVisibleDayFromScroll() {
@@ -127,22 +358,19 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
     return _scrollOffset >= _pastCollapseScroll;
   }
 
-  double get _spineFill {
-    if (!_scrollController.hasClients) return 0;
-    final max = _scrollController.position.maxScrollExtent;
-    if (max <= 0) return 0;
-    return (_scrollOffset / max).clamp(0.0, 1.0);
-  }
-
   bool get _showFloatNow {
     if (_todayOnlyContext() == false) return false;
-    return _scrollOffset >= _floatNowThreshold;
+    if (_sortedItems().isEmpty) return false;
+    if (_nowMarkerKey.currentContext == null) return false;
+    if (_nowLineVisibleInViewport == false) return true;
+    if (_nowLineVisibleInViewport == null) {
+      return _scrollOffset >= _floatNowThreshold;
+    }
+    return false;
   }
 
-  double get _inlineNowOpacity {
-    if (_todayOnlyContext() == false) return 0;
-    return (1.0 - (_scrollOffset / 140).clamp(0.0, 1.0)).clamp(0.0, 1.0);
-  }
+  /// Inline “Now” row stays fully visible (scroll-linked fade caused readability issues).
+  double get _inlineNowOpacity => _todayOnlyContext() ? 1.0 : 0.0;
 
   /// Timeline list is for "today onward"; treat as today context when first day is today.
   bool _todayOnlyContext() {
@@ -160,10 +388,13 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
     if (ctx != null) {
       Scrollable.ensureVisible(
         ctx,
-        duration: _anim,
-        curve: Curves.easeOut,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
         alignment: 0.12,
       );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _updateNowLineVisibility();
+      });
     } else {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -193,6 +424,21 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
         alignment: 0.2,
       );
     }
+  }
+
+  void _showNowLineTapFeedback(BuildContext context) {
+    if (!context.mounted) return;
+    final t = _now;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Current time · ${CurrentTimeIndicator.formatClockLabel(t)}',
+          style: GoogleFonts.sora(fontWeight: FontWeight.w600),
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _jumpToNextDeadlineOrToday() {
@@ -308,27 +554,22 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
                     SwimDsTokens.pageHorizontalPadding,
                     0,
                   ),
-                  child: _TimelineCard(
-                    spineFill: _spineFill,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: _buildRowWidgets(
-                        sorted: sorted,
-                        today: today,
-                        now: now,
-                        nextItem: nextItem,
-                        collapsePast: collapsePast,
-                        pastExpanded: _pastExpanded,
-                        pastTodayCount: pastTodayCount,
-                        pageBg: pageBg,
-                        muted: muted,
-                        titleColor: titleColor,
-                        onOpenDetail: widget.onOpenDetail,
-                        onTogglePast: () => setState(() {
-                          _pastExpanded = !_pastExpanded;
-                        }),
-                      ),
-                    ),
+                  child: _buildTimelineColumn(
+                    context: context,
+                    sorted: sorted,
+                    today: today,
+                    now: now,
+                    nextItem: nextItem,
+                    collapsePast: collapsePast,
+                    pastExpanded: _pastExpanded,
+                    pastTodayCount: pastTodayCount,
+                    pageBg: pageBg,
+                    muted: muted,
+                    titleColor: titleColor,
+                    onOpenDetail: widget.onOpenDetail,
+                    onTogglePast: () => setState(() {
+                      _pastExpanded = !_pastExpanded;
+                    }),
                   ),
                 ),
               ),
@@ -440,7 +681,8 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
     return const SizedBox.shrink();
   }
 
-  List<Widget> _buildRowWidgets({
+  Widget _buildTimelineColumn({
+    required BuildContext context,
     required List<ScheduleDisplayItem> sorted,
     required DateTime today,
     required DateTime now,
@@ -454,9 +696,65 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
     required void Function(ScheduleDisplayItem item) onOpenDetail,
     required VoidCallback onTogglePast,
   }) {
-    final rows = <Widget>[];
+    final sections = _buildTimelineSections(
+      context: context,
+      sorted: sorted,
+      today: today,
+      now: now,
+      nextItem: nextItem,
+      collapsePast: collapsePast,
+      pastExpanded: pastExpanded,
+      pastTodayCount: pastTodayCount,
+      pageBg: pageBg,
+      muted: muted,
+      titleColor: titleColor,
+      onOpenDetail: onOpenDetail,
+      onTogglePast: onTogglePast,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (sections.today.isNotEmpty)
+          _TimelineCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: sections.today,
+            ),
+          ),
+        if (sections.future.isNotEmpty) ...[
+          SizedBox(height: SwimDsTokens.sectionSpacing + 6),
+          _TimelineCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: sections.future,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  ({List<Widget> today, List<Widget> future}) _buildTimelineSections({
+    required BuildContext context,
+    required List<ScheduleDisplayItem> sorted,
+    required DateTime today,
+    required DateTime now,
+    required ScheduleDisplayItem? nextItem,
+    required bool collapsePast,
+    required bool pastExpanded,
+    required int pastTodayCount,
+    required Color pageBg,
+    required Color muted,
+    required Color titleColor,
+    required void Function(ScheduleDisplayItem item) onOpenDetail,
+    required VoidCallback onTogglePast,
+  }) {
+    final todayRows = <Widget>[];
+    final futureRows = <Widget>[];
     final byDay = groupEventsByDateAndTimeOfDay(sorted, today);
-    var insertedNow = false;
+    final selectedOk = widget.selectedDate == null ||
+        DateUtils.isSameDay(widget.selectedDate!, now);
 
     for (var di = 0; di < byDay.length; di++) {
       final g = byDay[di];
@@ -464,17 +762,21 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
       final items = g.items;
 
       if (day != today) {
-        rows.add(
-          _DayDivider(label: _futureDaySectionLabel(day, today)),
+        final gapTop = futureRows.isEmpty ? 4.0 : 22.0;
+        futureRows.add(
+          _DayDivider(
+            label: _futureDaySectionLabel(day, today),
+            gapTop: gapTop,
+          ),
         );
         for (final item in items) {
-          rows.add(
+          futureRows.add(
             _EventRowWidget(
               key: _keyFor(item),
               item: item,
               now: now,
+              isHappeningNow: false,
               isNext: identical(item, nextItem),
-              isPast: _isFullyPast(item, now, today),
               mutedPast: _isFullyPast(item, now, today),
               pageBg: pageBg,
               muted: muted,
@@ -483,6 +785,7 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
               upNextSubtitle: identical(item, nextItem)
                   ? formatUpNextTime(item.record.parsedStart, now)
                   : null,
+              happeningProgress: null,
             ),
           );
         }
@@ -490,8 +793,27 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
       }
 
       // Today
+      final visibleToday = items
+          .where(
+            (item) => !collapsePast ||
+                pastExpanded ||
+                !_isFullyPast(item, now, today),
+          )
+          .toList();
+      final showTodayNowLine =
+          selectedOk && DateUtils.isSameDay(day, now);
+
+      final happeningOverlay = showTodayNowLine
+          ? computeHappeningNowOverlay(visibleToday, now)
+          : null;
+      final lineAt = showTodayNowLine
+          ? (happeningOverlay != null
+              ? -1
+              : computeNowLineInsertIndex(visibleToday, now))
+          : -1;
+
       if (pastTodayCount > 0 && (collapsePast || pastExpanded)) {
-        rows.add(
+        todayRows.add(
           _PastSummaryChip(
             count: pastTodayCount,
             expanded: pastExpanded,
@@ -501,6 +823,8 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
       }
 
       String? lastTod;
+      var visibleIdx = 0;
+      var isFirstVisibleTodayItem = true;
       for (final item in items) {
         if (collapsePast &&
             !pastExpanded &&
@@ -508,34 +832,59 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
           continue;
         }
 
-        final ps = item.record.parsedStart;
-        final tod = ps == null ? 'TODAY' : _timeOfDayGroup(ps);
-        if (tod != lastTod) {
-          rows.add(_DayDivider(label: tod, emphasize: _isActiveTod(tod, now)));
-          lastTod = tod;
+        final eff = _effectiveEventStart(item.record);
+        final todRaw =
+            eff == null ? 'TODAY' : _timeOfDayGroupFromDateTime(eff);
+        if (todRaw != lastTod) {
+          final skipRedundantMorning =
+              isFirstVisibleTodayItem && todRaw == 'MORNING';
+          if (!skipRedundantMorning) {
+            todayRows.add(
+              _DayDivider(
+                label: todRaw,
+                emphasize: _isActiveTod(todRaw, now),
+              ),
+            );
+          }
+          lastTod = todRaw;
         }
+        isFirstVisibleTodayItem = false;
 
-        if (!insertedNow &&
-            !_isFullyPast(item, now, today) &&
-            !day.isAfter(today)) {
-          rows.add(
+        if (lineAt >= 0 && visibleIdx == lineAt) {
+          todayRows.add(
             AnimatedOpacity(
               duration: _anim,
               opacity: _inlineNowOpacity,
-              child: _NowMarkerRow(key: _nowMarkerKey),
+              child: CurrentTimeIndicator(
+                key: _nowMarkerKey,
+                currentDateTime: now,
+                timelineDate: today,
+                leftLabelWidth: _kTimelineTimeCol,
+                timelineDotColumnWidth: _kTimelineDotCol,
+                isVisible: true,
+                onTap: () => _showNowLineTapFeedback(context),
+              ),
             ),
           );
-          insertedNow = true;
         }
 
-        rows.add(
+        final happening = !_isCancelled(item.record) &&
+            _isHappeningNow(item.record, now);
+        final isAboveNowLine = happeningOverlay != null
+            ? visibleIdx < happeningOverlay.visibleIndex
+            : (lineAt >= 0 && visibleIdx < lineAt);
+
+        final isHappeningRow = happeningOverlay != null &&
+            happeningOverlay.visibleIndex == visibleIdx;
+
+        todayRows.add(
           _EventRowWidget(
-            key: _keyFor(item),
+            key: isHappeningRow ? _nowMarkerKey : _keyFor(item),
             item: item,
             now: now,
+            isHappeningNow: happening,
             isNext: identical(item, nextItem),
-            isPast: _isFullyPast(item, now, today),
-            mutedPast: _isFullyPast(item, now, today),
+            mutedPast: isAboveNowLine,
             pageBg: pageBg,
             muted: muted,
             titleColor: titleColor,
@@ -543,12 +892,33 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
             upNextSubtitle: identical(item, nextItem)
                 ? formatUpNextTime(item.record.parsedStart, now)
                 : null,
+            happeningProgress:
+                happening ? happeningNowYFraction(item.record, now) : null,
+          ),
+        );
+        visibleIdx++;
+      }
+
+      if (lineAt >= 0 && visibleIdx == lineAt) {
+        todayRows.add(
+          AnimatedOpacity(
+            duration: _anim,
+            opacity: _inlineNowOpacity,
+            child: CurrentTimeIndicator(
+              key: _nowMarkerKey,
+              currentDateTime: now,
+              timelineDate: today,
+              leftLabelWidth: _kTimelineTimeCol,
+              timelineDotColumnWidth: _kTimelineDotCol,
+              isVisible: true,
+              onTap: () => _showNowLineTapFeedback(context),
+            ),
           ),
         );
       }
     }
 
-    return rows;
+    return (today: todayRows, future: futureRows);
   }
 
   bool _isActiveTod(String tod, DateTime now) {
@@ -711,6 +1081,64 @@ String? formatUpNextTime(DateTime? start, DateTime now) {
     return 'IN ${diff.inMinutes} MIN';
   }
   return 'SOON';
+}
+
+/// Live session row: provides list index + progress (0–1) for in-card emphasis only.
+/// The Now row is never drawn over the card.
+class HappeningNowOverlayPlan {
+  const HappeningNowOverlayPlan({
+    required this.visibleIndex,
+    required this.yFraction,
+  });
+
+  final int visibleIndex;
+  /// 0 = top of row, 1 = bottom; derived from (now - start) / (end - start).
+  final double yFraction;
+}
+
+HappeningNowOverlayPlan? computeHappeningNowOverlay(
+  List<ScheduleDisplayItem> visibleTodayItems,
+  DateTime now,
+) {
+  for (var i = 0; i < visibleTodayItems.length; i++) {
+    final r = visibleTodayItems[i].record;
+    if (_isCancelled(r)) continue;
+    if (!_isHappeningNow(r, now)) continue;
+    return HappeningNowOverlayPlan(
+      visibleIndex: i,
+      yFraction: happeningNowYFraction(r, now),
+    );
+  }
+  return null;
+}
+
+double happeningNowYFraction(TeamEventsRecord r, DateTime now) {
+  final s = r.parsedStart;
+  final e = r.parsedEnd;
+  if (s == null || e == null) return 0.5;
+  final totalMs = e.difference(s).inMilliseconds;
+  if (totalMs <= 0) return 0.5;
+  final elapsedMs = now.difference(s).inMilliseconds;
+  return (elapsedMs / totalMs).clamp(0.0, 1.0);
+}
+
+/// Insert the current-time row before index `k` in today's **visible** list;
+/// `k == length` means after the last visible item.
+/// Does not insert **before** an in-progress event — use [computeHappeningNowOverlay] for that.
+int computeNowLineInsertIndex(
+  List<ScheduleDisplayItem> visibleTodayItems,
+  DateTime now,
+) {
+  if (visibleTodayItems.isEmpty) return 0;
+  for (var i = 0; i < visibleTodayItems.length; i++) {
+    final r = visibleTodayItems[i].record;
+    if (_isCancelled(r)) continue;
+    if (_isHappeningNow(r, now)) continue;
+    final s = r.parsedStart;
+    if (s == null) continue;
+    if (now.isBefore(s)) return i;
+  }
+  return visibleTodayItems.length;
 }
 
 /// One calendar day bucket for timeline grouping helpers.
@@ -918,16 +1346,13 @@ class _EmptyTimelineHeader extends StatelessWidget {
 }
 
 class _TimelineCard extends StatelessWidget {
-  const _TimelineCard({
-    required this.spineFill,
-    required this.child,
-  });
+  const _TimelineCard({required this.child});
 
-  final double spineFill;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    final track = SwimDsTokens.primaryPurple.withValues(alpha: 0.12);
     return Container(
       decoration: BoxDecoration(
         color: SwimDsTokens.cardBackground,
@@ -935,35 +1360,19 @@ class _TimelineCard extends StatelessWidget {
         border: Border.all(color: SwimDsTokens.borderSoft, width: 1),
         boxShadow: SwimDsTokens.cardShadowSoft,
       ),
-      padding: const EdgeInsets.fromLTRB(0, 14, 12, 16),
+      padding: const EdgeInsets.fromLTRB(0, 10, 10, 12),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
-            left: 8,
-            top: 26,
-            bottom: 26,
-            width: 2,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(color: ObsidianVoltTokens.timelineSpine),
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeOut,
-                      height: (spineFill * 320).clamp(8.0, 320.0),
-                      width: 2,
-                      decoration: BoxDecoration(
-                        color: SwimDsTokens.primaryPurple.withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ),
-                ],
+            left: _kTimelineSpineLeft,
+            top: 18,
+            bottom: 18,
+            width: 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: track,
+                borderRadius: BorderRadius.circular(999),
               ),
             ),
           ),
@@ -978,15 +1387,24 @@ class _TimelineCard extends StatelessWidget {
 }
 
 class _DayDivider extends StatelessWidget {
-  const _DayDivider({required this.label, this.emphasize = false});
+  const _DayDivider({
+    required this.label,
+    this.emphasize = false,
+    this.gapTop = 12,
+  });
 
   final String label;
   final bool emphasize;
+  final double gapTop;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 26 + 8, top: 12, bottom: 8),
+      padding: EdgeInsets.only(
+        left: _kTimelineLeading + 8,
+        top: gapTop,
+        bottom: 6,
+      ),
       child: Text(
         label,
         style: GoogleFonts.sora(
@@ -997,55 +1415,6 @@ class _DayDivider extends StatelessWidget {
               ? SwimDsTokens.primaryPurple
               : SwimDsTokens.textSecondary,
         ),
-      ),
-    );
-  }
-}
-
-class _NowMarkerRow extends StatelessWidget {
-  const _NowMarkerRow({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 26 + 8, bottom: 8, top: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: SwimDsTokens.primaryPurple,
-              boxShadow: [
-                BoxShadow(
-                  color: SwimDsTokens.primaryPurple.withValues(alpha: 0.35),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: SwimDsTokens.primaryPurple.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: SwimDsTokens.primaryPurple.withValues(alpha: 0.35),
-              ),
-            ),
-            child: Text(
-              'NOW',
-              style: GoogleFonts.sora(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-                color: SwimDsTokens.primaryPurple,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1065,7 +1434,7 @@ class _PastSummaryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 26 + 4, right: 0, bottom: 10),
+      padding: EdgeInsets.only(left: _kTimelineLeading + 4, right: 0, bottom: 10),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -1207,26 +1576,49 @@ class _EventRowWidget extends StatelessWidget {
     super.key,
     required this.item,
     required this.now,
+    required this.isHappeningNow,
     required this.isNext,
-    required this.isPast,
     required this.mutedPast,
     required this.pageBg,
     required this.muted,
     required this.titleColor,
     required this.onTap,
     this.upNextSubtitle,
+    this.happeningProgress,
   });
 
   final ScheduleDisplayItem item;
   final DateTime now;
+  final bool isHappeningNow;
   final bool isNext;
-  final bool isPast;
   final bool mutedPast;
   final Color pageBg;
   final Color muted;
   final Color titleColor;
   final VoidCallback onTap;
   final String? upNextSubtitle;
+
+  /// 0–1 progress through current session when [isHappeningNow].
+  final double? happeningProgress;
+
+  Color _dotFill({
+    required bool cancelled,
+    required _TimelinePalette style,
+    required TeamEventType type,
+  }) {
+    if (cancelled) return ObsidianVoltTokens.eventCancelledDot;
+    if (mutedPast) {
+      return SwimDsTokens.textSecondary.withValues(alpha: 0.42);
+    }
+    switch (type) {
+      case TeamEventType.meet:
+        return SwimDsTokens.warningAmber;
+      case TeamEventType.training:
+        return SwimDsTokens.primaryPurple;
+      default:
+        return style.dot;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1235,53 +1627,85 @@ class _EventRowWidget extends StatelessWidget {
         ? _TimelinePalette.cancelled()
         : _TimelinePalette.forType(item.record.eventType);
 
-    final dotRing =
-        !cancelled && (isNext || (!isPast && _isHappeningNow(item.record, now)));
+    final promote = !cancelled && (isHappeningNow || isNext);
+    final dotRing = !cancelled && (isNext || isHappeningNow);
+
+    final dotColor = _dotFill(
+      cancelled: cancelled,
+      style: style,
+      type: item.record.eventType,
+    );
 
     final dot = Container(
       width: 10,
       height: 10,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: cancelled ? ObsidianVoltTokens.eventCancelledDot : style.dot,
+        color: dotColor,
+        border: dotRing
+            ? Border.all(
+                color: pageBg,
+                width: 2,
+              )
+            : null,
         boxShadow: dotRing
             ? [
                 BoxShadow(
-                  color: pageBg,
+                  color: dotColor.withValues(alpha: 0.35),
                   blurRadius: 0,
                   spreadRadius: 2,
-                ),
-                BoxShadow(
-                  color: style.dot,
-                  blurRadius: 0,
-                  spreadRadius: 3.5,
                 ),
               ]
             : null,
       ),
     );
 
-    final detailParts = <String>[];
-    if (item.timeDisplayLabel.isNotEmpty) {
-      detailParts.add(item.timeDisplayLabel);
+    final clocks = _timelineClocksForItem(item);
+    final startDt = clocks.start;
+    final endDt = clocks.end;
+    final startStr = startDt != null ? _fmtClock(startDt) : null;
+    final endStr = endDt != null ? _fmtClock(endDt) : null;
+
+    final bothDifferentClockTimes = startDt != null &&
+        endDt != null &&
+        !_sameWallClock(startDt, endDt);
+
+    String? rangeLabel;
+    if (startStr != null && endStr != null && bothDifferentClockTimes) {
+      rangeLabel = '$startStr – $endStr';
+    } else if (startStr != null) {
+      rangeLabel = startStr;
+    } else if (endStr != null) {
+      rangeLabel = endStr;
     }
-    final loc = normalizeCoachLocationForUi(item.locationDisplay);
-    if (loc.isNotEmpty) detailParts.add(loc);
-    final detailText = detailParts.join(' · ');
 
     final typeLabel = teamEventTypeLabel(item.record.eventType);
     final hint = _agentHintForEvent(item);
 
-    final borderColor = isNext
-        ? SwimDsTokens.primaryPurple.withValues(alpha: 0.55)
-        : (cancelled
-            ? ObsidianVoltTokens.borderSubtle
-            : SwimDsTokens.borderSoft);
-    final cardBg = isNext
-        ? SwimDsTokens.primaryPurple.withValues(alpha: 0.06)
-        : (cancelled
-            ? ObsidianVoltTokens.eventCancelledCardBg
-            : SwimDsTokens.cardBackground);
+    final shortLoc =
+        shortLocationForTimeline(item.locationDisplay);
+
+    final rl = rangeLabel;
+    final metaParts = <String>[
+      if (rl != null && rl.isNotEmpty) rl,
+      if (shortLoc.isNotEmpty) shortLoc,
+    ];
+    final metaLine = metaParts.join(' · ');
+
+    final borderColor = isHappeningNow
+        ? SwimDsTokens.primaryPurple.withValues(alpha: 0.42)
+        : promote
+            ? SwimDsTokens.primaryPurple.withValues(alpha: 0.38)
+            : (cancelled
+                ? ObsidianVoltTokens.borderSubtle
+                : SwimDsTokens.borderSoft);
+    final cardBg = isHappeningNow
+        ? SwimDsTokens.primaryPurple.withValues(alpha: 0.09)
+        : promote
+            ? SwimDsTokens.primaryPurple.withValues(alpha: 0.05)
+            : (cancelled
+                ? ObsidianVoltTokens.eventCancelledCardBg
+                : SwimDsTokens.cardBackground);
 
     Widget card = Material(
       color: Colors.transparent,
@@ -1289,41 +1713,23 @@ class _EventRowWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(SwimDsTokens.cardPadding - 4),
+          padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
           decoration: BoxDecoration(
             color: cardBg,
             borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius),
-            border: Border.all(color: borderColor, width: isNext ? 1.5 : 1),
+            border: Border.all(
+              color: borderColor,
+              width: isHappeningNow ? 1.5 : (promote ? 1.25 : 1),
+            ),
             boxShadow: cancelled ? null : SwimDsTokens.cardShadowSoft,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (isNext && upNextSubtitle != null) ...[
-                Text(
-                  'UP NEXT · $upNextSubtitle',
-                  style: GoogleFonts.sora(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: SwimDsTokens.primaryPurple,
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ] else if (isNext) ...[
-                Text(
-                  'UP NEXT',
-                  style: GoogleFonts.sora(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: SwimDsTokens.primaryPurple,
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ],
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   if (!cancelled)
                     StatusPill(
@@ -1335,36 +1741,98 @@ class _EventRowWidget extends StatelessWidget {
                       label: 'CANCELLED',
                       kind: SwimStatusPillKind.neutral,
                     ),
-                  if (!cancelled && item.squadLabel.trim().isNotEmpty) ...[
-                    const SizedBox(width: 8),
+                  if (!cancelled && item.squadLabel.trim().isNotEmpty)
                     StatusPill(
                       label: item.squadLabel,
                       kind: SwimStatusPillKind.notDecided,
                     ),
-                  ],
+                  if (isHappeningNow)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: SwimDsTokens.primaryPurple.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color:
+                              SwimDsTokens.primaryPurple.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        'HAPPENING NOW',
+                        style: GoogleFonts.sora(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.45,
+                          color: SwimDsTokens.primaryPurple,
+                        ),
+                      ),
+                    )
+                  else if (isNext && upNextSubtitle != null)
+                    Text(
+                      'UP NEXT · $upNextSubtitle',
+                      style: GoogleFonts.sora(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                        color: SwimDsTokens.primaryPurple,
+                      ),
+                    )
+                  else if (isNext)
+                    Text(
+                      'UP NEXT',
+                      style: GoogleFonts.sora(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                        color: SwimDsTokens.primaryPurple,
+                      ),
+                    ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 item.record.title.isEmpty ? '(Untitled)' : item.record.title,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.sora(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  height: 1.3,
+                  height: 1.25,
                   color: titleColor,
                   decoration: cancelled
                       ? TextDecoration.lineThrough
                       : TextDecoration.none,
                 ),
               ),
-              if (detailText.isNotEmpty) ...[
+              if (metaLine.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  detailText,
+                  metaLine,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.sora(
-                    fontSize: 12,
+                    fontSize: 11.5,
+                    height: 1.3,
                     fontWeight: FontWeight.w500,
                     color: muted,
+                  ),
+                ),
+              ],
+              if (happeningProgress != null &&
+                  isHappeningNow &&
+                  !cancelled) ...[
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: happeningProgress!.clamp(0.0, 1.0),
+                    minHeight: 4,
+                    backgroundColor:
+                        SwimDsTokens.primaryPurple.withValues(alpha: 0.12),
+                    color: SwimDsTokens.primaryPurple.withValues(alpha: 0.65),
                   ),
                 ),
               ],
@@ -1375,7 +1843,7 @@ class _EventRowWidget extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.auto_awesome_rounded,
-                      size: 14,
+                      size: 13,
                       color: SwimDsTokens.primaryPurple.withValues(alpha: 0.85),
                     ),
                     const SizedBox(width: 6),
@@ -1383,7 +1851,7 @@ class _EventRowWidget extends StatelessWidget {
                       child: Text(
                         hint,
                         style: GoogleFonts.sora(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           height: 1.35,
                           fontWeight: FontWeight.w500,
                           color: SwimDsTokens.textSecondary,
@@ -1401,19 +1869,81 @@ class _EventRowWidget extends StatelessWidget {
 
     if (cancelled) {
       card = Opacity(opacity: 0.38, child: card);
-    } else if (mutedPast && !isNext) {
+    } else if (mutedPast && !promote) {
       card = Opacity(opacity: 0.78, child: card);
     }
 
+    final Widget timeCol;
+    if (startStr == null && endStr == null) {
+      timeCol = SizedBox(width: _kTimelineTimeCol);
+    } else {
+      timeCol = SizedBox(
+        width: _kTimelineTimeCol,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 10, right: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (startStr != null)
+                Text(
+                  startStr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.sora(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    color: mutedPast ? muted : titleColor,
+                  ),
+                ),
+              if (startStr != null &&
+                  endStr != null &&
+                  bothDifferentClockTimes)
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(
+                    endStr,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.sora(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                      color: mutedPast
+                          ? muted
+                          : SwimDsTokens.textSecondary,
+                    ),
+                  ),
+                )
+              else if (startStr == null && endStr != null)
+                Text(
+                  endStr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.sora(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    color: mutedPast ? muted : titleColor,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          timeCol,
           SizedBox(
-            width: 26,
+            width: _kTimelineDotCol,
             child: Padding(
-              padding: const EdgeInsets.only(left: 3.75, top: 14),
+              padding: const EdgeInsets.only(left: 4, top: 11),
               child: dot,
             ),
           ),
@@ -1434,7 +1964,7 @@ String _futureDaySectionLabel(DateTime day, DateTime today) {
   return DateFormat('EEE, MMM d').format(day).toUpperCase();
 }
 
-String _timeOfDayGroup(DateTime ps) {
+String _timeOfDayGroupFromDateTime(DateTime ps) {
   if (ps.hour < 12) return 'MORNING';
   if (ps.hour < 17) return 'AFTERNOON';
   return 'EVENING';
@@ -1458,7 +1988,7 @@ bool _isFullyPast(
   if (day.isBefore(today)) return true;
   if (day.isAfter(today)) return false;
   if (_isHappeningNow(e, now)) return false;
-  final end = _eventEndLocal(e);
+  final end = e.parsedEnd;
   if (end != null) {
     return !end.isAfter(now);
   }
@@ -1470,21 +2000,6 @@ bool _isCancelled(TeamEventsRecord e) {
   return s.contains('cancel');
 }
 
-DateTime? _eventEndLocal(TeamEventsRecord e) {
-  final s = e.parsedStart;
-  if (s == null) return null;
-  final t = e.endTimeLocal.trim();
-  final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(t);
-  if (m == null) return null;
-  return DateTime(
-    s.year,
-    s.month,
-    s.day,
-    int.parse(m.group(1)!),
-    int.parse(m.group(2)!),
-  );
-}
-
 bool _isHappeningNow(TeamEventsRecord e, DateTime now) {
   if (_isCancelled(e)) return false;
   final start = e.parsedStart;
@@ -1493,9 +2008,13 @@ bool _isHappeningNow(TeamEventsRecord e, DateTime now) {
   final sd = DateTime(start.year, start.month, start.day);
   if (sd != day) return false;
 
-  final end = _eventEndLocal(e);
+  final end = e.parsedEnd;
   if (end != null) {
     return !now.isBefore(start) && !now.isAfter(end);
+  }
+  // No parsed end: avoid treating “start at midnight + display-only time” as all-day live.
+  if (e.endTimeLocal.trim().isNotEmpty) {
+    return false;
   }
   return !now.isBefore(start);
 }

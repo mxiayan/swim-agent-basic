@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import '/app_state.dart';
@@ -9,7 +10,9 @@ import '/theme/swim_design_tokens.dart';
 import 'agent_feed_item.dart';
 import 'agent_feed_logic.dart';
 import 'agent_meet_feed_bridge.dart';
+import 'agent_urgency.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -21,6 +24,23 @@ const Color _kChipLowAccent = Color(0xFF607D8B);
 
 const double _bottomInsetForNavAndFab = 120.0;
 const double _fabBottomOffset = 88.0;
+
+bool _agentReduceMotion(BuildContext context) {
+  return MediaQuery.disableAnimationsOf(context) ||
+      WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.reduceMotion;
+}
+
+SwimBellDotKind _agentBellDotKind({
+  required AgentSmartStats stats,
+  required AgentUrgencyLevel needsMax,
+  required AgentUrgencyLevel nextUrgency,
+}) {
+  final urgent = nextUrgency.showsPulse ||
+      (needsMax.showsPulse && stats.needsAction > 0);
+  if (urgent) return SwimBellDotKind.urgentRed;
+  if (stats.newUpdates > 0) return SwimBellDotKind.updatesAmber;
+  return SwimBellDotKind.none;
+}
 
 /// Prioritized swim-agent dashboard (“what next?”), styled like existing Agent UI.
 class AgentHomeWidget extends StatefulWidget {
@@ -203,10 +223,15 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
     return '$datePart · ${DateFormat.jm().format(dt)}';
   }
 
+  void _handleNextBestNavigate(AgentFeedItem item) {
+    _onFeedNavigateHints(item);
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<FFAppState>();
     final now = DateTime.now();
+    final reduceMotion = _agentReduceMotion(context);
     return StreamBuilder<List<MonitoredMeetsRecord>>(
       stream: streamMonitoredMeetsForSwimmer(
         zoneId: app.currentSwimmerZoneForMeets,
@@ -235,6 +260,16 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
         final deadlineInsight =
             AgentFeedLogic.pickNextDeadlineHighlight(feed, now);
         final coachInsight = AgentFeedLogic.pickLatestCoachUpdate(feed);
+
+        final needsMaxUrgency = maxNeedsActionUrgency(feed, now);
+        final nextUrgency = next != null
+            ? agentUrgencyForFeedItem(next, now)
+            : AgentUrgencyLevel.none;
+        final bellDot = _agentBellDotKind(
+          stats: stats,
+          needsMax: needsMaxUrgency,
+          nextUrgency: nextUrgency,
+        );
 
         var scheduleInsightIncluded = false;
         final insightChildren = <Widget>[];
@@ -312,21 +347,35 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
                     onBellTap: () => _toast('Notifications'),
                     onAvatarTap: widget.onProfileTap,
                     avatarAssetPath: widget.avatarAssetPath,
+                    bellDotKind: bellDot,
                     topPadding: SwimDsTokens.smallGap,
                     bottomPadding: SwimDsTokens.sectionSpacing - 4,
+                  )
+                      .animate()
+                      .fadeIn(
+                        duration: 420.ms,
+                        curve: Curves.easeOutCubic,
+                      )
+                      .slideY(
+                        begin: 0.07,
+                        duration: 420.ms,
+                        curve: Curves.easeOutCubic,
+                      ),
+                  _AgentMetricStrip(
+                    stats: stats,
+                    needsMaxUrgency: needsMaxUrgency,
+                    reduceMotion: reduceMotion,
                   ),
-                  _SmartAgentStatRow(stats: stats),
                   SizedBox(height: SwimDsTokens.sectionSpacing),
                   if (next != null)
                     _NextBestActionCard(
+                      key: ValueKey(next.id),
                       item: next,
                       swimmerFirstName: _displayFirstName(),
-                      onPrimary: () => _debugAgent(next.actionLabel ?? 'Primary'),
-                      onSecondaryAlt:
-                          next.secondaryActionLabel != null &&
-                                  next.secondaryActionLabel!.isNotEmpty
-                              ? () => _debugAgent(next.secondaryActionLabel!)
-                              : null,
+                      urgency: nextUrgency,
+                      reduceMotion: reduceMotion,
+                      onPrimary: () => _handleNextBestNavigate(next),
+                      onSecondary: () => _handleNextBestNavigate(next),
                     )
                   else
                     EmptyStateCard(
@@ -339,7 +388,19 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
                         _openScheduleTab();
                         _toast('Opening Schedule');
                       },
-                    ),
+                    )
+                        .animate()
+                        .fadeIn(
+                          delay: 880.ms,
+                          duration: 460.ms,
+                          curve: Curves.easeOutCubic,
+                        )
+                        .slideY(
+                          begin: 0.06,
+                          delay: 880.ms,
+                          duration: 460.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
                   SizedBox(height: SwimDsTokens.sectionSpacing),
                   if (insightChildren.isNotEmpty) ...insightChildren,
                   if (!scheduleInsightIncluded) ...[
@@ -543,68 +604,299 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
   }
 }
 
-class _SmartAgentStatRow extends StatelessWidget {
-  const _SmartAgentStatRow({required this.stats});
+class _AgentMetricStrip extends StatefulWidget {
+  const _AgentMetricStrip({
+    required this.stats,
+    required this.needsMaxUrgency,
+    required this.reduceMotion,
+  });
 
   final AgentSmartStats stats;
+  final AgentUrgencyLevel needsMaxUrgency;
+  final bool reduceMotion;
 
-  static const double _cardHeight = 102;
+  @override
+  State<_AgentMetricStrip> createState() => _AgentMetricStripState();
+}
+
+class _AgentMetricStripState extends State<_AgentMetricStrip> {
+  static const double _cardHeight = 108;
+  bool _startNeedsCount = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.reduceMotion) {
+      _startNeedsCount = true;
+    } else {
+      Future.delayed(const Duration(milliseconds: 780), () {
+        if (mounted) setState(() => _startNeedsCount = true);
+      });
+    }
+  }
+
+  Color _needsAccent() {
+    final u = widget.needsMaxUrgency;
+    final n = widget.stats.needsAction;
+    if (n == 0) return SwimDsTokens.textSecondary;
+    switch (u) {
+      case AgentUrgencyLevel.none:
+      case AgentUrgencyLevel.normal:
+        return SwimDsTokens.newUpdatePurple;
+      case AgentUrgencyLevel.dueSoon:
+        return SwimDsTokens.warningAmber;
+      case AgentUrgencyLevel.urgent:
+      case AgentUrgencyLevel.critical:
+        return SwimDsTokens.dangerCoral;
+    }
+  }
+
+  bool _needsPulse() {
+    return !widget.reduceMotion &&
+        widget.stats.needsAction > 0 &&
+        widget.needsMaxUrgency.showsPulse;
+  }
+
+  bool _needsAlertDot() {
+    return widget.stats.needsAction > 0 &&
+        widget.needsMaxUrgency.showsPulse;
+  }
+
+  Widget _needsValue() {
+    final target = widget.stats.needsAction;
+    final accent = _needsAccent();
+    if (!_startNeedsCount) {
+      return Text(
+        '0',
+        style: GoogleFonts.sora(
+          fontSize: 26,
+          fontWeight: FontWeight.w800,
+          color: SwimDsTokens.textPrimary,
+          height: 1,
+        ),
+      );
+    }
+    if (widget.reduceMotion || target == 0) {
+      return Text(
+        '$target',
+        style: GoogleFonts.sora(
+          fontSize: 26,
+          fontWeight: FontWeight.w800,
+          color: target == 0 ? SwimDsTokens.textPrimary : accent,
+          height: 1,
+        ),
+      );
+    }
+    return TweenAnimationBuilder<int>(
+      tween: IntTween(begin: 0, end: target),
+      duration: const Duration(milliseconds: 880),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) => Text(
+        '$v',
+        style: GoogleFonts.sora(
+          fontSize: 26,
+          fontWeight: FontWeight.w800,
+          color: accent,
+          height: 1,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pulse = _needsPulse();
+    final accent = _needsAccent();
+
+    Widget needsCard = Semantics(
+      label: 'Needs action, ${widget.stats.needsAction} items',
+      child: _MetricMiniCard(
+        height: _cardHeight,
+        label: 'Needs Action',
+        valueWidget: _needsValue(),
+        accent: accent,
+        calm: widget.stats.needsAction == 0,
+        icon: Icons.flag_rounded,
+        alertDot: _needsAlertDot(),
+        shimmerDot: !widget.reduceMotion,
+        reduceMotion: widget.reduceMotion,
+        footerHint: 'Tap brief below',
+      ),
+    );
+
+    if (pulse) {
+      needsCard = _PulseRing(child: needsCard);
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: _MiniStatCard(
-            label: 'Needs Action',
-            value: stats.needsAction,
-            accent: SwimDsTokens.dangerCoral,
-            icon: Icons.flag_rounded,
-          ),
+          child: needsCard
+              .animate()
+              .fadeIn(
+                delay: 460.ms,
+                duration: 340.ms,
+                curve: Curves.easeOutCubic,
+              )
+              .slideY(
+                begin: 0.1,
+                delay: 460.ms,
+                duration: 340.ms,
+                curve: Curves.easeOutCubic,
+              ),
         ),
         SizedBox(width: SwimDsTokens.cardSpacing),
         Expanded(
-          child: _MiniStatCard(
-            label: 'Today',
-            value: stats.today,
-            accent: SwimDsTokens.infoBlueGray,
-            icon: Icons.today_rounded,
-          ),
+          child: Semantics(
+            label: 'Today, ${widget.stats.today} items',
+            child: _MetricMiniCard(
+              height: _cardHeight,
+              label: 'Today',
+              valueWidget: Text(
+                '${widget.stats.today}',
+                style: GoogleFonts.sora(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: SwimDsTokens.infoBlueGray,
+                  height: 1,
+                ),
+              ),
+              accent: SwimDsTokens.infoBlueGray,
+              calm: false,
+              icon: Icons.today_rounded,
+            ),
+          )
+              .animate()
+              .fadeIn(
+                delay: 560.ms,
+                duration: 340.ms,
+                curve: Curves.easeOutCubic,
+              )
+              .slideY(
+                begin: 0.1,
+                delay: 560.ms,
+                duration: 340.ms,
+                curve: Curves.easeOutCubic,
+              ),
         ),
         SizedBox(width: SwimDsTokens.cardSpacing),
         Expanded(
-          child: _MiniStatCard(
-            label: 'New Updates',
-            value: stats.newUpdates,
-            accent: SwimDsTokens.newUpdatePurple,
-            icon: Icons.mark_chat_unread_rounded,
-          ),
+          child: Semantics(
+            label: 'New updates, ${widget.stats.newUpdates}',
+            child: _MetricMiniCard(
+              height: _cardHeight,
+              label: 'New Updates',
+              valueWidget: Text(
+                '${widget.stats.newUpdates}',
+                style: GoogleFonts.sora(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: widget.stats.newUpdates == 0
+                      ? SwimDsTokens.textPrimary
+                      : SwimDsTokens.newUpdatePurple,
+                  height: 1,
+                ),
+              ),
+              accent: SwimDsTokens.newUpdatePurple,
+              calm: widget.stats.newUpdates == 0,
+              icon: Icons.mark_chat_unread_rounded,
+            ),
+          )
+              .animate()
+              .fadeIn(
+                delay: 660.ms,
+                duration: 340.ms,
+                curve: Curves.easeOutCubic,
+              )
+              .slideY(
+                begin: 0.1,
+                delay: 660.ms,
+                duration: 340.ms,
+                curve: Curves.easeOutCubic,
+              ),
         ),
       ],
     );
   }
 }
 
-class _MiniStatCard extends StatelessWidget {
-  const _MiniStatCard({
-    required this.label,
-    required this.value,
-    required this.accent,
-    this.icon,
-  });
+class _PulseRing extends StatefulWidget {
+  const _PulseRing({required this.child});
 
-  final String label;
-  final int value;
-  final Color accent;
-  final IconData? icon;
+  final Widget child;
+
+  @override
+  State<_PulseRing> createState() => _PulseRingState();
+}
+
+class _PulseRingState extends State<_PulseRing>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final calm = value == 0;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final v = _c.value;
+        return Container(
+          padding: EdgeInsets.all(1 + v * 1.2),
+          decoration: BoxDecoration(
+            borderRadius:
+                BorderRadius.circular(SwimDsTokens.cardRadius + 5),
+            border: Border.all(
+              width: 1 + v * 0.8,
+              color: SwimDsTokens.dangerCoral.withValues(alpha: 0.28 + v * 0.22),
+            ),
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class _MetricMiniCard extends StatelessWidget {
+  const _MetricMiniCard({
+    required this.height,
+    required this.label,
+    required this.valueWidget,
+    required this.accent,
+    required this.calm,
+    this.icon,
+    this.alertDot = false,
+    this.shimmerDot = false,
+    this.reduceMotion = false,
+    this.footerHint,
+  });
+
+  final double height;
+  final String label;
+  final Widget valueWidget;
+  final Color accent;
+  final bool calm;
+  final IconData? icon;
+  final bool alertDot;
+  final bool shimmerDot;
+  final bool reduceMotion;
+  final String? footerHint;
+
+  @override
+  Widget build(BuildContext context) {
     final fg = calm ? SwimDsTokens.textSecondary : accent;
     return SizedBox(
-      height: _SmartAgentStatRow._cardHeight,
+      height: height,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: SwimDsTokens.cardBackground,
@@ -617,7 +909,7 @@ class _MiniStatCard extends StatelessWidget {
             SwimDsTokens.cardPadding - 4,
             12,
             SwimDsTokens.cardPadding - 4,
-            12,
+            10,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,21 +929,88 @@ class _MiniStatCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (icon != null)
+                  if (alertDot)
+                    _UrgentDot(shimmer: shimmerDot && !reduceMotion)
+                  else if (icon != null)
                     Icon(icon, size: 18, color: fg.withValues(alpha: 0.85)),
                 ],
               ),
               const Spacer(),
-              Text(
-                '$value',
-                style: GoogleFonts.sora(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: calm ? SwimDsTokens.textPrimary : fg,
-                  height: 1,
+              valueWidget,
+              if (footerHint != null)
+                Text(
+                  footerHint!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.sora(
+                    fontSize: 9,
+                    height: 1.1,
+                    color:
+                        SwimDsTokens.textSecondary.withValues(alpha: 0.85),
+                  ),
                 ),
-              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small dot when Needs Action is urgent (optional shimmer).
+class _UrgentDot extends StatefulWidget {
+  const _UrgentDot({required this.shimmer});
+
+  final bool shimmer;
+
+  @override
+  State<_UrgentDot> createState() => _UrgentDotState();
+}
+
+class _UrgentDotState extends State<_UrgentDot>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _c;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.shimmer) {
+      _c = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1400),
+      )..repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final opacity = widget.shimmer && _c != null
+        ? (0.45 + _c!.value * 0.55)
+        : 1.0;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: SizedBox(
+        width: 10,
+        height: 18,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Opacity(
+            opacity: opacity.clamp(0.0, 1.0),
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: SwimDsTokens.dangerCoral,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.2),
+              ),
+            ),
           ),
         ),
       ),
@@ -712,46 +1071,47 @@ class _WarmEmptyCard extends StatelessWidget {
 
 class _NextBestActionCard extends StatefulWidget {
   const _NextBestActionCard({
+    super.key,
     required this.item,
     required this.swimmerFirstName,
+    required this.urgency,
+    required this.reduceMotion,
     required this.onPrimary,
-    this.onSecondaryAlt,
+    required this.onSecondary,
   });
 
   final AgentFeedItem item;
   final String swimmerFirstName;
+  final AgentUrgencyLevel urgency;
+  final bool reduceMotion;
   final VoidCallback onPrimary;
-  final VoidCallback? onSecondaryAlt;
+  final VoidCallback onSecondary;
 
   @override
   State<_NextBestActionCard> createState() => _NextBestActionCardState();
 }
 
 class _NextBestActionCardState extends State<_NextBestActionCard> {
-  bool _detailsOpen = false;
-
-  String _actionNeeded() {
+  String _subtitleSummary() {
     final item = widget.item;
     final fn = widget.swimmerFirstName;
     if (item.type == AgentFeedItemType.upcomingMeet) {
-      return 'Review and confirm $fn\'s entry';
+      return 'Review and confirm $fn\'s entry before the deadline.';
+    }
+    if (item.type == AgentFeedItemType.volunteerJob) {
+      return 'Choose a volunteer job for this meet.';
+    }
+    if (item.type == AgentFeedItemType.coachUpdate) {
+      return 'Read the latest coach update.';
+    }
+    if (item.type == AgentFeedItemType.todayPlan) {
+      return 'Check today\'s workout time.';
     }
     final al = item.actionLabel?.trim();
     if (al != null && al.isNotEmpty) return al;
     final s = item.summary.trim();
-    if (s.length <= 160) return s.isEmpty ? 'Review this item' : s;
-    return '${s.substring(0, 157)}…';
-  }
-
-  String _whyMatters() {
-    final item = widget.item;
-    if (item.coachApproved && item.type == AgentFeedItemType.upcomingMeet) {
-      return 'Entry deadline is coming soon. Coach approved this meet for your swimmer.';
-    }
-    if (item.dueTime != null) {
-      return 'This item has an approaching deadline.';
-    }
-    return 'This item may need parent attention.';
+    if (s.length <= 140) return s.isEmpty ? 'Review this item' : s;
+    return '${s.substring(0, 137)}…';
   }
 
   String _statusLabel() {
@@ -765,16 +1125,25 @@ class _NextBestActionCardState extends State<_NextBestActionCard> {
     }
   }
 
+  String _primaryLabel({required bool deadlinePassed}) {
+    final item = widget.item;
+    if (deadlinePassed) return 'View details';
+    return item.actionLabel?.trim().isNotEmpty == true
+        ? item.actionLabel!.trim()
+        : 'Review entry';
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    final now = DateTime.now();
+    final dl = item.dueTime;
+    final expired = dl != null && !dl.isAfter(now);
     final eventDt = item.eventTime ?? item.dueTime;
     final dateStr =
         eventDt != null ? DateFormat.yMMMEd().format(eventDt) : '—';
     final loc = (item.venueLabel ?? '').trim();
-    final deadlineStr = item.dueTime != null
-        ? '${DateFormat.yMMMEd().format(item.dueTime!)} · ${DateFormat.jm().format(item.dueTime!)}'
-        : '—';
+    final group = (item.groupName ?? '').trim();
 
     TextStyle bodyMuted() => GoogleFonts.sora(
           fontSize: 13,
@@ -782,31 +1151,12 @@ class _NextBestActionCardState extends State<_NextBestActionCard> {
           color: SwimDsTokens.textSecondary,
         );
 
-    Widget section(String title, String body) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.sora(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: SwimDsTokens.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(body, style: bodyMuted()),
-          ],
-        );
-
     final chips = <Widget>[
       StatusPill(kind: SwimStatusPillKind.today, label: 'Date · $dateStr'),
       if (loc.isNotEmpty)
         StatusPill(kind: SwimStatusPillKind.neutral, label: 'Location · $loc'),
-      if (item.dueTime != null)
-        StatusPill(
-          kind: SwimStatusPillKind.deadlineSoon,
-          label: 'Entry deadline · $deadlineStr',
-        ),
+      if (group.isNotEmpty)
+        StatusPill(kind: SwimStatusPillKind.neutral, label: 'Group · $group'),
       StatusPill(
         kind: SwimStatusPillKind.active,
         label: 'Status · ${_statusLabel()}',
@@ -819,14 +1169,22 @@ class _NextBestActionCardState extends State<_NextBestActionCard> {
         ),
     ];
 
-    return Container(
+    final breathe = !widget.reduceMotion &&
+        (widget.urgency == AgentUrgencyLevel.urgent ||
+            widget.urgency == AgentUrgencyLevel.critical);
+    final amberBand =
+        widget.urgency == AgentUrgencyLevel.dueSoon && !breathe;
+
+    Widget core = Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: SwimDsTokens.cardBackground,
         borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius + 4),
         border: Border.all(
-          color: LavenderIndigoTokens.primary.withValues(alpha: 0.28),
-          width: 1.5,
+          color: amberBand
+              ? SwimDsTokens.warningAmber.withValues(alpha: 0.55)
+              : LavenderIndigoTokens.primary.withValues(alpha: 0.28),
+          width: amberBand ? 2 : 1.5,
         ),
         boxShadow: [
           BoxShadow(
@@ -842,10 +1200,25 @@ class _NextBestActionCardState extends State<_NextBestActionCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            StatusPill(
-              label: 'Next Best Action',
-              kind: SwimStatusPillKind.newUpdate,
-              icon: Icons.auto_awesome_rounded,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: StatusPill(
+                    label: 'Next Best Action',
+                    kind: SwimStatusPillKind.newUpdate,
+                    icon: Icons.auto_awesome_rounded,
+                  ),
+                ),
+                if (widget.urgency.showsUrgentBadge)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: _UrgencyBadgePop(
+                      level: widget.urgency,
+                      reduceMotion: widget.reduceMotion,
+                    ),
+                  ),
+              ],
             ),
             SizedBox(height: SwimDsTokens.mediumGap),
             Text(
@@ -857,13 +1230,14 @@ class _NextBestActionCardState extends State<_NextBestActionCard> {
                 height: 1.25,
               ),
             ),
-            SizedBox(height: SwimDsTokens.mediumGap),
-            section('Action needed', _actionNeeded()),
-            SizedBox(height: SwimDsTokens.smallGap + 2),
-            section('Why it matters', _whyMatters()),
+            SizedBox(height: SwimDsTokens.smallGap),
+            Text(
+              _subtitleSummary(),
+              style: bodyMuted(),
+            ),
             SizedBox(height: SwimDsTokens.mediumGap),
             Text(
-              'Key details',
+              'Details',
               style: GoogleFonts.sora(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -876,26 +1250,388 @@ class _NextBestActionCardState extends State<_NextBestActionCard> {
               runSpacing: SwimDsTokens.smallGap,
               children: chips,
             ),
-            SizedBox(height: SwimDsTokens.largeGap),
-            SwimPrimaryButton(
-              label: item.actionLabel ?? 'Review Entry',
-              onPressed: widget.onPrimary,
-            ),
-            if (item.summary.trim().isNotEmpty)
-              SwimSecondaryButton(
-                label: _detailsOpen ? 'Hide details' : 'View details',
-                onPressed: () => setState(() => _detailsOpen = !_detailsOpen),
+            if (dl != null) ...[
+              SizedBox(height: SwimDsTokens.mediumGap),
+              _AgentDeadlineCountdown(
+                deadline: dl,
+                urgency: widget.urgency,
+                reduceMotion: widget.reduceMotion,
               ),
-            if (widget.onSecondaryAlt != null)
-              SwimSecondaryButton(
-                label: item.secondaryActionLabel ?? 'View Meet Sheet',
-                onPressed: widget.onSecondaryAlt,
-              ),
-            if (_detailsOpen && item.summary.trim().isNotEmpty) ...[
-              SizedBox(height: SwimDsTokens.smallGap),
-              Text(item.summary.trim(), style: bodyMuted()),
             ],
+            SizedBox(height: SwimDsTokens.largeGap),
+            Semantics(
+              button: true,
+              label: _primaryLabel(deadlinePassed: expired),
+              child: _AgentPrimaryCta(
+                label: _primaryLabel(deadlinePassed: expired),
+                onPressed: widget.onPrimary,
+              ),
+            ),
+            SwimSecondaryButton(
+              label: 'View details',
+              onPressed: widget.onSecondary,
+            ),
           ],
+        ),
+      ),
+    );
+
+    if (amberBand) {
+      core = DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(SwimDsTokens.cardRadius + 6),
+          border: Border(
+            left: BorderSide(
+              color: SwimDsTokens.warningAmber.withValues(alpha: 0.85),
+              width: 4,
+            ),
+          ),
+        ),
+        child: core,
+      );
+    }
+
+    if (breathe) {
+      core = _BreathingActionShell(
+        strong: widget.urgency == AgentUrgencyLevel.critical,
+        reduceMotion: widget.reduceMotion,
+        child: core,
+      );
+    }
+
+    return Semantics(
+      container: true,
+      label: 'Next best action: ${item.title}',
+      child: core,
+    )
+        .animate()
+        .fadeIn(
+          delay: 820.ms,
+          duration: 460.ms,
+          curve: Curves.easeOutCubic,
+        )
+        .slideY(
+          begin: 0.08,
+          delay: 820.ms,
+          duration: 460.ms,
+          curve: Curves.easeOutCubic,
+        );
+  }
+}
+
+class _UrgencyBadgePop extends StatelessWidget {
+  const _UrgencyBadgePop({
+    required this.level,
+    required this.reduceMotion,
+  });
+
+  final AgentUrgencyLevel level;
+  final bool reduceMotion;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!level.showsUrgentBadge) return const SizedBox.shrink();
+
+    late Color bg;
+    late Color fg;
+    late String text;
+    switch (level) {
+      case AgentUrgencyLevel.dueSoon:
+        bg = SwimDsTokens.warningAmber.withValues(alpha: 0.18);
+        fg = const Color(0xFFB45309);
+        text = 'Due soon';
+        break;
+      case AgentUrgencyLevel.urgent:
+        bg = SwimDsTokens.dangerCoral.withValues(alpha: 0.16);
+        fg = const Color(0xFFB91C1C);
+        text = 'Urgent';
+        break;
+      case AgentUrgencyLevel.critical:
+        bg = const Color(0xFFFECACA);
+        fg = const Color(0xFF991B1B);
+        text = 'Critical';
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    final pill = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: level == AgentUrgencyLevel.critical
+            ? Border.all(color: fg.withValues(alpha: 0.45))
+            : null,
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.sora(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: fg,
+        ),
+      ),
+    );
+
+    if (reduceMotion) return pill;
+
+    return pill
+        .animate()
+        .scale(
+          delay: 1180.ms,
+          duration: 320.ms,
+          begin: const Offset(0.88, 0.88),
+          end: const Offset(1, 1),
+          curve: Curves.easeOutBack,
+        )
+        .fadeIn(delay: 1180.ms, duration: 240.ms);
+  }
+}
+
+class _BreathingActionShell extends StatefulWidget {
+  const _BreathingActionShell({
+    required this.child,
+    required this.strong,
+    required this.reduceMotion,
+  });
+
+  final Widget child;
+  final bool strong;
+  final bool reduceMotion;
+
+  @override
+  State<_BreathingActionShell> createState() => _BreathingActionShellState();
+}
+
+class _BreathingActionShellState extends State<_BreathingActionShell>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2750),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.reduceMotion) return widget.child;
+
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final v = _c.value;
+        final alpha = 0.22 + v * (widget.strong ? 0.2 : 0.12);
+        return Container(
+          padding: EdgeInsets.all(1.2 + v * (widget.strong ? 1.4 : 0.9)),
+          decoration: BoxDecoration(
+            borderRadius:
+                BorderRadius.circular(SwimDsTokens.cardRadius + 8),
+            border: Border.all(
+              color: SwimDsTokens.dangerCoral.withValues(alpha: alpha),
+              width: 1.1 + v * 0.7,
+            ),
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class _AgentDeadlineCountdown extends StatefulWidget {
+  const _AgentDeadlineCountdown({
+    required this.deadline,
+    required this.urgency,
+    required this.reduceMotion,
+  });
+
+  final DateTime deadline;
+  final AgentUrgencyLevel urgency;
+  final bool reduceMotion;
+
+  @override
+  State<_AgentDeadlineCountdown> createState() =>
+      _AgentDeadlineCountdownState();
+}
+
+class _AgentDeadlineCountdownState extends State<_AgentDeadlineCountdown> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _restartTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AgentDeadlineCountdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deadline != widget.deadline) {
+      _restartTimer();
+    }
+  }
+
+  void _restartTimer() {
+    _timer?.cancel();
+    void tick() {
+      if (!mounted) return;
+      setState(() {});
+      final diff = widget.deadline.difference(DateTime.now());
+      if (diff.isNegative) return;
+      final next = diff.inDays > 7
+          ? const Duration(minutes: 1)
+          : const Duration(seconds: 1);
+      _timer = Timer(next, tick);
+    }
+
+    tick();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _title({required bool expired}) {
+    if (expired) return 'DEADLINE';
+    switch (widget.urgency) {
+      case AgentUrgencyLevel.critical:
+        return 'ENTRY DEADLINE · COUNTING DOWN';
+      case AgentUrgencyLevel.urgent:
+        return 'ACTION NEEDED BY';
+      case AgentUrgencyLevel.dueSoon:
+        return 'DUE SOON';
+      default:
+        return 'ENTRY DEADLINE';
+    }
+  }
+
+  String _format(Duration d) {
+    if (d.isNegative) return 'Deadline passed';
+    final showSec = widget.urgency.showsPulse;
+    final days = d.inDays;
+    final hrs = d.inHours.remainder(24);
+    final mins = d.inMinutes.remainder(60);
+    final secs = d.inSeconds.remainder(60);
+    if (days >= 1) {
+      return '${days.toString().padLeft(2, '0')} DAYS · '
+          '${hrs.toString().padLeft(2, '0')} HRS · '
+          '${mins.toString().padLeft(2, '0')} MIN';
+    }
+    if (d.inHours >= 1) {
+      return '${d.inHours} HRS · ${mins.toString().padLeft(2, '0')} MIN';
+    }
+    if (showSec) {
+      return '${mins.toString().padLeft(2, '0')} MIN · '
+          '${secs.toString().padLeft(2, '0')} SEC';
+    }
+    return '${mins.toString().padLeft(2, '0')} MIN';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final diff = widget.deadline.difference(DateTime.now());
+    final expired = diff.isNegative;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _title(expired: expired),
+          style: GoogleFonts.sora(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.6,
+            color: SwimDsTokens.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Semantics(
+          label: expired ? 'Deadline has passed' : 'Time remaining until deadline',
+          child: ExcludeSemantics(
+            child: Text(
+              _format(diff),
+              style: GoogleFonts.sora(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: expired
+                    ? SwimDsTokens.dangerCoral
+                    : SwimDsTokens.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AgentPrimaryCta extends StatefulWidget {
+  const _AgentPrimaryCta({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  State<_AgentPrimaryCta> createState() => _AgentPrimaryCtaState();
+}
+
+class _AgentPrimaryCtaState extends State<_AgentPrimaryCta> {
+  bool _pressed = false;
+
+  String _labelWithArrow() {
+    final t = widget.label.trim();
+    if (t.endsWith('→')) return t;
+    return '$t →';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = SwimDsTokens.primaryPurple;
+    final pressedColor =
+        Color.lerp(base, Colors.black, _pressed ? 0.14 : 0)!;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onPressed,
+        child: AnimatedScale(
+          scale: _pressed ? 0.97 : 1,
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: pressedColor,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: SwimDsTokens.cardShadowSoft,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              _labelWithArrow(),
+              style: GoogleFonts.sora(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: Colors.white,
+              ),
+            ),
+          ),
         ),
       ),
     );

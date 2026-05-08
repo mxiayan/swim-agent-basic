@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -16,6 +17,19 @@ import 'schedule_display_item.dart';
 import 'training_schedule_tab.dart';
 import 'team_events_schedule.dart' show showScheduleEventDetailSheet;
 import 'dynamic_schedule_timeline.dart';
+
+/// **Debug / simulator only** (`kDebugMode`): when non-null, Schedule → Today uses
+/// this instead of the real clock so you can preview HAPPENING NOW, UP NEXT, and
+/// the current-time line without waiting.
+///
+/// Example: `DateTime(2026, 5, 7, 19, 10)` → May 7, 2026 at 7:10 PM **local**.
+/// Set back to `null` for normal behavior. **Release** builds always ignore this
+/// (debug & profile can use the override).
+DateTime? debugScheduleTimelineNow() {
+  if (kReleaseMode) return null;
+  // return null;
+  return DateTime(2026, 5, 7, 19, 10);
+}
 
 /// Four-tab Schedule experience: Upcoming, Training Schedule, All Events, From Coach.
 class ScheduleHubWidget extends StatefulWidget {
@@ -260,7 +274,9 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
   }
 
   double _bottomContentPadding(BuildContext context) {
-    return 24.0 + MediaQuery.paddingOf(context).bottom + 76.0;
+    final safe = MediaQuery.paddingOf(context).bottom;
+    // Bottom nav + safe area + breathing room so last cards clear the tab bar.
+    return 32.0 + safe + 96.0;
   }
 
   @override
@@ -420,6 +436,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     return DynamicScheduleTimeline(
       items: upcoming,
       bottomPad: bottomPad,
+      currentDateTime: debugScheduleTimelineNow(),
       onOpenDetail: (item) => showScheduleEventDetailSheet(
         context,
         event: item.record,

@@ -100,6 +100,47 @@ class TeamEventsRecord {
   /// user can see them.
   final DateTime? parsedStart;
 
+  /// End time on the same calendar day as [parsedStart] when [endTimeLocal]
+  /// parses; null if missing or unparseable.
+  DateTime? get parsedEnd {
+    final s = parsedStart;
+    if (s == null) return null;
+    final hm = parseHourMinuteLocal(endTimeLocal);
+    if (hm == null) return null;
+    return DateTime(s.year, s.month, s.day, hm.hour, hm.minute);
+  }
+
+  /// Parses common coach-ingest time strings into local hour/minute.
+  ///
+  /// Supports `H:MM` / `HH:MM` (24h, optional `:SS`), and `h:mm AM/PM`.
+  static ({int hour, int minute})? parseHourMinuteLocal(String? raw) {
+    final t = (raw ?? '').trim();
+    if (t.isEmpty) return null;
+
+    var m = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(t);
+    if (m != null) {
+      final hour = int.parse(m.group(1)!);
+      final minute = int.parse(m.group(2)!);
+      if (hour > 23 || minute > 59) return null;
+      return (hour: hour, minute: minute);
+    }
+
+    m = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$').firstMatch(t);
+    if (m != null) {
+      var hour12 = int.parse(m.group(1)!);
+      final minute = int.parse(m.group(2)!);
+      final ap = m.group(3)!.toUpperCase();
+      if (hour12 < 1 || hour12 > 12 || minute > 59) return null;
+      var h24 = hour12 % 12;
+      if (ap == 'PM') {
+        h24 += 12;
+      }
+      return (hour: h24, minute: minute);
+    }
+
+    return null;
+  }
+
   static TeamEventsRecord fromSnapshot(DocumentSnapshot snap) {
     final raw = mapFromFirestore(snap.data() as Map<String, dynamic>);
     final data = Map<String, dynamic>.from(raw['event_data'] as Map? ?? {});
@@ -187,14 +228,9 @@ class TeamEventsRecord {
     final year = int.parse(dateMatch.group(1)!);
     final month = int.parse(dateMatch.group(2)!);
     final day = int.parse(dateMatch.group(3)!);
-    var hour = 0;
-    var minute = 0;
-    final t = timeStr.trim();
-    final timeMatch = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(t);
-    if (timeMatch != null) {
-      hour = int.parse(timeMatch.group(1)!);
-      minute = int.parse(timeMatch.group(2)!);
-    }
+    final hm = parseHourMinuteLocal(timeStr);
+    final hour = hm?.hour ?? 0;
+    final minute = hm?.minute ?? 0;
     return DateTime(year, month, day, hour, minute);
   }
 }

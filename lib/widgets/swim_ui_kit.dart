@@ -7,6 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+/// Bell badge style for [AppPageHeader]. When null, legacy amber dot is shown when bell exists.
+enum SwimBellDotKind {
+  none,
+  updatesAmber,
+  urgentRed,
+}
+
 /// Page header — title, subtitle, optional bell + profile avatar.
 class AppPageHeader extends StatelessWidget {
   const AppPageHeader({
@@ -17,6 +24,7 @@ class AppPageHeader extends StatelessWidget {
     this.onAvatarTap,
     this.avatarAssetPath = 'assets/images/mcroskey-headshot.jpg',
     this.trailing,
+    this.bellDotKind,
     this.topPadding = SwimDsTokens.smallGap,
     this.bottomPadding = SwimDsTokens.sectionTitleToContentGap,
   });
@@ -27,6 +35,9 @@ class AppPageHeader extends StatelessWidget {
   final VoidCallback? onAvatarTap;
   final String avatarAssetPath;
   final Widget? trailing;
+
+  /// Overrides default bell notification dot. Null keeps prior behavior (amber dot).
+  final SwimBellDotKind? bellDotKind;
   final double topPadding;
   final double bottomPadding;
 
@@ -54,20 +65,21 @@ class AppPageHeader extends StatelessWidget {
                       children: [
                         Icon(Icons.notifications_none_rounded,
                             size: 22, color: SwimDsTokens.textPrimary),
-                        Positioned(
-                          top: 11,
-                          right: 11,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: SwimDsTokens.warningAmber,
-                              shape: BoxShape.circle,
-                              border:
-                                  Border.all(color: Colors.white, width: 1.5),
+                        if (_bellDotColor(bellDotKind) != null)
+                          Positioned(
+                            top: 11,
+                            right: 11,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: _bellDotColor(bellDotKind)!,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.white, width: 1.5),
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -146,6 +158,19 @@ class AppPageHeader extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Legacy default: amber dot when [bellDotKind] is null.
+  static Color? _bellDotColor(SwimBellDotKind? kind) {
+    if (kind == null) return SwimDsTokens.warningAmber;
+    switch (kind) {
+      case SwimBellDotKind.none:
+        return null;
+      case SwimBellDotKind.updatesAmber:
+        return SwimDsTokens.warningAmber;
+      case SwimBellDotKind.urgentRed:
+        return SwimDsTokens.dangerCoral;
+    }
   }
 }
 

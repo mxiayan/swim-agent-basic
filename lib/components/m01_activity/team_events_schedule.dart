@@ -324,9 +324,6 @@ StandingGridBaselineHints standingGridBaselineHints(
       .join('\n\n');
   if (bodies.trim().isEmpty) return none;
 
-  final hasFirestoreTimes =
-      e.startTimeLocal.isNotEmpty || e.endTimeLocal.isNotEmpty;
-
   final tl = e.title.toLowerCase();
   final isJunior =
       _trainingMentionsJunior(e) || tl.contains('junior');
@@ -410,10 +407,13 @@ StandingGridBaselineHints standingGridBaselineHints(
 
   if (pool == null && dry == null) return none;
 
-  final summary =
-      !hasFirestoreTimes && pool != null
-          ? 'Regular week · typical pool $pool (Season schedules)'
-          : null;
+  /// Include baseline pool hours when Firestore is missing **start** or **end**
+  /// so the UI can show e.g. `6:45pm–8:00pm` for start-only, end-only (backfill), or neither.
+  final needsBaselineRange = e.startTimeLocal.trim().isEmpty ||
+      e.endTimeLocal.trim().isEmpty;
+  final summary = pool != null && needsBaselineRange
+      ? 'Regular week · typical pool $pool (Season schedules)'
+      : null;
   return StandingGridBaselineHints(
     scheduleSummary: summary,
     drylandLine: dry,

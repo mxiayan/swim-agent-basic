@@ -142,6 +142,13 @@ abstract final class AgentFeedLogic {
     );
   }
 
+  /// Preferred alias for Agent UX — same signup-first rules as [pickNextBestAction].
+  static AgentFeedItem? selectNextBestAction(
+    List<AgentFeedItem> items,
+    DateTime now,
+  ) =>
+      pickNextBestAction(items, now);
+
   /// Picks highest-importance open item for featured strip (signup-first rules).
   static AgentFeedItem? pickNextBestAction(
     List<AgentFeedItem> items,
