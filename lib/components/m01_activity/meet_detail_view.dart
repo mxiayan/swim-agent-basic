@@ -13,6 +13,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/theme/obsidian_volt_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
+import '/widgets/swimmer_avatar_with_group_badge.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
@@ -3977,6 +3978,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
   Widget _buildEntryStatusCard({
     required String swimmerName,
     required MeetPreferencesRecord? pref,
+    required FFAppState app,
   }) {
     Widget body(DateTime? submittedAt) {
       final canOpenSignup = _signupUrl.isNotEmpty;
@@ -4051,14 +4053,32 @@ class _MeetDetailViewState extends State<MeetDetailView>
           ),
           const SizedBox(height: 12.0),
           if (swimmerName.isNotEmpty) ...[
-            Text(
-              swimmerName,
-              style: GoogleFonts.sora(
-                fontSize: 20.0,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F172A),
-                height: 1.2,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SwimmerAvatarWithGroupBadge(
+                  filePath: app.profileAvatarLocalPath,
+                  webBase64: app.profileAvatarWebBase64,
+                  swimmerDisplayName: swimmerName,
+                  practiceTierLabel: app.swimmerPracticeTierLabel,
+                  clubProfilePracticeGroupRaw:
+                      app.clubProfilePracticeGroupRaw,
+                  allowAutoUnresolvedBadge: false,
+                  layout: SwimmerAvatarGroupBadgeLayout.card,
+                ),
+                const SizedBox(width: 12.0),
+                Expanded(
+                  child: Text(
+                    swimmerName,
+                    style: GoogleFonts.sora(
+                      fontSize: 20.0,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
           if (events != null && events > 0) ...[
@@ -4863,7 +4883,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
 
   @override
   Widget build(BuildContext context) {
-    context.watch<FFAppState>();
+    final app = context.watch<FFAppState>();
     final swimmerName = FFAppState().currentSwimmerName.trim();
     final details = widget.activity.details;
     final start = widget.activity.startTime;
@@ -4894,6 +4914,7 @@ class _MeetDetailViewState extends State<MeetDetailView>
                       _buildEntryStatusCard(
                         swimmerName: swimmerName,
                         pref: widget.preference,
+                        app: app,
                       ),
                       const SizedBox(height: 26.0),
                     ],

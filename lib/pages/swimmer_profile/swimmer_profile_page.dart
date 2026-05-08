@@ -1,13 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/custom_code/profile_avatar_firestore_payload.dart';
 import '/custom_code/profile_avatar_save.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/theme/lavender_indigo_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
-import '/widgets/swimmer_profile_avatar.dart';
+import '/widgets/swimmer_avatar_with_group_badge.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -37,8 +39,6 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
   String _practiceTierValue = '';
   bool _saving = false;
 
-  static const _defaultAvatarAsset = 'assets/images/mcroskey-headshot.jpg';
-
   static const _practiceOptions = <_PracticeOption>[
     _PracticeOption(
       value: '',
@@ -60,12 +60,20 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
     final app = FFAppState();
     _nameCtrl.text = app.currentSwimmerName.trim();
     _practiceTierValue = app.swimmerPracticeTierLabel.trim();
-    _loadClubMeta();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_loadClubMeta());
+    });
   }
 
   Future<void> _loadClubMeta() async {
     final code = FFAppState().currentSwimmerGroup.trim();
     if (code.isEmpty) {
+      if (FFAppState().clubProfilePracticeGroupRaw.isNotEmpty) {
+        FFAppState().update(() {
+          FFAppState().clubProfilePracticeGroupRaw = '';
+        });
+        unawaited(FFAppState().persistSwimmerContext());
+      }
       safeSetState(() {
         _club = null;
         _loadingClub = false;
@@ -74,11 +82,27 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
     }
     try {
       final c = await MetadataClubsRecord.findByClubLookup(code);
+      final hint = c?.profilePracticeGroupHint.trim() ?? '';
+      if (!mounted) {
+        return;
+      }
       safeSetState(() {
         _club = c;
         _loadingClub = false;
       });
+      if (hint != FFAppState().clubProfilePracticeGroupRaw) {
+        FFAppState().update(() {
+          FFAppState().clubProfilePracticeGroupRaw = hint;
+        });
+        unawaited(FFAppState().persistSwimmerContext());
+      }
     } catch (_) {
+      if (FFAppState().clubProfilePracticeGroupRaw.isNotEmpty) {
+        FFAppState().update(() {
+          FFAppState().clubProfilePracticeGroupRaw = '';
+        });
+        unawaited(FFAppState().persistSwimmerContext());
+      }
       safeSetState(() {
         _club = null;
         _loadingClub = false;
@@ -125,6 +149,7 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
     }
     await FFAppState().persistSwimmerContext();
     safeSetState(() {});
+    await _syncSwimmerProfileToFirestore();
   }
 
   Future<void> _resetAvatar() async {
@@ -134,6 +159,32 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
     });
     await FFAppState().persistSwimmerContext();
     safeSetState(() {});
+    await _syncSwimmerProfileToFirestore();
+  }
+
+  /// Writes name (if entered), practice tier, and avatar base64 to `swimmers/{doc}`.
+  Future<void> _syncSwimmerProfileToFirestore() async {
+    final uid = currentUserUid;
+    if (uid.isEmpty) {
+      return;
+    }
+    final ref = await SwimmerRecord.documentRefForAuthUid(uid);
+    if (ref == null) {
+      return;
+    }
+
+    final name = _nameCtrl.text.trim();
+    final tier = _normalizedPracticeValue();
+    final avatarB64 = await profileAvatarPayloadForFirestore();
+
+    await ref.set(
+      createSwimmerRecordData(
+        name: name.isEmpty ? null : name,
+        practiceTierLabel: tier,
+        profileAvatarBase64: avatarB64,
+      ),
+      SetOptions(merge: true),
+    );
   }
 
   Future<void> _saveProfile() async {
@@ -154,17 +205,11 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
 
     safeSetState(() => _saving = true);
     try {
-      final ref = await SwimmerRecord.documentRefForAuthUid(uid);
-      if (ref != null) {
-        await ref.set(
-          createSwimmerRecordData(name: name),
-          SetOptions(merge: true),
-        );
-      }
+      await _syncSwimmerProfileToFirestore();
 
       FFAppState().update(() {
         FFAppState().currentSwimmerName = name;
-        FFAppState().swimmerPracticeTierLabel = _practiceTierValue.trim();
+        FFAppState().swimmerPracticeTierLabel = _normalizedPracticeValue();
       });
       await FFAppState().persistSwimmerContext();
 
@@ -194,13 +239,29 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    final app = context.watch<FFAppState>();
+    return Selector<FFAppState, _ProfileAppSnapshot>(
+      selector: (_, app) => _ProfileAppSnapshot(
+        profileAvatarWebBase64: app.profileAvatarWebBase64,
+        profileAvatarLocalPath: app.profileAvatarLocalPath,
+        currentSwimmerName: app.currentSwimmerName,
+        swimmerPracticeTierLabel: app.swimmerPracticeTierLabel,
+        clubProfilePracticeGroupRaw: app.clubProfilePracticeGroupRaw,
+        currentSwimmerGroup: app.currentSwimmerGroup,
+        currentSwimmerZoneLabel: app.currentSwimmerZoneLabel,
+      ),
+      builder: (context, vm, __) {
+        final clubCode = vm.currentSwimmerGroup.trim();
+        final clubName = _club?.clubName.trim() ?? '';
+        final zoneLabel = vm.currentSwimmerZoneLabel.trim();
+        final clubBadgeHint = () {
+          final h = (_club?.profilePracticeGroupHint ?? '').trim();
+          if (h.isNotEmpty) {
+            return h;
+          }
+          return vm.clubProfilePracticeGroupRaw.trim();
+        }();
 
-    final clubCode = app.currentSwimmerGroup.trim();
-    final clubName = _club?.clubName.trim() ?? '';
-    final zoneLabel = app.currentSwimmerZoneLabel.trim();
-
-    return Scaffold(
+        return Scaffold(
       backgroundColor: SwimUiTokens.surfaceCanvasAgent,
       appBar: AppBar(
         backgroundColor: SwimUiTokens.surfaceCanvasAgent,
@@ -241,17 +302,22 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
                         boxShadow: LavenderIndigoTokens.shadowMd,
                       ),
                       padding: const EdgeInsets.all(4),
-                      child: ClipOval(
-                        child: buildSwimmerProfileAvatar(
-                          defaultAssetPath: _defaultAvatarAsset,
-                          filePath: app.profileAvatarLocalPath,
-                          webBase64: app.profileAvatarWebBase64,
-                          size: 104,
-                        ),
+                      child: SwimmerAvatarWithGroupBadge(
+                        filePath: vm.profileAvatarLocalPath,
+                        webBase64: vm.profileAvatarWebBase64,
+                        swimmerDisplayName:
+                            _nameCtrl.text.trim().isNotEmpty
+                                ? _nameCtrl.text.trim()
+                                : vm.currentSwimmerName.trim(),
+                        practiceTierLabel: _normalizedPracticeValue(),
+                        clubProfilePracticeGroupRaw: clubBadgeHint,
+                        allowAutoUnresolvedBadge: true,
+                        layout: SwimmerAvatarGroupBadgeLayout.profile,
+                        avatarDiameter: 104,
                       ),
                     ),
                     Positioned(
-                      right: -4,
+                      left: -4,
                       bottom: 4,
                       child: Material(
                         color: LavenderIndigoTokens.primary,
@@ -303,6 +369,7 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
               const SizedBox(height: 8),
               TextField(
                 controller: _nameCtrl,
+                onChanged: (_) => safeSetState(() {}),
                 textCapitalization: TextCapitalization.words,
                 style: GoogleFonts.sora(
                   fontSize: 16,
@@ -438,7 +505,9 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
                         )
                         .toList(),
                     onChanged: (v) {
-                      safeSetState(() => _practiceTierValue = v ?? '');
+                      safeSetState(() {
+                        _practiceTierValue = v ?? '';
+                      });
                     },
                   ),
                 ),
@@ -481,6 +550,8 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
           ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -528,6 +599,50 @@ class _SwimmerProfilePageState extends State<SwimmerProfilePage> {
       ],
     );
   }
+}
+
+/// Narrow [FFAppState] subscription so unrelated toggles do not rebuild Profile.
+class _ProfileAppSnapshot {
+  const _ProfileAppSnapshot({
+    required this.profileAvatarWebBase64,
+    required this.profileAvatarLocalPath,
+    required this.currentSwimmerName,
+    required this.swimmerPracticeTierLabel,
+    required this.clubProfilePracticeGroupRaw,
+    required this.currentSwimmerGroup,
+    required this.currentSwimmerZoneLabel,
+  });
+
+  final String profileAvatarWebBase64;
+  final String profileAvatarLocalPath;
+  final String currentSwimmerName;
+  final String swimmerPracticeTierLabel;
+  final String clubProfilePracticeGroupRaw;
+  final String currentSwimmerGroup;
+  final String currentSwimmerZoneLabel;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _ProfileAppSnapshot &&
+        other.profileAvatarWebBase64 == profileAvatarWebBase64 &&
+        other.profileAvatarLocalPath == profileAvatarLocalPath &&
+        other.currentSwimmerName == currentSwimmerName &&
+        other.swimmerPracticeTierLabel == swimmerPracticeTierLabel &&
+        other.clubProfilePracticeGroupRaw == clubProfilePracticeGroupRaw &&
+        other.currentSwimmerGroup == currentSwimmerGroup &&
+        other.currentSwimmerZoneLabel == currentSwimmerZoneLabel;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        profileAvatarWebBase64,
+        profileAvatarLocalPath,
+        currentSwimmerName,
+        swimmerPracticeTierLabel,
+        clubProfilePracticeGroupRaw,
+        currentSwimmerGroup,
+        currentSwimmerZoneLabel,
+      );
 }
 
 class _PracticeOption {

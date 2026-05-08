@@ -15,6 +15,7 @@ import '/theme/swim_design_tokens.dart';
 import '/theme/obsidian_volt_tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -33,6 +34,7 @@ class M02MeetEnteredWidget extends StatefulWidget {
     required this.meetDoc,
     this.preference,
     this.groupedInSection = false,
+    this.listStyleOptionB = false,
   });
 
   final MonitoredMeetsRecord? meetDoc;
@@ -41,6 +43,9 @@ class M02MeetEnteredWidget extends StatefulWidget {
   /// When true, renders a lighter row meant to sit inside a grouped section shell
   /// on the Meets tab (no outer card shadow, no heavy frame, no corner disks).
   final bool groupedInSection;
+
+  /// Option B: white list card with left accent bar (Meets tab refresh).
+  final bool listStyleOptionB;
 
   @override
   State<M02MeetEnteredWidget> createState() => _M02MeetEnteredWidgetState();
@@ -1117,6 +1122,128 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         isPastMeet: hIsPastMeet,
       );
       final metaLine = _collapsedMeetMetadataLine(doc, pref);
+      if (widget.listStyleOptionB) {
+        final accent = _optionBListAccent(hBadgeStatus);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 10.0),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16.0),
+              onTap: () => _openMeetFocusFromMonitored(context, doc, pref),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16.0),
+                  border: Border.all(color: SwimUiTokens.cardSurfaceEdgeBorder),
+                  boxShadow: SwimUiTokens.shadowCard,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(width: 4.0, color: accent),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                              12.0, 14.0, 8.0, 14.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildMeetDateBlock(doc),
+                              const SizedBox(width: 12.0),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      valueOrDefault<String>(
+                                          doc.name, 'Meet'),
+                                      maxLines: 2,
+                                      softWrap: true,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.sora(
+                                        fontSize: 15.0,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.2,
+                                        color: SwimUiTokens.textTitle,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6.0),
+                                    Wrap(
+                                      spacing: 6.0,
+                                      runSpacing: 4.0,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        _buildMeetStatusTagPill(
+                                          context,
+                                          label: hTagLabel,
+                                          status: hBadgeStatus,
+                                          compact: true,
+                                          completedMeet:
+                                              hEntered && hIsPastMeet,
+                                        ),
+                                        if (doc.coachApproved)
+                                          _coachApprovedMeetChipIfNeeded(
+                                            context,
+                                            doc,
+                                            compact: true,
+                                          ),
+                                      ],
+                                    ),
+                                    if (metaLine != null) ...[
+                                      const SizedBox(height: 6.0),
+                                      Text(
+                                        metaLine,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.sora(
+                                          fontSize: 12.0,
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.25,
+                                          color: SwimUiTokens.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                    if (hEntered) ...[
+                                      const SizedBox(height: 6.0),
+                                      _enteredResourcesRow(doc),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.only(top: 2.0),
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 24.0,
+                                  color: SwimUiTokens.textFaint,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ).animate().fadeIn(
+              delay: 140.ms,
+              duration: 240.ms,
+              curve: Curves.easeOutCubic,
+            ).slideY(
+              begin: 0.08,
+              delay: 140.ms,
+              duration: 240.ms,
+              curve: Curves.easeOutCubic,
+            );
+      }
       final hiddenCard = widget.groupedInSection
           ? Material(
               color: Colors.transparent,
@@ -1827,6 +1954,20 @@ class _M02MeetEnteredWidgetState extends State<M02MeetEnteredWidget>
         return _badgeEnteredText;
       case MeetPreferenceStatus.notGoing:
         return _badgeNotGoingText;
+    }
+  }
+
+  /// Left accent stripe for Option B list cards.
+  Color _optionBListAccent(MeetPreferenceStatus status) {
+    switch (status) {
+      case MeetPreferenceStatus.entered:
+        return const Color(0xFF10B981);
+      case MeetPreferenceStatus.needEntry:
+        return const Color(0xFFF59E0B);
+      case MeetPreferenceStatus.notGoing:
+        return const Color(0xFF3B82F6);
+      case MeetPreferenceStatus.newStatus:
+        return SwimDsTokens.primaryPurple;
     }
   }
 

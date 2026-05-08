@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -248,6 +249,7 @@ class DynamicScheduleTimeline extends StatefulWidget {
     this.onJumpToNow,
     this.onJumpToNextMeet,
     this.onJumpToNextDeadline,
+    this.onViewFullSchedule,
   });
 
   final List<ScheduleDisplayItem> items;
@@ -258,6 +260,7 @@ class DynamicScheduleTimeline extends StatefulWidget {
   final VoidCallback? onJumpToNow;
   final VoidCallback? onJumpToNextMeet;
   final VoidCallback? onJumpToNextDeadline;
+  final VoidCallback? onViewFullSchedule;
 
   @override
   State<DynamicScheduleTimeline> createState() =>
@@ -281,6 +284,13 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
   Timer? _clockTicker;
   /// Null until first layout; then whether the now line intersects the viewport.
   bool? _nowLineVisibleInViewport;
+  bool _timelineAnimReady = false;
+  bool _pendingVisibleDayUpdate = false;
+  bool _pendingNowLineVisibilityUpdate = false;
+
+  List<ScheduleDisplayItem> _sortedCache = const <ScheduleDisplayItem>[];
+  int _sortedCacheItemsHash = 0;
+  int _sortedCacheMinuteKey = -1;
 
   DateTime get _now => widget.currentDateTime ?? DateTime.now();
 
@@ -293,6 +303,17 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _updateNowLineVisibility();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+      if (reduceMotion ||
+          WidgetsBinding
+              .instance.platformDispatcher.accessibilityFeatures.reduceMotion) {
+        _timelineAnimReady = true;
+        return;
+      }
+      setState(() => _timelineAnimReady = true);
     });
   }
 
@@ -315,14 +336,20 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
   }
 
   void _scheduleVisibleDayUpdate() {
+    if (_pendingVisibleDayUpdate) return;
+    _pendingVisibleDayUpdate = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pendingVisibleDayUpdate = false;
       if (!mounted) return;
       _updateVisibleDayFromScroll();
     });
   }
 
   void _scheduleNowLineVisibility() {
+    if (_pendingNowLineVisibilityUpdate) return;
+    _pendingNowLineVisibilityUpdate = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pendingNowLineVisibilityUpdate = false;
       if (!mounted) return;
       _updateNowLineVisibility();
     });
@@ -367,12 +394,38 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
   }
 
   List<ScheduleDisplayItem> _sortedItems() {
+    final hash = _itemsSignatureHash(widget.items);
+    final n = _now;
+    final minuteKey = n.year * 100000000 +
+        n.month * 1000000 +
+        n.day * 10000 +
+        n.hour * 100 +
+        n.minute;
+    if (_sortedCacheItemsHash == hash && _sortedCacheMinuteKey == minuteKey) {
+      return _sortedCache;
+    }
+
     final now = _now;
     final today = _today();
     if (widget.items.isEmpty) return [];
     final sorted = List<ScheduleDisplayItem>.from(widget.items)
       ..sort((a, b) => compareTimelineItems(a, b, now: now, today: today));
-    return sorted;
+    _sortedCache = sorted;
+    _sortedCacheItemsHash = hash;
+    _sortedCacheMinuteKey = minuteKey;
+    return _sortedCache;
+  }
+
+  int _itemsSignatureHash(List<ScheduleDisplayItem> items) {
+    var hash = 17;
+    for (final i in items) {
+      final r = i.record;
+      hash = 37 * hash + r.docId.hashCode;
+      hash = 37 * hash + r.startDate.hashCode;
+      hash = 37 * hash + r.title.hashCode;
+      hash = 37 * hash + r.eventType.index.hashCode;
+    }
+    return hash;
   }
 
   DateTime _today() {
@@ -768,7 +821,19 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: sections.today,
             ),
-          ),
+          )
+              .animate(target: _timelineAnimReady ? 1 : 0)
+              .fadeIn(
+                delay: 0.ms,
+                duration: 180.ms,
+                curve: Curves.easeOutCubic,
+              )
+              .slideY(
+                begin: 0.08,
+                delay: 0.ms,
+                duration: 180.ms,
+                curve: Curves.easeOutCubic,
+              ),
         if (sections.futureDays.isNotEmpty) ...[
           SizedBox(height: SwimDsTokens.sectionSpacing + 6),
           for (var fi = 0; fi < sections.futureDays.length; fi++) ...[
@@ -778,8 +843,24 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: sections.futureDays[fi],
               ),
-            ),
+            )
+                .animate(target: _timelineAnimReady ? 1 : 0)
+                .fadeIn(
+                  delay: 0.ms,
+                  duration: 180.ms,
+                  curve: Curves.easeOutCubic,
+                )
+                .slideY(
+                  begin: 0.08,
+                  delay: 0.ms,
+                  duration: 180.ms,
+                  curve: Curves.easeOutCubic,
+                ),
           ],
+        ],
+        if (widget.onViewFullSchedule != null && sorted.length > 3) ...[
+          const SizedBox(height: 10),
+          _ViewFullScheduleRow(onTap: widget.onViewFullSchedule!),
         ],
       ],
     );
@@ -1643,6 +1724,52 @@ class _SmartShortcutButton extends StatelessWidget {
     );
   }
 }
+
+class _ViewFullScheduleRow extends StatelessWidget {
+  const _ViewFullScheduleRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: SwimDsTokens.borderSoft),
+            boxShadow: SwimDsTokens.cardShadowSoft,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.calendar_month_rounded,
+                  color: SwimDsTokens.primaryPurple, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'View Full Schedule',
+                  style: GoogleFonts.sora(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: SwimDsTokens.primaryPurple,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  color: SwimDsTokens.textSecondary, size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 /// In-card session progress: visible **track**, **border**, and **gradient fill** so it reads as a real bar.
 class _SessionProgressBar extends StatelessWidget {

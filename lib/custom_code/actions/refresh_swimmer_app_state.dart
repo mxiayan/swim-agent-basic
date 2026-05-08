@@ -112,6 +112,8 @@ Future<void> _applyWhenSwimmerDocMissing(String uid, User? user) async {
         FFAppState().currentSwimmerGroup = clubKey;
         FFAppState().currentSwimmerZone = z;
         FFAppState().currentSwimmerZoneDisplayName = banner;
+        FFAppState().clubProfilePracticeGroupRaw =
+            club.profilePracticeGroupHint.trim();
       });
       await FFAppState().persistSwimmerContext();
       return;
@@ -227,6 +229,16 @@ Future refreshSwimmerAppState() async {
       groupOut = await _clubCodeFromUsersDoc(uid);
     }
 
+    var clubPracticeHint = '';
+    if (groupOut.isNotEmpty) {
+      try {
+        final metaClub = await MetadataClubsRecord.findByClubLookup(groupOut);
+        clubPracticeHint = metaClub?.profilePracticeGroupHint.trim() ?? '';
+      } catch (e, st) {
+        debugPrint('refreshSwimmerAppState club practice hint: $e\n$st');
+      }
+    }
+
     final zoneOut = swimmerZoneStoredOrEmpty(profile.zoneId);
     final zoneBanner = await _resolveZoneBannerDisplay(
       granularZone: profile.zoneId,
@@ -238,6 +250,11 @@ Future refreshSwimmerAppState() async {
       FFAppState().currentSwimmerGroup = groupOut;
       FFAppState().currentSwimmerZone = zoneOut;
       FFAppState().currentSwimmerZoneDisplayName = zoneBanner;
+      FFAppState().swimmerPracticeTierLabel = profile.practiceTierLabel.trim();
+      final av = profile.profileAvatarBase64.trim();
+      FFAppState().profileAvatarWebBase64 = av;
+      FFAppState().profileAvatarLocalPath = '';
+      FFAppState().clubProfilePracticeGroupRaw = clubPracticeHint;
     });
     await FFAppState().persistSwimmerContext();
   } catch (e, st) {

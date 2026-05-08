@@ -2,7 +2,7 @@ import '/app_state.dart';
 import '/theme/lavender_indigo_tokens.dart';
 import '/theme/swim_design_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
-import '/widgets/swimmer_profile_avatar.dart';
+import '/widgets/swimmer_avatar_with_group_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -22,7 +22,6 @@ class AppPageHeader extends StatelessWidget {
     required this.subtitle,
     this.onBellTap,
     this.onAvatarTap,
-    this.avatarAssetPath = 'assets/images/mcroskey-headshot.jpg',
     this.trailing,
     this.bellDotKind,
     this.topPadding = SwimDsTokens.smallGap,
@@ -33,7 +32,6 @@ class AppPageHeader extends StatelessWidget {
   final String subtitle;
   final VoidCallback? onBellTap;
   final VoidCallback? onAvatarTap;
-  final String avatarAssetPath;
   final Widget? trailing;
 
   /// Overrides default bell notification dot. Null keeps prior behavior (amber dot).
@@ -89,26 +87,44 @@ class AppPageHeader extends StatelessWidget {
               const SizedBox(width: SwimDsTokens.smallGap),
             if (onAvatarTap != null)
               Material(
-                color: SwimDsTokens.cardBackground,
-                elevation: 2,
-                shadowColor: Colors.black.withValues(alpha: 0.06),
-                shape: const CircleBorder(),
-                clipBehavior: Clip.antiAlias,
+                color: Colors.transparent,
+                elevation: 0,
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: onAvatarTap,
                   child: SizedBox(
                     width: 48,
                     height: 48,
-                    child: Padding(
-                      padding: const EdgeInsets.all(2),
+                    child: Center(
                       child: Consumer<FFAppState>(
                         builder: (context, app, _) =>
-                            buildSwimmerProfileAvatar(
-                          defaultAssetPath: avatarAssetPath,
-                          filePath: app.profileAvatarLocalPath,
-                          webBase64: app.profileAvatarWebBase64,
-                          size: 44,
+                            DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: SwimDsTokens.cardBackground,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black
+                                    .withValues(alpha: 0.06),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: SwimmerAvatarWithGroupBadge(
+                              filePath: app.profileAvatarLocalPath,
+                              webBase64: app.profileAvatarWebBase64,
+                              swimmerDisplayName: app.currentSwimmerName,
+                              practiceTierLabel: app.swimmerPracticeTierLabel,
+                              clubProfilePracticeGroupRaw:
+                                  app.clubProfilePracticeGroupRaw,
+                              allowAutoUnresolvedBadge: false,
+                              layout:
+                                  SwimmerAvatarGroupBadgeLayout.header,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -181,13 +197,11 @@ class AppShellHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onAvatarTap,
-    this.avatarAssetPath = 'assets/images/mcroskey-headshot.jpg',
   });
 
   final String title;
   final String subtitle;
   final VoidCallback onAvatarTap;
-  final String avatarAssetPath;
 
   @override
   Widget build(BuildContext context) {
@@ -196,7 +210,6 @@ class AppShellHeader extends StatelessWidget {
       subtitle: subtitle,
       onBellTap: null,
       onAvatarTap: onAvatarTap,
-      avatarAssetPath: avatarAssetPath,
       bottomPadding: SwimDsTokens.headerToTabsGap,
     );
   }

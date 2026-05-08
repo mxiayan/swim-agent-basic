@@ -6,6 +6,7 @@ import '/backend/backend.dart';
 import '/theme/lavender_indigo_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
 import '/widgets/swim_ui_kit.dart';
+import '/widgets/top_pill_tabs.dart';
 import '/theme/swim_design_tokens.dart';
 import 'agent_feed_item.dart';
 import 'agent_feed_logic.dart';
@@ -47,13 +48,11 @@ class AgentHomeWidget extends StatefulWidget {
   const AgentHomeWidget({
     super.key,
     this.userDisplayName,
-    this.avatarAssetPath = 'assets/images/mcroskey-headshot.jpg',
     this.teamId = 'oapb',
     required this.onProfileTap,
   });
 
   final String? userDisplayName;
-  final String avatarAssetPath;
   final String teamId;
   final VoidCallback onProfileTap;
 
@@ -62,6 +61,8 @@ class AgentHomeWidget extends StatefulWidget {
 }
 
 class _AgentHomeWidgetState extends State<AgentHomeWidget> {
+  int _topTabIndex = 0; // 0 = For You, 1 = Updates
+
   String _displayFirstName() {
     final swim = FFAppState().currentSwimmerName.trim();
     final raw =
@@ -103,7 +104,8 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
         FFAppState().update(() => FFAppState().activeTab = 2);
         break;
       case 'job':
-        FFAppState().update(() => FFAppState().activeTab = 3);
+        // Jobs tab is temporarily hidden; route to Meets for now.
+        FFAppState().update(() => FFAppState().activeTab = 2);
         break;
       case 'schedule':
       default:
@@ -227,6 +229,24 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
     _onFeedNavigateHints(item);
   }
 
+  List<AgentFeedItem> _updatesFeed(List<AgentFeedItem> feed) {
+    return feed
+        .where((item) {
+          switch (item.type) {
+            case AgentFeedItemType.coachUpdate:
+            case AgentFeedItemType.scheduleChange:
+            case AgentFeedItemType.deadlineReminder:
+            case AgentFeedItemType.resultUpdate:
+            case AgentFeedItemType.missingResource:
+              return true;
+            default:
+              return false;
+          }
+        })
+        .toList()
+      ..sort((a, b) => b.updatedTime.compareTo(a.updatedTime));
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<FFAppState>();
@@ -256,6 +276,7 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
         final todayPlan = AgentFeedLogic.pickTodaySwimPlan(feed, now);
         final brief =
             AgentFeedLogic.agentBriefItems(feed, next, todayPlan, now);
+        final updates = _updatesFeed(feed);
 
         final deadlineInsight =
             AgentFeedLogic.pickNextDeadlineHighlight(feed, now);
@@ -346,27 +367,41 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
                     subtitle: 'Your swim day at a glance',
                     onBellTap: () => _toast('Notifications'),
                     onAvatarTap: widget.onProfileTap,
-                    avatarAssetPath: widget.avatarAssetPath,
                     bellDotKind: bellDot,
                     topPadding: SwimDsTokens.smallGap,
                     bottomPadding: SwimDsTokens.sectionSpacing - 4,
                   )
                       .animate()
                       .fadeIn(
-                        duration: 420.ms,
+                        duration: 240.ms,
                         curve: Curves.easeOutCubic,
                       )
                       .slideY(
                         begin: 0.07,
-                        duration: 420.ms,
+                        duration: 240.ms,
                         curve: Curves.easeOutCubic,
                       ),
-                  _AgentMetricStrip(
+                  _AgentTopTabs(
+                    selectedIndex: _topTabIndex,
+                    onChanged: (index) => setState(() => _topTabIndex = index),
+                  ),
+                  SizedBox(height: SwimDsTokens.sectionSpacing),
+                  if (_topTabIndex == 0) ...[
+                    _AgentMetricStrip(
                     stats: stats,
                     needsMaxUrgency: needsMaxUrgency,
                     reduceMotion: reduceMotion,
                   ),
                   SizedBox(height: SwimDsTokens.sectionSpacing),
+                  Text(
+                    'Top Action Item',
+                    style: GoogleFonts.sora(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: SwimDsTokens.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: SwimDsTokens.sectionTitleToContentGap + 2),
                   if (next != null)
                     _NextBestActionCard(
                       key: ValueKey(next.id),
@@ -391,14 +426,14 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
                     )
                         .animate()
                         .fadeIn(
-                          delay: 880.ms,
-                          duration: 460.ms,
+                          delay: 180.ms,
+                          duration: 240.ms,
                           curve: Curves.easeOutCubic,
                         )
                         .slideY(
                           begin: 0.06,
-                          delay: 880.ms,
-                          duration: 460.ms,
+                          delay: 180.ms,
+                          duration: 240.ms,
                           curve: Curves.easeOutCubic,
                         ),
                   SizedBox(height: SwimDsTokens.sectionSpacing),
@@ -558,6 +593,12 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
                       );
                     },
                   ),
+                  ] else ...[
+                    _AgentUpdatesSection(
+                      items: updates,
+                      onOpenItem: _onFeedNavigateHints,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -601,6 +642,143 @@ class _AgentHomeWidgetState extends State<AgentHomeWidget> {
       s.minute,
     );
     return '$start – ${DateFormat.jm().format(end)}';
+  }
+}
+
+class _AgentTopTabs extends StatelessWidget {
+  const _AgentTopTabs({
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TopPillTabs(
+      items: const [
+        TopPillTabItem(label: 'For You', icon: Icons.auto_awesome_rounded),
+        TopPillTabItem(
+          label: 'Updates',
+          icon: Icons.notifications_active_outlined,
+        ),
+      ],
+      selectedIndex: selectedIndex,
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _AgentUpdatesSection extends StatelessWidget {
+  const _AgentUpdatesSection({
+    required this.items,
+    required this.onOpenItem,
+  });
+
+  final List<AgentFeedItem> items;
+  final void Function(AgentFeedItem item) onOpenItem;
+
+  String _formatTimestamp(AgentFeedItem item) {
+    final dt = item.updatedTime;
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 60) return '${math.max(diff.inMinutes, 1)}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return DateFormat.MMMd().add_jm().format(dt);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const EmptyStateCard(
+        title: 'No new updates',
+        message: 'You’re all caught up.',
+        icon: Icons.mark_email_read_outlined,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Recent Updates',
+          style: GoogleFonts.sora(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: SwimDsTokens.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...items.take(10).map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => onOpenItem(item),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: SwimDsTokens.borderSoft),
+                        boxShadow: SwimDsTokens.cardShadowSoft,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.notifications_none_rounded,
+                              size: 18, color: SwimDsTokens.primaryPurple),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title.trim().isEmpty
+                                      ? 'Update'
+                                      : item.title.trim(),
+                                  style: GoogleFonts.sora(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: SwimDsTokens.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.summary.trim().isEmpty
+                                      ? 'New update available.'
+                                      : item.summary.trim(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.sora(
+                                    fontSize: 12.5,
+                                    height: 1.35,
+                                    color: SwimDsTokens.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatTimestamp(item),
+                            style: GoogleFonts.sora(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: SwimDsTokens.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+      ],
+    );
   }
 }
 
@@ -735,14 +913,14 @@ class _AgentMetricStripState extends State<_AgentMetricStrip> {
           child: needsCard
               .animate()
               .fadeIn(
-                delay: 460.ms,
-                duration: 340.ms,
+                delay: 80.ms,
+                duration: 220.ms,
                 curve: Curves.easeOutCubic,
               )
               .slideY(
                 begin: 0.1,
-                delay: 460.ms,
-                duration: 340.ms,
+                delay: 80.ms,
+                duration: 220.ms,
                 curve: Curves.easeOutCubic,
               ),
         ),
@@ -769,14 +947,14 @@ class _AgentMetricStripState extends State<_AgentMetricStrip> {
           )
               .animate()
               .fadeIn(
-                delay: 560.ms,
-                duration: 340.ms,
+                delay: 120.ms,
+                duration: 220.ms,
                 curve: Curves.easeOutCubic,
               )
               .slideY(
                 begin: 0.1,
-                delay: 560.ms,
-                duration: 340.ms,
+                delay: 120.ms,
+                duration: 220.ms,
                 curve: Curves.easeOutCubic,
               ),
         ),
@@ -805,14 +983,14 @@ class _AgentMetricStripState extends State<_AgentMetricStrip> {
           )
               .animate()
               .fadeIn(
-                delay: 660.ms,
-                duration: 340.ms,
+                delay: 160.ms,
+                duration: 220.ms,
                 curve: Curves.easeOutCubic,
               )
               .slideY(
                 begin: 0.1,
-                delay: 660.ms,
-                duration: 340.ms,
+                delay: 160.ms,
+                duration: 220.ms,
                 curve: Curves.easeOutCubic,
               ),
         ),
@@ -1306,14 +1484,14 @@ class _NextBestActionCardState extends State<_NextBestActionCard> {
     )
         .animate()
         .fadeIn(
-          delay: 820.ms,
-          duration: 460.ms,
+          delay: 180.ms,
+          duration: 260.ms,
           curve: Curves.easeOutCubic,
         )
         .slideY(
           begin: 0.08,
-          delay: 820.ms,
-          duration: 460.ms,
+          delay: 180.ms,
+          duration: 260.ms,
           curve: Curves.easeOutCubic,
         );
   }
@@ -1379,13 +1557,13 @@ class _UrgencyBadgePop extends StatelessWidget {
     return pill
         .animate()
         .scale(
-          delay: 1180.ms,
-          duration: 320.ms,
+          delay: 240.ms,
+          duration: 180.ms,
           begin: const Offset(0.88, 0.88),
           end: const Offset(1, 1),
           curve: Curves.easeOutBack,
         )
-        .fadeIn(delay: 1180.ms, duration: 240.ms);
+        .fadeIn(delay: 240.ms, duration: 160.ms);
   }
 }
 

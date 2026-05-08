@@ -13,10 +13,12 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/theme/lavender_indigo_tokens.dart';
 import '/theme/swim_design_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
+import '/widgets/schedule_pill_tab_bar.dart';
 import '/widgets/swim_ui_kit.dart';
 import '/theme/obsidian_volt_tokens.dart';
 
 import '/components/m02_meet/my_meets_timeline_filter.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import 'schedule_display_item.dart';
 import 'schedule_title_normalizer.dart';
@@ -66,6 +68,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
   late String _lastProfilePracticeTierLabel;
 
   TeamEventType? _coachTypeFilter;
+  bool _scheduleAnimReady = false;
 
   @override
   void initState() {
@@ -73,18 +76,28 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     _lastProfilePracticeTierLabel = FFAppState().swimmerPracticeTierLabel;
     _scheduleJuniorTier = _juniorFromPracticeLabel(_lastProfilePracticeTierLabel);
     _tabController = TabController(length: 4, vsync: this);
-    _tabController.addListener(_onScheduleTabChanged);
     _coachSearch.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+      if (reduceMotion ||
+          WidgetsBinding
+              .instance.platformDispatcher.accessibilityFeatures.reduceMotion) {
+        _scheduleAnimReady = true;
+        return;
+      }
+      setState(() => _scheduleAnimReady = true);
+    });
   }
 
-  void _onScheduleTabChanged() {
-    if (!mounted) return;
-    setState(() {});
-  }
+  /// Kept as a no-op so hot-reload does not leave a stale [TabController] listener
+  /// pointing at a removed method (would throw [NoSuchMethodError]). Selection UI uses
+  /// [AnimatedBuilder] on the pill bar instead of rebuilding the whole hub here.
+  // ignore: unused_element
+  void _onScheduleTabChanged() {}
 
   @override
   void dispose() {
-    _tabController.removeListener(_onScheduleTabChanged);
     _tabController.dispose();
     _coachSearch.dispose();
     super.dispose();
@@ -369,79 +382,13 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                   )
                   .toList();
 
-              if (currentUserUid.isEmpty) {
-                return _buildScheduleHubMainColumn(
-                  context: context,
-                  primary: primary,
-                  baselines: baselines,
-                  upcomingFiltered: tierFiltered,
-                  groupedRows: groupedRows,
-                  coachItems: coachItems,
-                );
-              }
-
-              return StreamBuilder<Map<String, MeetPreferencesRecord>>(
-                stream: streamMeetPreferencesMap(currentUserUid),
-                builder: (context, prefSnap) {
-                  return StreamBuilder<List<MonitoredMeetsRecord>>(
-                    stream: streamMonitoredMeetsForSwimmer(
-                      zoneId: app.currentSwimmerZoneForMeets,
-                      priorityHostGroup: app.currentSwimmerGroup,
-                      showAll: app.meetsShowAllZones,
-                      widePastWindow: true,
-                    ),
-                    builder: (context, monSnap) {
-                      if (!prefSnap.hasData || !monSnap.hasData) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                SwimDsTokens.pageHorizontalPadding,
-                                SwimDsTokens.smallGap,
-                                SwimDsTokens.pageHorizontalPadding,
-                                SwimDsTokens.tabsToContentGap,
-                              ),
-                              child: _buildScheduleSegmentedControl(),
-                            ),
-                            const Expanded(
-                              child: Center(
-                                child: SizedBox(
-                                  width: 36,
-                                  height: 36,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-
-                      final prefs = prefSnap.data!;
-                      final monitored = monSnap.data!;
-                      final upcomingFiltered = tierFiltered
-                          .where(
-                            (i) => teamEventMeetPassesMyMeetsTimelineFilter(
-                              i.record,
-                              prefs,
-                              monitored,
-                            ),
-                          )
-                          .toList();
-
-                      return _buildScheduleHubMainColumn(
-                        context: context,
-                        primary: primary,
-                        baselines: baselines,
-                        upcomingFiltered: upcomingFiltered,
-                        groupedRows: groupedRows,
-                        coachItems: coachItems,
-                      );
-                    },
-                  );
-                },
+              return _buildScheduleHubMainColumn(
+                context: context,
+                primary: primary,
+                baselines: baselines,
+                upcomingBase: tierFiltered,
+                groupedRows: groupedRows,
+                coachItems: coachItems,
               );
             },
           );
@@ -455,7 +402,7 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     required BuildContext context,
     required Color primary,
     required List<ScheduleBaseline> baselines,
-    required List<ScheduleDisplayItem> upcomingFiltered,
+    required List<ScheduleDisplayItem> upcomingBase,
     required List<_GroupedRow> groupedRows,
     required List<ScheduleDisplayItem> coachItems,
   }) {
@@ -476,9 +423,9 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
           child: TabBarView(
             controller: _tabController,
             children: [
-              _buildUpcomingTab(
+              _buildUpcomingTabWithOptionalMeetFilter(
                 context: context,
-                upcoming: upcomingFiltered,
+                upcomingBase: upcomingBase,
                 baselines: baselines,
                 bottomPad: bottomPad,
               ),
@@ -508,14 +455,99 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     );
   }
 
-  Widget _buildScheduleSegmentedControl() {
-    return AppSegmentedTabs(
-      labels: const ['Today', 'Training', 'Events', 'Coach'],
-      selectedIndex: _tabController.index,
-      onChanged: (i) {
-        if (_tabController.index != i) {
-          _tabController.animateTo(i);
+  Widget _buildUpcomingTabWithOptionalMeetFilter({
+    required BuildContext context,
+    required List<ScheduleDisplayItem> upcomingBase,
+    required List<ScheduleBaseline> baselines,
+    required double bottomPad,
+  }) {
+    if (currentUserUid.isEmpty) {
+      return _buildUpcomingTab(
+        context: context,
+        upcoming: upcomingBase,
+        baselines: baselines,
+        bottomPad: bottomPad,
+      );
+    }
+
+    // Skip extra streams when there are no meet-typed timeline items to refine.
+    final hasMeetRows =
+        upcomingBase.any((i) => i.record.eventType == TeamEventType.meet);
+    if (!hasMeetRows) {
+      return _buildUpcomingTab(
+        context: context,
+        upcoming: upcomingBase,
+        baselines: baselines,
+        bottomPad: bottomPad,
+      );
+    }
+
+    final app = context.watch<FFAppState>();
+    return StreamBuilder<Map<String, MeetPreferencesRecord>>(
+      stream: streamMeetPreferencesMap(currentUserUid),
+      builder: (context, prefSnap) {
+        if (!prefSnap.hasData) {
+          return _buildUpcomingTab(
+            context: context,
+            upcoming: upcomingBase,
+            baselines: baselines,
+            bottomPad: bottomPad,
+          );
         }
+        return StreamBuilder<List<MonitoredMeetsRecord>>(
+          stream: streamMonitoredMeetsForSwimmer(
+            zoneId: app.currentSwimmerZoneForMeets,
+            priorityHostGroup: app.currentSwimmerGroup,
+            showAll: app.meetsShowAllZones,
+            // Upcoming tab only needs active window; avoid wide historical payload.
+            widePastWindow: false,
+          ),
+          builder: (context, monSnap) {
+            if (!monSnap.hasData) {
+              return _buildUpcomingTab(
+                context: context,
+                upcoming: upcomingBase,
+                baselines: baselines,
+                bottomPad: bottomPad,
+              );
+            }
+            final prefs = prefSnap.data!;
+            final monitored = monSnap.data!;
+            final upcomingFiltered = upcomingBase
+                .where(
+                  (i) => teamEventMeetPassesMyMeetsTimelineFilter(
+                    i.record,
+                    prefs,
+                    monitored,
+                  ),
+                )
+                .toList();
+            return _buildUpcomingTab(
+              context: context,
+              upcoming: upcomingFiltered,
+              baselines: baselines,
+              bottomPad: bottomPad,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildScheduleSegmentedControl() {
+    // Rebuild **only** the pill bar when the tab changes — not the whole Schedule hub
+    // (avoid nested StreamBuilders + heavy tabs rebuilding on every animation tick).
+    return AnimatedBuilder(
+      animation: _tabController,
+      builder: (context, _) {
+        return SchedulePillTabBar(
+          selectedIndex: _tabController.index,
+          onChanged: (i) {
+            if (_tabController.index != i) {
+              _tabController.animateTo(i);
+            }
+          },
+        );
       },
     );
   }
@@ -526,15 +558,89 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     required List<ScheduleBaseline> baselines,
     required double bottomPad,
   }) {
-    return DynamicScheduleTimeline(
-      items: upcoming,
-      bottomPad: bottomPad,
-      currentDateTime: debugScheduleTimelineNow(),
-      onOpenDetail: (item) => showScheduleEventDetailSheet(
-        context,
-        event: item.record,
-        baselines: baselines,
-      ),
+    final now = debugScheduleTimelineNow() ?? DateTime.now();
+    final selectedDay = DateTime(now.year, now.month, now.day);
+    final todaySummary = _todayAtGlanceCounts(upcoming, selectedDay);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            SwimDsTokens.pageHorizontalPadding,
+            0,
+            SwimDsTokens.pageHorizontalPadding,
+            10,
+          ),
+          child: _TodayAtGlanceCard(
+            practiceCount: todaySummary.practiceCount,
+            eventCount: todaySummary.eventCount,
+            coachCount: todaySummary.coachCount,
+          ),
+        )
+            .animate(target: _scheduleAnimReady ? 1 : 0)
+            .fadeIn(
+              delay: 0.ms,
+              duration: 180.ms,
+              curve: Curves.easeOutCubic,
+            )
+            .slideY(
+              begin: 0.1,
+              delay: 0.ms,
+              duration: 180.ms,
+              curve: Curves.easeOutCubic,
+            ),
+        Expanded(
+          child: DynamicScheduleTimeline(
+            items: upcoming,
+            bottomPad: bottomPad,
+            currentDateTime: debugScheduleTimelineNow(),
+            onOpenDetail: (item) => showScheduleEventDetailSheet(
+              context,
+              event: item.record,
+              baselines: baselines,
+            ),
+            onViewFullSchedule: () {
+              if (_tabController.index != 2) {
+                _tabController.animateTo(2);
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  _TodayCounts _todayAtGlanceCounts(
+    List<ScheduleDisplayItem> upcoming,
+    DateTime selectedDay,
+  ) {
+    var practiceCount = 0;
+    var eventCount = 0;
+    var coachCount = 0;
+    for (final item in upcoming) {
+      final p = item.record.parsedStart;
+      if (p == null) continue;
+      final d = DateTime(p.year, p.month, p.day);
+      if (d != selectedDay) continue;
+      switch (item.record.eventType) {
+        case TeamEventType.training:
+          practiceCount++;
+          break;
+        case TeamEventType.admin:
+          coachCount++;
+          break;
+        case TeamEventType.meet:
+        case TeamEventType.social:
+        case TeamEventType.unknown:
+          eventCount++;
+          break;
+      }
+    }
+    return _TodayCounts(
+      practiceCount: practiceCount,
+      eventCount: eventCount,
+      coachCount: coachCount,
     );
   }
 
@@ -1037,6 +1143,114 @@ class _GroupedRow {
   _GroupedRow({this.header, this.item});
   final String? header;
   final ScheduleDisplayItem? item;
+}
+
+class _TodayCounts {
+  const _TodayCounts({
+    required this.practiceCount,
+    required this.eventCount,
+    required this.coachCount,
+  });
+
+  final int practiceCount;
+  final int eventCount;
+  final int coachCount;
+}
+
+class _TodayAtGlanceCard extends StatelessWidget {
+  const _TodayAtGlanceCard({
+    required this.practiceCount,
+    required this.eventCount,
+    required this.coachCount,
+  });
+
+  final int practiceCount;
+  final int eventCount;
+  final int coachCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 116),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LavenderIndigoTokens.heroGradient,
+        boxShadow: [
+          BoxShadow(
+            color: LavenderIndigoTokens.primary.withValues(alpha: 0.28),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today_rounded,
+                        size: 16, color: Colors.white.withValues(alpha: 0.95)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Today at a glance',
+                      style: GoogleFonts.sora(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                'View day',
+                style: GoogleFonts.sora(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: Colors.white.withValues(alpha: 0.9)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _todayMetric('$practiceCount Practice'),
+              _todayMetric('$eventCount Events'),
+              if (coachCount > 0) _todayMetric('$coachCount Coach updates'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _todayMetric(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.sora(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
 }
 
 String _scheduleCoachCategoryLabel(TeamEventType t) {

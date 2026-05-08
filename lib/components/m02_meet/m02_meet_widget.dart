@@ -11,7 +11,10 @@ import '/theme/swim_design_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
 import '/theme/obsidian_volt_tokens.dart';
 import '/widgets/swim_ui_kit.dart';
+import 'meet_option_b_ui.dart';
+import 'meet_overview_metrics.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'meet_list_quick_filter.dart';
@@ -19,8 +22,6 @@ import 'm02_meet_model.dart';
 export 'm02_meet_model.dart';
 
 enum _MeetPrimaryView { myMeets, allMeets }
-
-enum _MyMeetSectionTone { needsAction, entered, skipped, neutral }
 
 class M02MeetWidget extends StatefulWidget {
   const M02MeetWidget({super.key});
@@ -32,7 +33,6 @@ class M02MeetWidget extends StatefulWidget {
 class _M02MeetWidgetState extends State<M02MeetWidget> {
   late M02MeetModel _model;
 
-  bool _meetBannerReady = false;
   _MeetPrimaryView _primaryView = _MeetPrimaryView.myMeets;
   final TextEditingController _allMeetsSearchController =
       TextEditingController();
@@ -254,8 +254,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   }
 
   Widget _buildPrimarySegmentedControl() {
-    return AppSegmentedTabs(
-      labels: const ['My Meets', 'All Meets'],
+    return MeetPillTabs(
       selectedIndex:
           _primaryView == _MeetPrimaryView.myMeets ? 0 : 1,
       onChanged: (i) => setState(() {
@@ -271,34 +270,28 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: !_meetBannerReady
-              ? const SizedBox(
-                  height: 20.0,
-                  width: 20.0,
-                  child: CircularProgressIndicator(strokeWidth: 2.0),
-                )
-              : Text.rich(
-                  TextSpan(
-                    style: GoogleFonts.sora(
-                      fontSize: 13.0,
-                      fontWeight: FontWeight.w600,
-                      color: SwimUiTokens.textBannerTitle,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: 'Zone: ',
-                        style: GoogleFonts.sora(
-                          fontSize: 13.0,
-                          fontWeight: FontWeight.w500,
-                          color: SwimUiTokens.textMuted,
-                        ),
-                      ),
-                      TextSpan(text: _meetsScopeHeadline(app)),
-                    ],
+          child: Text.rich(
+            TextSpan(
+              style: GoogleFonts.sora(
+                fontSize: 13.0,
+                fontWeight: FontWeight.w600,
+                color: SwimUiTokens.textBannerTitle,
+              ),
+              children: [
+                TextSpan(
+                  text: 'Zone: ',
+                  style: GoogleFonts.sora(
+                    fontSize: 13.0,
+                    fontWeight: FontWeight.w500,
+                    color: SwimUiTokens.textMuted,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
+                TextSpan(text: _meetsScopeHeadline(app)),
+              ],
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         const SizedBox(width: 8.0),
         Stack(
@@ -429,81 +422,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     return c;
   }
 
-  Widget _agentMeetSuggestionCard({
-    required int undecidedCount,
-    required VoidCallback onReview,
-  }) {
-    return AppCard(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.auto_awesome_rounded,
-                size: 18,
-                color: LavenderIndigoTokens.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Agent suggestion',
-                style: GoogleFonts.sora(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: LavenderIndigoTokens.primary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            undecidedCount == 1
-                ? 'You have 1 upcoming meet you have not decided on yet.'
-                : 'You have $undecidedCount upcoming meets not decided yet.',
-            style: GoogleFonts.sora(
-              fontSize: 13,
-              height: 1.35,
-              color: SwimUiTokens.textTitle,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: SwimDsTokens.tealApproved,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: onReview,
-              child: Text(
-                'Review All Meets',
-                style: GoogleFonts.sora(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _myMeetSectionSurface(_MyMeetSectionTone tone) {
-    switch (tone) {
-      case _MyMeetSectionTone.needsAction:
-        return SwimUiTokens.sectionNeedsAction;
-      case _MyMeetSectionTone.entered:
-        return SwimUiTokens.sectionEntered;
-      case _MyMeetSectionTone.skipped:
-        return SwimUiTokens.sectionSkipped;
-      case _MyMeetSectionTone.neutral:
-        return SwimUiTokens.surfaceCard;
-    }
-  }
-
   /// One contextual line when a need-action meet has an entry deadline this calendar week.
   String? _deadlineThisWeekInsightLine(
     List<MonitoredMeetsRecord> needsAction,
@@ -549,171 +467,6 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       }
       return _sortDate(a).compareTo(_sortDate(b));
     });
-  }
-
-  Widget _myMeetsSummaryChip({
-    required String label,
-    required Color background,
-    required Color border,
-    required Color foreground,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999.0),
-        border: Border.all(color: border, width: 1.0),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.sora(
-          fontSize: 12.0,
-          fontWeight: FontWeight.w600,
-          color: foreground,
-          height: 1.2,
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _interleaveGroupedMeetRows(List<Widget> rows) {
-    if (rows.isEmpty) {
-      return const <Widget>[];
-    }
-    final out = <Widget>[];
-    for (var i = 0; i < rows.length; i++) {
-      out.add(rows[i]);
-      if (i < rows.length - 1) {
-        out.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5.0),
-            child: Divider(
-              height: 1.0,
-              thickness: 1.0,
-              color: SwimUiTokens.borderSubtle.withValues(alpha: 0.65),
-            ),
-          ),
-        );
-      }
-    }
-    return out;
-  }
-
-  Widget _buildMyMeetGroupedSection({
-    required String title,
-    required int count,
-    required _MyMeetSectionTone tone,
-    required List<Widget> meetRows,
-    bool collapsible = false,
-    bool expanded = true,
-    VoidCallback? onToggleExpanded,
-  }) {
-    if (meetRows.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final surface = _myMeetSectionSurface(tone);
-    final showRows = !collapsible || expanded;
-    final bottomPad = (collapsible && !expanded) ? 14.0 : 12.0;
-
-    final titleStyle = GoogleFonts.sora(
-      fontSize: 15.0,
-      fontWeight: FontWeight.w600,
-      letterSpacing: -0.15,
-      color: SwimUiTokens.textBannerTitle,
-    );
-
-    Widget sectionCountChip() {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 3.0),
-        decoration: BoxDecoration(
-          color: SwimUiTokens.surfaceCanvasSchedule,
-          borderRadius: BorderRadius.circular(999.0),
-          border: Border.all(
-            color: SwimUiTokens.borderSubtle,
-            width: 0.5,
-          ),
-        ),
-        child: Text(
-          '$count',
-          style: GoogleFonts.sora(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w500,
-            color: SwimUiTokens.textFaint,
-          ),
-        ),
-      );
-    }
-
-    final headerRow = Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Text(title, style: titleStyle),
-        ),
-        sectionCountChip(),
-        if (collapsible) ...[
-          const SizedBox(width: 4.0),
-          AnimatedRotation(
-            turns: expanded ? 0.5 : 0.0,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            child: Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 22.0,
-              color: SwimUiTokens.textMuted,
-            ),
-          ),
-        ],
-      ],
-    );
-
-    final header = collapsible
-        ? Semantics(
-            button: true,
-            expanded: expanded,
-            label:
-                '$title, $count ${count == 1 ? 'meet' : 'meets'}. ${expanded ? 'Collapse' : 'Expand'} section.',
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onToggleExpanded,
-                borderRadius: BorderRadius.circular(10.0),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: headerRow,
-                ),
-              ),
-            ),
-          )
-        : headerRow;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24.0, 10.0, 24.0, 0.0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: surface,
-          borderRadius: BorderRadius.circular(SwimUiTokens.radiusSection),
-          border: Border.all(
-            color: SwimUiTokens.cardSurfaceEdgeBorder,
-            width: 1.0,
-          ),
-          boxShadow: SwimUiTokens.shadowCard,
-        ),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(14.0, 14.0, 14.0, bottomPad),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              header,
-              if (showRows) ...[
-                const SizedBox(height: 10.0),
-                ..._interleaveGroupedMeetRows(meetRows),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   /// Meets tab context line: zone-scoped vs all Pacific zones.
@@ -786,13 +539,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
     _model = createModel(context, () => M02MeetModel());
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        await refreshSwimmerAppState();
-      } finally {
-        if (mounted) {
-          safeSetState(() => _meetBannerReady = true);
-        }
-      }
+      await refreshSwimmerAppState();
     });
   }
 
@@ -807,6 +554,8 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<FFAppState>();
+    final reduceMotion = MediaQuery.disableAnimationsOf(context) ||
+        WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.reduceMotion;
 
     return ColoredBox(
       color: SwimUiTokens.surfaceCanvas,
@@ -821,16 +570,13 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
               0,
             ),
             child: _buildPrimarySegmentedControl(),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              SwimDsTokens.pageHorizontalPadding,
-              SwimDsTokens.tabsToContentGap,
-              SwimDsTokens.pageHorizontalPadding,
-              0,
-            ),
-            child: _buildZoneAndFiltersRow(context, app),
-          ),
+          )
+              .let((w) => reduceMotion
+                  ? w
+                  : w
+                      .animate()
+                      .fadeIn(duration: 320.ms, curve: Curves.easeOutCubic)
+                      .slideY(begin: 0.06, duration: 320.ms, curve: Curves.easeOutCubic)),
           Expanded(
             child: StreamBuilder<Map<String, MeetPreferencesRecord>>(
               stream: streamMeetPreferencesMap(currentUserUid),
@@ -868,17 +614,58 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                         .toList()
                       ..sort((a, b) => _sortDate(a).compareTo(_sortDate(b)));
 
+                    final today = DateTime.now();
+                    final midnight =
+                        DateTime(today.year, today.month, today.day);
+                    final hasPastMeetsInFeed = snapshot.data!.any((m) {
+                      final e = m.endDate ?? m.startDate;
+                      return e != null && e.isBefore(midnight);
+                    });
+
+                    final overviewMeets = _primaryView ==
+                            _MeetPrimaryView.myMeets
+                        ? filtered
+                            .where(
+                                (m) => _isMyMeet(m, prefs[m.reference.id]))
+                            .toList()
+                        : filtered;
+                    final counts = computeMeetOverviewCounts(
+                      meets: overviewMeets,
+                      prefs: prefs,
+                    );
+
+                    final overviewBlock = Padding(
+                      padding: const EdgeInsets.fromLTRB(20.0, 4.0, 20.0, 0.0),
+                      child: MeetOverviewGradientCard(counts: counts),
+                    ).let((w) => reduceMotion
+                        ? w
+                        : w
+                            .animate()
+                            .fadeIn(delay: 80.ms, duration: 360.ms, curve: Curves.easeOutCubic)
+                            .slideY(begin: 0.06, delay: 80.ms, duration: 360.ms, curve: Curves.easeOutCubic));
+
+                    final zoneFilters = Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        SwimDsTokens.pageHorizontalPadding,
+                        12.0,
+                        SwimDsTokens.pageHorizontalPadding,
+                        0,
+                      ),
+                      child: _buildZoneAndFiltersRow(context, app),
+                    );
+
                     if (_primaryView == _MeetPrimaryView.allMeets) {
                       if (filtered.isEmpty) {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            overviewBlock,
+                            zoneFilters,
                             Padding(
                               padding: const EdgeInsets.fromLTRB(
-                                  20.0, 10.0, 20.0, 2.0),
+                                  20.0, 12.0, 20.0, 2.0),
                               child: _buildAllMeetsSearchRow(),
                             ),
-                            const SizedBox(height: 10.0),
                             Expanded(
                               child: Center(
                                 child: Padding(
@@ -895,7 +682,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                       ),
                                       const SizedBox(height: 12.0),
                                       Text(
-                                        'No meets match',
+                                        'No meets found',
                                         textAlign: TextAlign.center,
                                         style: GoogleFonts.sora(
                                           fontSize: 16.0,
@@ -905,7 +692,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                       ),
                                       const SizedBox(height: 6.0),
                                       Text(
-                                        'Try another search, or open Filters to widen class or zone.',
+                                        'Try changing your filters or check back later.',
                                         textAlign: TextAlign.center,
                                         style: GoogleFonts.sora(
                                           fontSize: 13.0,
@@ -925,19 +712,21 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          overviewBlock,
+                          zoneFilters,
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
-                                20.0, 10.0, 20.0, 2.0),
+                                20.0, 12.0, 20.0, 2.0),
                             child: _buildAllMeetsSearchRow(),
                           ),
                           const SizedBox(height: 6.0),
                           Expanded(
                             child: ListView.builder(
                               padding: const EdgeInsets.fromLTRB(
-                                20.0,
-                                6.0,
-                                20.0,
-                                24.0,
+                                0.0,
+                                4.0,
+                                0.0,
+                                28.0,
                               ),
                               itemCount: filtered.length,
                               itemBuilder: (context, index) {
@@ -947,6 +736,7 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                                       'all_meet_${meet.reference.id}_$index'),
                                   meetDoc: meet,
                                   preference: prefs[meet.reference.id],
+                                  listStyleOptionB: true,
                                 );
                               },
                             ),
@@ -976,212 +766,109 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
                             ))
                         .toList();
                     _sortNeedsActionByUrgencyThenDate(needsAction, prefs);
-                    final entered = myMeets
-                        .where((m) =>
-                            prefs[m.reference.id]?.status ==
-                            MeetPreferenceStatus.entered)
-                        .toList()
-                      ..sort((a, b) => _sortDate(a).compareTo(_sortDate(b)));
-                    final newToReview = myMeets
-                        .where((m) =>
-                            prefs[m.reference.id]?.status ==
-                            MeetPreferenceStatus.newStatus)
-                        .toList();
-                    final other = myMeets
-                        .where((m) =>
-                            !needsAction.contains(m) &&
-                            !entered.contains(m) &&
-                            !newToReview.contains(m))
-                        .toList();
-
-                    var deadlineWeekCount = 0;
-                    for (final m in needsAction) {
-                      if (MeetListQuickFilter.entryDeadlineThisCalendarWeek(
-                        m,
-                        prefs[m.reference.id],
-                      )) {
-                        deadlineWeekCount++;
-                      }
-                    }
-                    final anyDeadlineUrgent48h = needsAction.any(
-                      MeetListQuickFilter.entryDeadlineWithin48Hours,
-                    );
                     final deadlineInsight =
                         _deadlineThisWeekInsightLine(needsAction, prefs);
                     final undecidedUpcoming =
                         _undecidedUpcomingMeetCount(filtered, prefs);
 
                     if (myMeets.isEmpty) {
-                      return Center(
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            SwimDsTokens.pageHorizontalPadding,
-                            24.0,
-                            SwimDsTokens.pageHorizontalPadding,
-                            32.0,
-                          ),
-                          child: EmptyStateCard(
-                            title: 'My Meets is empty',
-                            message:
-                                'Browse all meets to follow, plan entries, or skip — your list builds from there.',
-                            icon: Icons.pool_outlined,
-                            ctaLabel: 'Browse All Meets',
-                            onCta: () => setState(
-                              () => _primaryView = _MeetPrimaryView.allMeets,
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          overviewBlock,
+                          zoneFilters,
+                          Expanded(
+                            child: Center(
+                              child: Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  SwimDsTokens.pageHorizontalPadding,
+                                  16.0,
+                                  SwimDsTokens.pageHorizontalPadding,
+                                  32.0,
+                                ),
+                                child: EmptyStateCard(
+                                  title: 'No meets selected yet',
+                                  message:
+                                      'Review upcoming meets and decide which ones your swimmer will attend.',
+                                  icon: Icons.pool_outlined,
+                                  ctaLabel: 'Browse All Meets',
+                                  onCta: () => setState(
+                                    () => _primaryView =
+                                        _MeetPrimaryView.allMeets,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       );
                     }
 
-                    return ListView(
-                      padding: const EdgeInsets.fromLTRB(0.0, 2.0, 0.0, 28.0),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (needsAction.isNotEmpty ||
-                            deadlineWeekCount > 0) ...[
-                          Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(24.0, 4.0, 24.0, 0.0),
-                            child: Wrap(
-                              spacing: 8.0,
-                              runSpacing: 8.0,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                if (needsAction.isNotEmpty)
-                                  _myMeetsSummaryChip(
-                                    label: '${needsAction.length} Need Action',
-                                    background: ObsidianVoltTokens.bgSurface,
-                                    border: ObsidianVoltTokens.borderDefault,
-                                    foreground: ObsidianVoltTokens.textPrimary,
+                        overviewBlock,
+                        zoneFilters,
+                        Expanded(
+                          child: ListView(
+                            padding: const EdgeInsets.only(bottom: 28.0),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                    20.0, 14.0, 20.0, 6.0),
+                                child: Text(
+                                  'UPCOMING MEETS',
+                                  style: GoogleFonts.sora(
+                                    fontSize: 11.0,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.1,
+                                    color: SwimUiTokens.textMuted,
                                   ),
-                                if (deadlineWeekCount > 0)
-                                  Tooltip(
-                                    message: anyDeadlineUrgent48h
-                                        ? 'Summary only. Meets with a deadline in the next 48 hours are marked below.'
-                                        : 'Summary only — not a filter. Meets that count show “Due this week · closes …” on the row.',
-                                    child: _myMeetsSummaryChip(
-                                      label: deadlineWeekCount == 1
-                                          ? '1 deadline this week'
-                                          : '$deadlineWeekCount deadlines this week',
-                                      background: anyDeadlineUrgent48h
-                                          ? ObsidianVoltTokens.dangerCardBg
-                                          : ObsidianVoltTokens.urgentCardBg,
-                                      border: anyDeadlineUrgent48h
-                                          ? ObsidianVoltTokens.dangerCardBorder
-                                          : ObsidianVoltTokens.urgentCardBorder,
-                                      foreground: anyDeadlineUrgent48h
-                                          ? ObsidianVoltTokens.dangerCta
-                                          : ObsidianVoltTokens.urgentCta,
+                                ),
+                              ),
+                              if (deadlineInsight != null)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                      20.0, 0.0, 20.0, 8.0),
+                                  child: Text(
+                                    deadlineInsight,
+                                    style: GoogleFonts.sora(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.35,
+                                      color: SwimUiTokens.textMuted,
                                     ),
                                   ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        if (deadlineInsight != null) ...[
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              20.0,
-                              8.0,
-                              20.0,
-                              0.0,
-                            ),
-                            child: Text(
-                              deadlineInsight,
-                              style: GoogleFonts.sora(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w500,
-                                height: 1.35,
-                                color: SwimUiTokens.textMuted,
+                                ),
+                              ...myMeets.asMap().entries.map((entry) {
+                                final meet = entry.value;
+                                final i = entry.key;
+                                return M02MeetEnteredWidget(
+                                  key: Key(
+                                      'my_flat_${meet.reference.id}_$i'),
+                                  meetDoc: meet,
+                                  preference: prefs[meet.reference.id],
+                                  listStyleOptionB: true,
+                                );
+                              }),
+                              if (hasPastMeetsInFeed &&
+                                  !app.meetShowPastEvents)
+                                MeetViewPastRow(
+                                  onTap: () {
+                                    app.update(
+                                        () => app.meetShowPastEvents = true);
+                                    app.persistMeetUiState();
+                                  },
+                                ),
+                              MeetAgentSuggestionCard(
+                                undecidedCount: undecidedUpcoming,
+                                onReview: () => setState(
+                                  () => _primaryView =
+                                      _MeetPrimaryView.allMeets,
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                        _buildMyMeetGroupedSection(
-                          title: 'New to review',
-                          count: newToReview.length,
-                          tone: _MyMeetSectionTone.neutral,
-                          meetRows: newToReview.asMap().entries.map((entry) {
-                            final meet = entry.value;
-                            return M02MeetEnteredWidget(
-                              key: Key(
-                                  'my_new_${meet.reference.id}_${entry.key}'),
-                              meetDoc: meet,
-                              preference: prefs[meet.reference.id],
-                              groupedInSection: true,
-                            );
-                          }).toList(),
-                        ),
-                        _buildMyMeetGroupedSection(
-                          title: 'Needs Action',
-                          count: needsAction.length,
-                          tone: _MyMeetSectionTone.needsAction,
-                          meetRows: needsAction.asMap().entries.map((entry) {
-                            final meet = entry.value;
-                            return M02MeetEnteredWidget(
-                              key: Key(
-                                  'my_need_${meet.reference.id}_${entry.key}'),
-                              meetDoc: meet,
-                              preference: prefs[meet.reference.id],
-                              groupedInSection: true,
-                            );
-                          }).toList(),
-                        ),
-                        _buildMyMeetGroupedSection(
-                          title: 'Already Entered',
-                          count: entered.length,
-                          tone: _MyMeetSectionTone.entered,
-                          meetRows: entered.asMap().entries.map((entry) {
-                            final meet = entry.value;
-                            return M02MeetEnteredWidget(
-                              key: Key(
-                                  'my_entered_${meet.reference.id}_${entry.key}'),
-                              meetDoc: meet,
-                              preference: prefs[meet.reference.id],
-                              groupedInSection: true,
-                            );
-                          }).toList(),
-                        ),
-                        if (entered.isEmpty)
-                          Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              SwimDsTokens.pageHorizontalPadding,
-                              8,
-                              SwimDsTokens.pageHorizontalPadding,
-                              0,
-                            ),
-                            child: EmptyStateCard(
-                              title: 'No entered meets yet',
-                              message:
-                                  'Meets you enter will appear in this section.',
-                              icon: Icons.how_to_reg_outlined,
-                              ctaLabel: 'Browse All Meets',
-                              onCta: () => setState(
-                                () => _primaryView = _MeetPrimaryView.allMeets,
-                              ),
-                            ),
-                          ),
-                        if (entered.isNotEmpty && undecidedUpcoming > 0)
-                          _agentMeetSuggestionCard(
-                            undecidedCount: undecidedUpcoming,
-                            onReview: () => setState(
-                              () => _primaryView = _MeetPrimaryView.allMeets,
-                            ),
-                          ),
-                        _buildMyMeetGroupedSection(
-                          title: 'Other My Meets',
-                          count: other.length,
-                          tone: _MyMeetSectionTone.neutral,
-                          meetRows: other.asMap().entries.map((entry) {
-                            final meet = entry.value;
-                            return M02MeetEnteredWidget(
-                              key: Key(
-                                  'my_other_${meet.reference.id}_${entry.key}'),
-                              meetDoc: meet,
-                              preference: prefs[meet.reference.id],
-                              groupedInSection: true,
-                            );
-                          }).toList(),
                         ),
                       ],
                     );
@@ -1194,6 +881,10 @@ class _M02MeetWidgetState extends State<M02MeetWidget> {
       ),
     );
   }
+}
+
+extension _WidgetLetX on Widget {
+  Widget let(Widget Function(Widget w) fn) => fn(this);
 }
 
 typedef _MeetClassToggle = void Function({

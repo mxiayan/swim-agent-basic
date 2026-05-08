@@ -4,12 +4,10 @@ import '/backend/meet_preferences_api.dart';
 import '/backend/schema/meet_preferences_record.dart';
 import '/components/m01_activity/m01_activity_widget.dart';
 import '/components/m02_meet/m02_meet_widget.dart';
-import '/components/m03_job/m03_job_widget.dart';
 import '/pages/agent_home/agent_feed_item.dart';
 import '/pages/agent_home/agent_feed_logic.dart';
 import '/pages/agent_home/agent_home_widget.dart';
 import '/pages/agent_home/agent_meet_feed_bridge.dart';
-import '/pages/agent_home/agent_priority_engine.dart';
 import '/pages/swimmer_profile/swimmer_profile_page.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -46,8 +44,6 @@ class _HomeWidgetState extends State<HomeWidget> {
         return 'Schedule';
       case 2:
         return 'Meets';
-      case 3:
-        return 'Jobs';
       default:
         return '';
     }
@@ -59,8 +55,6 @@ class _HomeWidgetState extends State<HomeWidget> {
         return 'Team calendar & training';
       case 2:
         return 'Entries, deadlines & heat sheets';
-      case 3:
-        return 'Volunteer shifts & reminders';
       default:
         return '';
     }
@@ -73,7 +67,7 @@ class _HomeWidgetState extends State<HomeWidget> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FFAppState().update(() {
         final t = FFAppState().activeTab;
-        if (t < 0 || t > 3) {
+        if (t < 0 || t > 2) {
           FFAppState().activeTab = 0;
         }
       });
@@ -147,16 +141,10 @@ class _HomeWidgetState extends State<HomeWidget> {
                           p.status == MeetPreferenceStatus.newStatus ||
                           p.status == MeetPreferenceStatus.needEntry,
                     );
-                    final jobsDot = feed.any(
-                      (i) =>
-                          i.type == AgentFeedItemType.volunteerJob &&
-                          AgentPriorityEngine.volunteerJobIsSignupUrgent(i),
-                    );
                     return _buildBottomNavigationBar(
                       context,
                       agentDot: stats.needsAction > 0,
                       meetDot: meetDot,
-                      jobsDot: jobsDot,
                     );
                   },
                 );
@@ -205,16 +193,6 @@ class _HomeWidgetState extends State<HomeWidget> {
                               child: M02MeetWidget(),
                             ),
                           ),
-                        if (FFAppState().activeTab == 3)
-                          Padding(
-                            padding: const EdgeInsetsDirectional.fromSTEB(
-                                0.0, 4.0, 0.0, 0.0),
-                            child: wrapWithModel(
-                              model: _model.m03JobModel,
-                              updateCallback: () => safeSetState(() {}),
-                              child: M03JobWidget(),
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -231,7 +209,6 @@ class _HomeWidgetState extends State<HomeWidget> {
     BuildContext context, {
     bool agentDot = false,
     bool meetDot = false,
-    bool jobsDot = false,
   }) {
     return SafeArea(
       top: false,
@@ -262,12 +239,6 @@ class _HomeWidgetState extends State<HomeWidget> {
               icon: Icons.pool_rounded,
               tabIndex: 2,
               showBadge: meetDot,
-            ),
-            _buildBottomNavItem(
-              label: 'Jobs',
-              icon: Icons.work_outline_rounded,
-              tabIndex: 3,
-              showBadge: jobsDot,
             ),
           ],
         ),

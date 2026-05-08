@@ -44,6 +44,11 @@ class MetadataClubsRecord extends FirestoreRecord {
   String? _homePoolLocation;
   String get homePoolLocation => (_homePoolLocation ?? '').trim();
 
+  /// Optional club-level default practice / age group (e.g. for "Auto" profile mode).
+  String? _profilePracticeGroupHint;
+  String get profilePracticeGroupHint =>
+      (_profilePracticeGroupHint ?? '').trim();
+
   void _initializeFields() {
     _name = snapshotData['name'] as String?;
     _zoneId = _asString(snapshotData['zone_id']);
@@ -53,6 +58,28 @@ class MetadataClubsRecord extends FirestoreRecord {
         snapshotData['club_code'] ?? snapshotData['code'] ?? snapshotData['club_id']);
     _clubName = _asString(snapshotData['club_name']);
     _homePoolLocation = _asString(snapshotData['home_pool_location']);
+    _profilePracticeGroupHint = _firstNonEmptyString(snapshotData, const [
+      'default_practice_group',
+      'practice_group',
+      'swimmer_group',
+      'swimmer_practice_group',
+      'club_practice_group',
+      'practice_tier_label',
+      'practiceTierLabel',
+    ]);
+  }
+
+  static String? _firstNonEmptyString(
+    Map<String, dynamic> data,
+    List<String> keys,
+  ) {
+    for (final k in keys) {
+      final v = _asString(data[k])?.trim();
+      if (v != null && v.isNotEmpty) {
+        return v;
+      }
+    }
+    return null;
   }
 
   static String? _asString(dynamic v) {

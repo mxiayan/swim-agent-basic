@@ -51,6 +51,14 @@ class SwimmerRecord extends FirestoreRecord {
   bool get isActive => _isActive ?? false;
   bool hasIsActive() => _isActive != null;
 
+  /// Practice tier / age-group override chosen on the profile screen (`practice_tier_label`).
+  String? _practiceTierLabel;
+  String get practiceTierLabel => _practiceTierLabel ?? '';
+
+  /// Custom profile photo persisted as base64 (`profile_avatar_base64`).
+  String? _profileAvatarBase64;
+  String get profileAvatarBase64 => _profileAvatarBase64 ?? '';
+
   static String? _firstNonEmptyString(
     Map<String, dynamic> data,
     List<String> keys,
@@ -205,6 +213,17 @@ class SwimmerRecord extends FirestoreRecord {
     }
     _lscName = snapshotData['lsc_name'] as String?;
     _isActive = snapshotData['is_active'] as bool?;
+    _practiceTierLabel = _firstNonEmptyString(snapshotData, const [
+      'practice_tier_label',
+      'practiceTierLabel',
+    ]);
+    final rawAvatar = snapshotData['profile_avatar_base64'] ??
+        snapshotData['profileAvatarBase64'];
+    if (rawAvatar is String) {
+      _profileAvatarBase64 = rawAvatar;
+    } else {
+      _profileAvatarBase64 = null;
+    }
   }
 
   /// FlutterFlow / Pacific Swimming app collection name.
@@ -329,6 +348,10 @@ Map<String, dynamic> createSwimmerRecordData({
   String? zoneId,
   String? zoneDisplayName,
   String? clubId,
+  /// Age-group / practice tier label from profile UI (`practice_tier_label`).
+  String? practiceTierLabel,
+  /// Custom avatar as base64 JPEG/PNG (`profile_avatar_base64`). Pass `''` to clear.
+  String? profileAvatarBase64,
 }) {
   final effectiveName = name ?? displayName;
   final firestoreData = mapToFirestore(
@@ -339,6 +362,9 @@ Map<String, dynamic> createSwimmerRecordData({
       'zone_id': zoneId,
       'zone_display_name': zoneDisplayName,
       'club_id': clubId,
+      if (practiceTierLabel != null) 'practice_tier_label': practiceTierLabel,
+      if (profileAvatarBase64 != null)
+        'profile_avatar_base64': profileAvatarBase64,
     }.withoutNulls,
   );
 

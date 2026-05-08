@@ -167,6 +167,8 @@ class FFAppState extends ChangeNotifier {
   static const _kSwimmerZoneDisplay = 'ff_currentSwimmerZoneDisplayName';
   static const _kSwimmerPracticeTierLabel =
       'ff_swimmerPracticeTierLabel';
+  static const _kClubProfilePracticeGroup =
+      'ff_clubProfilePracticeGroupRaw';
   static const _kProfileAvatarPath = 'ff_profileAvatarLocalPath';
   static const _kProfileAvatarWebB64 = 'ff_profileAvatarWebBase64';
   static const _kMeetFilterAge = 'ff_meetFilterShowAgeGroup';
@@ -192,6 +194,8 @@ class FFAppState extends ChangeNotifier {
     _currentSwimmerZoneDisplayName =
         isSwimmerZonePlaceholder(rawDisp) ? '' : rawDisp.trim();
     _swimmerPracticeTierLabel = prefs.getString(_kSwimmerPracticeTierLabel) ?? '';
+    _clubProfilePracticeGroupRaw =
+        prefs.getString(_kClubProfilePracticeGroup) ?? '';
     _profileAvatarLocalPath = prefs.getString(_kProfileAvatarPath) ?? '';
     _profileAvatarWebBase64 = prefs.getString(_kProfileAvatarWebB64) ?? '';
     _meetFilterShowAgeGroup = prefs.getBool(_kMeetFilterAge) ?? true;
@@ -221,6 +225,8 @@ class FFAppState extends ChangeNotifier {
     await prefs.setString(_kSwimmerZone, _currentSwimmerZone);
     await prefs.setString(_kSwimmerZoneDisplay, _currentSwimmerZoneDisplayName);
     await prefs.setString(_kSwimmerPracticeTierLabel, _swimmerPracticeTierLabel);
+    await prefs.setString(
+        _kClubProfilePracticeGroup, _clubProfilePracticeGroupRaw);
     await prefs.setString(_kProfileAvatarPath, _profileAvatarLocalPath);
     await prefs.setString(_kProfileAvatarWebB64, _profileAvatarWebBase64);
   }
@@ -249,6 +255,7 @@ class FFAppState extends ChangeNotifier {
       _currentSwimmerZone = '';
       _currentSwimmerZoneDisplayName = '';
       _swimmerPracticeTierLabel = '';
+      _clubProfilePracticeGroupRaw = '';
       _profileAvatarLocalPath = '';
       _profileAvatarWebBase64 = '';
     });
@@ -258,6 +265,7 @@ class FFAppState extends ChangeNotifier {
     await prefs.remove(_kSwimmerZone);
     await prefs.remove(_kSwimmerZoneDisplay);
     await prefs.remove(_kSwimmerPracticeTierLabel);
+    await prefs.remove(_kClubProfilePracticeGroup);
     await prefs.remove(_kProfileAvatarPath);
     await prefs.remove(_kProfileAvatarWebB64);
   }
@@ -302,6 +310,13 @@ class FFAppState extends ChangeNotifier {
   String get swimmerPracticeTierLabel => _swimmerPracticeTierLabel;
   set swimmerPracticeTierLabel(String value) {
     _swimmerPracticeTierLabel = value;
+  }
+
+  /// Optional practice/age-group hint from `metadata_clubs` (for Auto profile mode).
+  String _clubProfilePracticeGroupRaw = '';
+  String get clubProfilePracticeGroupRaw => _clubProfilePracticeGroupRaw;
+  set clubProfilePracticeGroupRaw(String value) {
+    _clubProfilePracticeGroupRaw = value;
   }
 
   /// Mobile/desktop: absolute path to copied gallery avatar under app documents.
