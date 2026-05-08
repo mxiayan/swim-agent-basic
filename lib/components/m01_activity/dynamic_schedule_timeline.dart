@@ -265,8 +265,8 @@ class DynamicScheduleTimeline extends StatefulWidget {
 }
 
 class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
-  static const double _headerMax = 96;
-  static const double _headerMin = 52;
+  static const double _headerMax = 84;
+  static const double _headerMin = 48;
   static const double _floatNowThreshold = 140;
   static const double _pastCollapseScroll = 100;
   static const Duration _anim = Duration(milliseconds: 320);
@@ -1287,9 +1287,9 @@ class _CollapsingDateHeaderDelegate extends SliverPersistentHeaderDelegate {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           SwimDsTokens.pageHorizontalPadding,
-          4,
+          2,
           SwimDsTokens.pageHorizontalPadding,
-          4,
+          2,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
