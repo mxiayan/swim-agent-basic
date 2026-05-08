@@ -84,6 +84,10 @@ class ScheduleDisplayItem {
       return p;
     }
     final baselineCompact = _compactPoolTimeLabel(summary);
+    if (hints.preferStandingGridPoolTimes &&
+        _hasTwoClockTokens(baselineCompact)) {
+      return baselineCompact;
+    }
     if (p.isEmpty) return baselineCompact;
     if (_hasTwoClockTokens(p)) return p;
     if (_hasTwoClockTokens(baselineCompact)) return baselineCompact;

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '/backend/backend.dart';
 import '/theme/swim_ui_tokens.dart';
 import '/theme/obsidian_volt_tokens.dart';
+import 'schedule_title_normalizer.dart';
 
 // ─── Display normalization (Firestore text may lag parser_hints / coach typos) ─
 
@@ -101,9 +102,17 @@ bool _trainingMentionsSenior(TeamEventsRecord e) {
 enum _BaselineDaypartHint { h24, pm12, am12 }
 
 class StandingGridBaselineHints {
-  const StandingGridBaselineHints({this.scheduleSummary, this.drylandLine});
+  const StandingGridBaselineHints({
+    this.scheduleSummary,
+    this.drylandLine,
+    this.preferStandingGridPoolTimes = false,
+  });
   final String? scheduleSummary;
   final String? drylandLine;
+
+  /// When true, list/timeline should use [scheduleSummary] pool hours even if Firestore has
+  /// a full start/end (often wrong ingest/backfill vs the Season standing grid).
+  final bool preferStandingGridPoolTimes;
 }
 
 String _clockLabel12(int hour12, String mins, {required bool isPm}) {
@@ -164,17 +173,39 @@ String? _extractWeekdayBlock(String body, String anchor, DateTime day) {
     'Sunday',
   ];
   final wd = names[day.weekday - 1];
-  final anchorIdx = body.indexOf(anchor);
-  if (anchorIdx < 0) return null;
-  final tail = body.substring(anchorIdx);
   final hdr = RegExp(r'(^|\n)' + RegExp.escape(wd) + r':');
-  final hm = hdr.firstMatch(tail);
-  if (hm == null) return null;
-  final afterColon = tail.substring(hm.end);
-  final next = RegExp(
+  final nextDay = RegExp(
     r'\n(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday):',
-  ).firstMatch(afterColon);
-  return next != null ? afterColon.substring(0, next.start) : afterColon;
+  );
+
+  String? best;
+  var searchFrom = 0;
+  while (true) {
+    final anchorIdx = body.indexOf(anchor, searchFrom);
+    if (anchorIdx < 0) break;
+    final tail = body.substring(anchorIdx);
+    final hm = hdr.firstMatch(tail);
+    if (hm != null) {
+      final afterColon = tail.substring(hm.end);
+      final next = nextDay.firstMatch(afterColon);
+      best = next != null ? afterColon.substring(0, next.start) : afterColon;
+    }
+    searchFrom = anchorIdx + anchor.length;
+  }
+  return best;
+}
+
+/// Minutes since midnight for a `PM:` line start (6:30 → evening, not AM).
+int? _pmLineStartMinutes(String hourStr, String minStr) {
+  final h = int.tryParse(hourStr);
+  final mi = int.tryParse(minStr);
+  if (h == null || mi == null) return null;
+  var h24 = h;
+  if (h >= 1 && h <= 11) {
+    h24 = h + 12;
+  }
+  // 12:xx on a PM: line = noon / lunch practice
+  return h24 * 60 + mi;
 }
 
 String? _poolLineFromDayBlock(
@@ -187,6 +218,35 @@ String? _poolLineFromDayBlock(
 
   final pmRx =
       RegExp(r'^PM:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})');
+
+  if (preferPmForAmbiguous) {
+    final pmMatches = <RegExpMatch>[];
+    for (final raw in block.split('\n')) {
+      final line = raw.trim();
+      if (line.isEmpty) continue;
+      final m = pmRx.firstMatch(line);
+      if (m != null) pmMatches.add(m);
+    }
+    if (pmMatches.length >= 2) {
+      RegExpMatch? best;
+      var bestStart = 1 << 30;
+      for (final m in pmMatches) {
+        final t = _pmLineStartMinutes(m.group(1)!, m.group(2)!);
+        if (t != null && t < bestStart) {
+          bestStart = t;
+          best = m;
+        }
+      }
+      if (best != null) {
+        return _formatMatchedRange(best, _BaselineDaypartHint.pm12);
+      }
+    } else if (pmMatches.length == 1) {
+      return _formatMatchedRange(
+        pmMatches.single,
+        _BaselineDaypartHint.pm12,
+      );
+    }
+  }
   final amRx =
       RegExp(r'^AM:\s*(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})');
   final practiceRx = RegExp(
@@ -334,11 +394,24 @@ StandingGridBaselineHints standingGridBaselineHints(
   String? dry;
 
   if (isJunior) {
-    const anchors = [
+    const anchorsBase = [
       'Junior 1 & 2',
       'Junior 3',
       'Jr PM',
       'Junior Group',
+    ];
+    final jrContext = [
+      e.title,
+      e.details,
+      ...e.appliesToGroups,
+    ].join(' ').toLowerCase();
+    final anchors = <String>[
+      ...anchorsBase.where(
+        (a) => jrContext.contains(a.toLowerCase()),
+      ),
+      ...anchorsBase.where(
+        (a) => !jrContext.contains(a.toLowerCase()),
+      ),
     ];
     for (final a in anchors) {
       final block = _extractWeekdayBlock(bodies, a, day);
@@ -407,16 +480,20 @@ StandingGridBaselineHints standingGridBaselineHints(
 
   if (pool == null && dry == null) return none;
 
-  /// Include baseline pool hours when Firestore is missing **start** or **end**
-  /// so the UI can show e.g. `6:45pm–8:00pm` for start-only, end-only (backfill), or neither.
-  final needsBaselineRange = e.startTimeLocal.trim().isEmpty ||
-      e.endTimeLocal.trim().isEmpty;
-  final summary = pool != null && needsBaselineRange
-      ? 'Regular week · typical pool $pool (Season schedules)'
-      : null;
+  /// Always attach pool text when we parsed it so merge logic can prefer grid over bad Firestore.
+  final summary =
+      'Regular week · typical pool $pool (Season schedules)';
+
+  /// Recurring / “regular” grid rows: standing schedule is source of truth for pool window;
+  /// coach-ingest start/end is often a duplicate hash with wrong wall times (e.g. 7:30–8pm).
+  final preferGridPool = pool != null &&
+      _refersToStandingWorkoutGrid(e) &&
+      (e.isRecurring || tl.contains('regular'));
+
   return StandingGridBaselineHints(
     scheduleSummary: summary,
     drylandLine: dry,
+    preferStandingGridPoolTimes: preferGridPool,
   );
 }
 
@@ -1164,9 +1241,9 @@ class _TeamEventCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            event.title.isEmpty
+                            scheduleEventTitleForUi(event).isEmpty
                                 ? '(untitled event)'
-                                : event.title,
+                                : scheduleEventTitleForUi(event),
                             style: GoogleFonts.sora(
                               fontSize: 14.25,
                               fontWeight: FontWeight.w700,
@@ -1499,7 +1576,9 @@ class _EventDetailSheet extends StatelessWidget {
               ),
               const SizedBox(height: 10.0),
               Text(
-                event.title.isEmpty ? '(untitled event)' : event.title,
+                scheduleEventTitleForUi(event).isEmpty
+                    ? '(untitled event)'
+                    : scheduleEventTitleForUi(event),
                 style: GoogleFonts.sora(
                   fontSize: 19.0,
                   fontWeight: FontWeight.w700,

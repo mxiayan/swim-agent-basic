@@ -19,6 +19,7 @@ import '/theme/obsidian_volt_tokens.dart';
 import '/components/m02_meet/my_meets_timeline_filter.dart';
 
 import 'schedule_display_item.dart';
+import 'schedule_title_normalizer.dart';
 import 'training_schedule_tab.dart';
 import 'team_events_schedule.dart' show showScheduleEventDetailSheet;
 import 'dynamic_schedule_timeline.dart';
@@ -32,8 +33,8 @@ import 'dynamic_schedule_timeline.dart';
 /// (debug & profile can use the override).
 DateTime? debugScheduleTimelineNow() {
   if (kReleaseMode) return null;
-  // return null;
-  return DateTime(2026, 5, 7, 20, 10);
+  return null;
+  // return DateTime(2026, 5, 8, 20, 10);
 }
 
 /// Four-tab Schedule experience: Upcoming, Training Schedule, All Events, From Coach.
@@ -337,9 +338,15 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
               _handleAgentScheduleJumpIfNeeded(context, normalized, baselines);
               final displayAll = _toDisplay(normalized, baselines);
               final today = _todayDay();
+              final timelineNow = debugScheduleTimelineNow() ?? DateTime.now();
+              final timelineToday = DateTime(
+                timelineNow.year,
+                timelineNow.month,
+                timelineNow.day,
+              );
 
               final upcomingRecords =
-                  normalized.where((e) => _isUpcomingDay(e, today)).toList();
+                  normalized.where((e) => _isUpcomingDay(e, timelineToday)).toList();
               final upcomingDisplay =
                   _toDisplay(upcomingRecords, baselines);
 
@@ -1092,7 +1099,9 @@ class _CoachUpdateCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  item.record.title.isEmpty ? 'Update' : item.record.title,
+                  scheduleEventTitleForUi(item.record).isEmpty
+                      ? 'Update'
+                      : scheduleEventTitleForUi(item.record),
                   style: GoogleFonts.sora(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -1240,7 +1249,9 @@ class _CompactEventTile extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          item.record.title.isEmpty ? '(Untitled)' : item.record.title,
+          scheduleEventTitleForUi(item.record).isEmpty
+              ? '(Untitled)'
+              : scheduleEventTitleForUi(item.record),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: GoogleFonts.sora(

@@ -10,6 +10,7 @@ import '/theme/swim_design_tokens.dart';
 import '/widgets/swim_ui_kit.dart';
 import 'current_time_indicator.dart';
 import 'schedule_display_item.dart';
+import 'schedule_title_normalizer.dart';
 import 'team_events_schedule.dart' show normalizeCoachLocationForUi;
 
 /// Left column: start (+ end when known). Middle: dot + spine. Right: card.
@@ -141,8 +142,18 @@ DateTime? _eventCalendarDay(TeamEventsRecord e) {
   if (s.isEmpty) return null;
   final direct = TeamEventsRecord.parseHourMinuteLocal(s);
   if (direct != null) return direct;
+  final hmOnly = RegExp(r'^(\d{1,2})\s*([AaPp][Mm])$').firstMatch(s);
+  if (hmOnly != null) {
+    final h12 = int.parse(hmOnly.group(1)!);
+    if (h12 >= 1 && h12 <= 12) {
+      final ap = hmOnly.group(2)!.toUpperCase();
+      var h24 = h12 % 12;
+      if (ap == 'PM') h24 += 12;
+      return (hour: h24, minute: 0);
+    }
+  }
   final m = RegExp(
-    r'(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?|\d{1,2}:\d{2}\s*[AaPp][Mm])',
+    r'(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?|\d{1,2}:\d{2}\s*[AaPp][Mm]|\d{1,2}\s*[AaPp][Mm])',
     caseSensitive: false,
   ).firstMatch(s);
   if (m == null) return null;
@@ -194,9 +205,18 @@ DateTime? _eventCalendarDay(TeamEventsRecord e) {
 ({DateTime? start, DateTime? end}) _timelineClocksForItem(
   ScheduleDisplayItem item,
 ) {
+  final r = item.record;
   final rs = _reliableEventStartForDisplay(item.record);
   final re = _reliableEventEndForDisplay(item.record);
   final fb = _clocksFromTimeDisplayLabel(item);
+
+  final preferLabelRange = r.eventType == TeamEventType.training &&
+      (r.isRecurring || r.title.toLowerCase().contains('regular')) &&
+      fb.start != null &&
+      fb.end != null;
+  if (preferLabelRange) {
+    return (start: fb.start, end: fb.end);
+  }
 
   final start = rs ?? fb.start;
   final end = re ?? fb.end;
@@ -512,8 +532,25 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
       );
     }
 
-    final cancelled = sorted.where((i) => _isCancelled(i.record)).length;
     final headerDay = widget.selectedDate ?? headerAnchorDay(sorted, today);
+    final headerDayOnly = DateTime(
+      headerDay.year,
+      headerDay.month,
+      headerDay.day,
+    );
+    final todayCount = sorted.where((i) {
+      if (_isCancelled(i.record)) return false;
+      final p = i.record.parsedStart;
+      if (p == null) return false;
+      return DateTime(p.year, p.month, p.day) == headerDayOnly;
+    }).length;
+    final upcomingCount = sorted.where((i) {
+      if (_isCancelled(i.record)) return false;
+      final p = i.record.parsedStart;
+      if (p == null) return false;
+      final d = DateTime(p.year, p.month, p.day);
+      return d.isAfter(headerDayOnly);
+    }).length;
     final nextItem = getNextUpcomingEvent(sorted, now, today);
     final pastTodayCount = sorted
         .where(
@@ -550,8 +587,8 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
                 maxExtent: _headerMax,
                 minExtent: _headerMin,
                 headerDay: headerDay,
-                totalEvents: sorted.length,
-                cancelledCount: cancelled,
+                todayCount: todayCount,
+                upcomingCount: upcomingCount,
               ),
             ),
             SliverToBoxAdapter(
@@ -1192,8 +1229,8 @@ class _CollapsingDateHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.maxExtent,
     required this.minExtent,
     required this.headerDay,
-    required this.totalEvents,
-    required this.cancelledCount,
+    required this.todayCount,
+    required this.upcomingCount,
   });
 
   @override
@@ -1203,8 +1240,8 @@ class _CollapsingDateHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double minExtent;
 
   final DateTime headerDay;
-  final int totalEvents;
-  final int cancelledCount;
+  final int todayCount;
+  final int upcomingCount;
 
   @override
   Widget build(
@@ -1218,9 +1255,7 @@ class _CollapsingDateHeaderDelegate extends SliverPersistentHeaderDelegate {
     final range = maxExtent - minExtent;
     final t = range <= 0 ? 1.0 : (shrinkOffset / range).clamp(0.0, 1.0);
     final bigOpacity = 1.0 - t;
-    final sub = cancelledCount > 0
-        ? '$totalEvents events · $cancelledCount cancelled'
-        : '$totalEvents events';
+    final sub = '$todayCount today · $upcomingCount upcoming';
     const weekdays = [
       'Monday',
       'Tuesday',
@@ -1296,8 +1331,8 @@ class _CollapsingDateHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _CollapsingDateHeaderDelegate oldDelegate) {
     return oldDelegate.headerDay != headerDay ||
-        oldDelegate.totalEvents != totalEvents ||
-        oldDelegate.cancelledCount != cancelledCount ||
+        oldDelegate.todayCount != todayCount ||
+        oldDelegate.upcomingCount != upcomingCount ||
         oldDelegate.maxExtent != maxExtent ||
         oldDelegate.minExtent != minExtent;
   }
@@ -1516,8 +1551,15 @@ class _DaysAheadPill extends StatelessWidget {
 
   String get _label {
     if (daysAhead == 1) return 'Tomorrow';
-    if (daysAhead >= 7) return 'Next week';
-    return '$daysAhead days ahead';
+    if (daysAhead < 7) return '$daysAhead days ahead';
+    if (daysAhead < 28) {
+      final weeks = (daysAhead / 7).floor();
+      if (weeks <= 1) return 'Next week';
+      return 'In $weeks weeks';
+    }
+    if (daysAhead < 60) return 'Next month';
+    final months = (daysAhead / 30).floor();
+    return 'In $months months';
   }
 
   @override
@@ -1526,11 +1568,12 @@ class _DaysAheadPill extends StatelessWidget {
       key: ValueKey(daysAhead),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: SwimDsTokens.warningAmber.withValues(alpha: 0.16),
+        color: SwimDsTokens.cardBackground,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: SwimDsTokens.warningAmber.withValues(alpha: 0.35),
+          color: SwimDsTokens.warningAmber.withValues(alpha: 0.55),
         ),
+        boxShadow: SwimDsTokens.cardShadowSoft,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1595,6 +1638,90 @@ class _SmartShortcutButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// In-card session progress: visible **track**, **border**, and **gradient fill** so it reads as a real bar.
+class _SessionProgressBar extends StatelessWidget {
+  const _SessionProgressBar({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = value.clamp(0.0, 1.0);
+    const h = 7.0;
+    final track = SwimDsTokens.primaryPurple.withValues(alpha: 0.09);
+    final trackBorder = SwimDsTokens.primaryPurple.withValues(alpha: 0.24);
+    final fillHi = Color.lerp(
+      SwimDsTokens.primaryPurple,
+      Colors.white,
+      0.22,
+    )!;
+    final fillLo = SwimDsTokens.primaryPurple.withValues(alpha: 0.72);
+
+    return Semantics(
+      label: 'Session progress',
+      value: '${(v * 100).round()}%',
+      child: SizedBox(
+        height: h,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxW = constraints.maxWidth;
+            final innerW = (maxW - 2).clamp(0.0, double.infinity);
+            final fillW = innerW * v;
+            return Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: track,
+                    border: Border.all(color: trackBorder, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+                Positioned(
+                  left: 1,
+                  top: 1,
+                  bottom: 1,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 320),
+                    curve: Curves.easeOutCubic,
+                    width: fillW,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      gradient: LinearGradient(
+                        colors: [fillHi, fillLo],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      boxShadow: v > 0.02
+                          ? [
+                              BoxShadow(
+                                color: fillLo.withValues(alpha: 0.45),
+                                blurRadius: 5,
+                                spreadRadius: -1,
+                                offset: const Offset(1, 0),
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1714,6 +1841,7 @@ class _EventRowWidget extends StatelessWidget {
 
     final shortLoc =
         shortLocationForTimeline(item.locationDisplay);
+    final dryland = item.drylandLabel?.trim() ?? '';
 
     final rl = rangeLabel;
     final metaParts = <String>[
@@ -1824,7 +1952,9 @@ class _EventRowWidget extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                item.record.title.isEmpty ? '(Untitled)' : item.record.title,
+                scheduleEventTitleForUi(item.record).isEmpty
+                    ? '(Untitled)'
+                    : scheduleEventTitleForUi(item.record),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.sora(
@@ -1851,19 +1981,38 @@ class _EventRowWidget extends StatelessWidget {
                   ),
                 ),
               ],
+              if (dryland.isNotEmpty && !cancelled) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.fitness_center_rounded,
+                      size: 12,
+                      color: muted.withValues(alpha: 0.9),
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        'Dryland $dryland',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.sora(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          height: 1.25,
+                          color: muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               if (happeningProgress != null &&
                   isHappeningNow &&
                   !cancelled) ...[
                 const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: happeningProgress!.clamp(0.0, 1.0),
-                    minHeight: 4,
-                    backgroundColor:
-                        SwimDsTokens.primaryPurple.withValues(alpha: 0.12),
-                    color: SwimDsTokens.primaryPurple.withValues(alpha: 0.65),
-                  ),
+                _SessionProgressBar(
+                  value: happeningProgress!.clamp(0.0, 1.0),
                 ),
               ],
               if (hint != null && !cancelled) ...[

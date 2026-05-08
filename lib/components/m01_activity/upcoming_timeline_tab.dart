@@ -7,6 +7,7 @@ import '/theme/obsidian_volt_tokens.dart';
 import '/theme/swim_design_tokens.dart';
 import '/widgets/swim_ui_kit.dart';
 import 'schedule_display_item.dart';
+import 'schedule_title_normalizer.dart';
 import 'team_events_schedule.dart' show normalizeCoachLocationForUi;
 
 /// Vertical timeline + type-colored cards for the Schedule **Upcoming** tab.
@@ -473,7 +474,9 @@ class _EventRow implements _TimelineRow {
               ),
               const SizedBox(height: 8),
               Text(
-                item.record.title.isEmpty ? '(Untitled)' : item.record.title,
+                scheduleEventTitleForUi(item.record).isEmpty
+                    ? '(Untitled)'
+                    : scheduleEventTitleForUi(item.record),
                 style: GoogleFonts.sora(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
