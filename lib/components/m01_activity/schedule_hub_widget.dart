@@ -5,13 +5,18 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '/app_state.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/backend/meet_preferences_api.dart';
+import '/backend/schema/meet_preferences_record.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/theme/lavender_indigo_tokens.dart';
 import '/theme/swim_design_tokens.dart';
 import '/theme/swim_ui_tokens.dart';
 import '/widgets/swim_ui_kit.dart';
 import '/theme/obsidian_volt_tokens.dart';
+
+import '/components/m02_meet/my_meets_timeline_filter.dart';
 
 import 'schedule_display_item.dart';
 import 'training_schedule_tab.dart';
@@ -28,7 +33,7 @@ import 'dynamic_schedule_timeline.dart';
 DateTime? debugScheduleTimelineNow() {
   if (kReleaseMode) return null;
   // return null;
-  return DateTime(2026, 5, 7, 19, 10);
+  return DateTime(2026, 5, 7, 20, 10);
 }
 
 /// Four-tab Schedule experience: Upcoming, Training Schedule, All Events, From Coach.
@@ -109,12 +114,8 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
   }
 
   bool _isUpcomingDay(TeamEventsRecord e, DateTime today) {
-    if (e.parsedStart == null) return false;
-    final d = DateTime(
-      e.parsedStart!.year,
-      e.parsedStart!.month,
-      e.parsedStart!.day,
-    );
+    final d = calendarDayForTeamEventListing(e);
+    if (d == null) return false;
     return !d.isBefore(today);
   }
 
@@ -342,14 +343,6 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
               final upcomingDisplay =
                   _toDisplay(upcomingRecords, baselines);
 
-              final upcomingFiltered = upcomingDisplay
-                  .where(
-                    (i) => i.matchesPracticeTierFilter(
-                      forJuniorTier: _scheduleJuniorTier,
-                    ),
-                  )
-                  .toList();
-
               final filteredAll =
                   _filterAllEvents(displayAll, today);
               final groupedRows = _groupByMonthHeader(filteredAll);
@@ -361,51 +354,87 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
                   )
                   .toList();
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      SwimDsTokens.pageHorizontalPadding,
-                      SwimDsTokens.smallGap,
-                      SwimDsTokens.pageHorizontalPadding,
-                      SwimDsTokens.tabsToContentGap,
+              final tierFiltered = upcomingDisplay
+                  .where(
+                    (i) => i.matchesPracticeTierFilter(
+                      forJuniorTier: _scheduleJuniorTier,
                     ),
-                    child: _buildScheduleSegmentedControl(),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildUpcomingTab(
-                          context: context,
-                          upcoming: upcomingFiltered,
-                          baselines: baselines,
-                          bottomPad: _bottomContentPadding(context),
-                        ),
-                        TrainingScheduleTabContent(
-                          baselines: baselines,
-                          primary: primary,
-                          bottomPad: _bottomContentPadding(context),
-                        ),
-                        _buildAllEventsTab(
-                          context: context,
-                          groupedRows: groupedRows,
-                          baselines: baselines,
-                          primary: primary,
-                          bottomPad: _bottomContentPadding(context),
-                        ),
-                        _buildCoachTab(
-                          context: context,
-                          items: coachItems,
-                          baselines: baselines,
-                          primary: primary,
-                          bottomPad: _bottomContentPadding(context),
-                        ),
-                      ],
+                  )
+                  .toList();
+
+              if (currentUserUid.isEmpty) {
+                return _buildScheduleHubMainColumn(
+                  context: context,
+                  primary: primary,
+                  baselines: baselines,
+                  upcomingFiltered: tierFiltered,
+                  groupedRows: groupedRows,
+                  coachItems: coachItems,
+                );
+              }
+
+              return StreamBuilder<Map<String, MeetPreferencesRecord>>(
+                stream: streamMeetPreferencesMap(currentUserUid),
+                builder: (context, prefSnap) {
+                  return StreamBuilder<List<MonitoredMeetsRecord>>(
+                    stream: streamMonitoredMeetsForSwimmer(
+                      zoneId: app.currentSwimmerZoneForMeets,
+                      priorityHostGroup: app.currentSwimmerGroup,
+                      showAll: app.meetsShowAllZones,
+                      widePastWindow: true,
                     ),
-                  ),
-                ],
+                    builder: (context, monSnap) {
+                      if (!prefSnap.hasData || !monSnap.hasData) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                SwimDsTokens.pageHorizontalPadding,
+                                SwimDsTokens.smallGap,
+                                SwimDsTokens.pageHorizontalPadding,
+                                SwimDsTokens.tabsToContentGap,
+                              ),
+                              child: _buildScheduleSegmentedControl(),
+                            ),
+                            const Expanded(
+                              child: Center(
+                                child: SizedBox(
+                                  width: 36,
+                                  height: 36,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      final prefs = prefSnap.data!;
+                      final monitored = monSnap.data!;
+                      final upcomingFiltered = tierFiltered
+                          .where(
+                            (i) => teamEventMeetPassesMyMeetsTimelineFilter(
+                              i.record,
+                              prefs,
+                              monitored,
+                            ),
+                          )
+                          .toList();
+
+                      return _buildScheduleHubMainColumn(
+                        context: context,
+                        primary: primary,
+                        baselines: baselines,
+                        upcomingFiltered: upcomingFiltered,
+                        groupedRows: groupedRows,
+                        coachItems: coachItems,
+                      );
+                    },
+                  );
+                },
               );
             },
           );
@@ -414,7 +443,64 @@ class _ScheduleHubWidgetState extends State<ScheduleHubWidget>
     );
   }
 
-  /// Matches Meets page segmented shell — shared [AppSegmentedTabs].
+  /// Tab shell: segmented control + [TabBarView] (Today, Training, Events, Coach).
+  Widget _buildScheduleHubMainColumn({
+    required BuildContext context,
+    required Color primary,
+    required List<ScheduleBaseline> baselines,
+    required List<ScheduleDisplayItem> upcomingFiltered,
+    required List<_GroupedRow> groupedRows,
+    required List<ScheduleDisplayItem> coachItems,
+  }) {
+    final bottomPad = _bottomContentPadding(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            SwimDsTokens.pageHorizontalPadding,
+            SwimDsTokens.smallGap,
+            SwimDsTokens.pageHorizontalPadding,
+            SwimDsTokens.tabsToContentGap,
+          ),
+          child: _buildScheduleSegmentedControl(),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildUpcomingTab(
+                context: context,
+                upcoming: upcomingFiltered,
+                baselines: baselines,
+                bottomPad: bottomPad,
+              ),
+              TrainingScheduleTabContent(
+                baselines: baselines,
+                primary: primary,
+                bottomPad: bottomPad,
+              ),
+              _buildAllEventsTab(
+                context: context,
+                groupedRows: groupedRows,
+                baselines: baselines,
+                primary: primary,
+                bottomPad: bottomPad,
+              ),
+              _buildCoachTab(
+                context: context,
+                items: coachItems,
+                baselines: baselines,
+                primary: primary,
+                bottomPad: bottomPad,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildScheduleSegmentedControl() {
     return AppSegmentedTabs(
       labels: const ['Today', 'Training', 'Events', 'Coach'],

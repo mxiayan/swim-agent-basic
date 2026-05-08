@@ -204,6 +204,16 @@ DateTime? _eventCalendarDay(TeamEventsRecord e) {
   return (start: start, end: end);
 }
 
+/// Session window for “happening now” + progress — matches gutter times
+/// ([_timelineClocksForItem]), not raw [TeamEventsRecord.parsedStart] which is
+/// often **midnight** when `start_time_local` is empty (would wrongly span
+/// midnight→8pm if only `end_time_local` is set).
+({DateTime? start, DateTime? end}) _sessionWindowForProgress(
+  ScheduleDisplayItem item,
+) {
+  return _timelineClocksForItem(item);
+}
+
 /// Scroll-driven schedule timeline for the **Today** tab: collapsing date header,
 /// spine progress, Now marker, Up Next emphasis, past summary chip, and
 /// floating context shortcuts.
@@ -722,20 +732,23 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
               children: sections.today,
             ),
           ),
-        if (sections.future.isNotEmpty) ...[
+        if (sections.futureDays.isNotEmpty) ...[
           SizedBox(height: SwimDsTokens.sectionSpacing + 6),
-          _TimelineCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: sections.future,
+          for (var fi = 0; fi < sections.futureDays.length; fi++) ...[
+            if (fi > 0) SizedBox(height: SwimDsTokens.cardSpacing),
+            _TimelineCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: sections.futureDays[fi],
+              ),
             ),
-          ),
+          ],
         ],
       ],
     );
   }
 
-  ({List<Widget> today, List<Widget> future}) _buildTimelineSections({
+  ({List<Widget> today, List<List<Widget>> futureDays}) _buildTimelineSections({
     required BuildContext context,
     required List<ScheduleDisplayItem> sorted,
     required DateTime today,
@@ -751,7 +764,7 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
     required VoidCallback onTogglePast,
   }) {
     final todayRows = <Widget>[];
-    final futureRows = <Widget>[];
+    final futureDayCards = <List<Widget>>[];
     final byDay = groupEventsByDateAndTimeOfDay(sorted, today);
     final selectedOk = widget.selectedDate == null ||
         DateUtils.isSameDay(widget.selectedDate!, now);
@@ -762,15 +775,17 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
       final items = g.items;
 
       if (day != today) {
-        final gapTop = futureRows.isEmpty ? 4.0 : 22.0;
-        futureRows.add(
+        final dayRows = <Widget>[];
+        final gapTop = futureDayCards.isEmpty ? 4.0 : 12.0;
+        dayRows.add(
           _DayDivider(
             label: _futureDaySectionLabel(day, today),
             gapTop: gapTop,
+            futureDateHeader: true,
           ),
         );
         for (final item in items) {
-          futureRows.add(
+          dayRows.add(
             _EventRowWidget(
               key: _keyFor(item),
               item: item,
@@ -789,6 +804,7 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
             ),
           );
         }
+        futureDayCards.add(dayRows);
         continue;
       }
 
@@ -869,7 +885,7 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
         }
 
         final happening = !_isCancelled(item.record) &&
-            _isHappeningNow(item.record, now);
+            _isHappeningNowForTimelineItem(item, now);
         final isAboveNowLine = happeningOverlay != null
             ? visibleIdx < happeningOverlay.visibleIndex
             : (lineAt >= 0 && visibleIdx < lineAt);
@@ -893,7 +909,7 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
                 ? formatUpNextTime(item.record.parsedStart, now)
                 : null,
             happeningProgress:
-                happening ? happeningNowYFraction(item.record, now) : null,
+                happening ? happeningNowYFraction(item, now) : null,
           ),
         );
         visibleIdx++;
@@ -918,7 +934,7 @@ class _DynamicScheduleTimelineState extends State<DynamicScheduleTimeline> {
       }
     }
 
-    return (today: todayRows, future: futureRows);
+    return (today: todayRows, futureDays: futureDayCards);
   }
 
   bool _isActiveTod(String tod, DateTime now) {
@@ -949,16 +965,17 @@ int compareTimelineItems(
   final db = DateTime(pb.year, pb.month, pb.day);
   final dayCmp = da.compareTo(db);
   if (dayCmp != 0) return dayCmp;
-  final ra = _todaySubsectionRank(a.record, now, today);
-  final rb = _todaySubsectionRank(b.record, now, today);
+  final ra = _todaySubsectionRank(a, now, today);
+  final rb = _todaySubsectionRank(b, now, today);
   if (ra != rb) return ra.compareTo(rb);
   return pa.compareTo(pb);
 }
 
-int _todaySubsectionRank(TeamEventsRecord e, DateTime now, DateTime today) {
-  final ps = e.parsedStart;
+int _todaySubsectionRank(ScheduleDisplayItem item, DateTime now, DateTime today) {
+  final clocks = _sessionWindowForProgress(item);
+  final ps = clocks.start ?? item.record.parsedStart;
   if (ps == null) return 2;
-  if (_isHappeningNow(e, now)) return 0;
+  if (_isHappeningNowForTimelineItem(item, now)) return 0;
   if (ps.hour < 12) return 1;
   if (ps.hour < 17) return 2;
   return 3;
@@ -982,7 +999,7 @@ ScheduleDisplayItem? getNextUpcomingEvent(
 ) {
   for (final i in events) {
     if (_isCancelled(i.record)) continue;
-    if (_isHappeningNow(i.record, now)) {
+    if (_isHappeningNowForTimelineItem(i, now)) {
       continue;
     }
     final s = i.record.parsedStart;
@@ -993,7 +1010,7 @@ ScheduleDisplayItem? getNextUpcomingEvent(
   }
   for (final i in events) {
     if (_isCancelled(i.record)) continue;
-    if (_isHappeningNow(i.record, now)) {
+    if (_isHappeningNowForTimelineItem(i, now)) {
       final idx = events.indexOf(i);
       for (var j = idx + 1; j < events.length; j++) {
         final n = events[j];
@@ -1101,20 +1118,22 @@ HappeningNowOverlayPlan? computeHappeningNowOverlay(
   DateTime now,
 ) {
   for (var i = 0; i < visibleTodayItems.length; i++) {
-    final r = visibleTodayItems[i].record;
+    final item = visibleTodayItems[i];
+    final r = item.record;
     if (_isCancelled(r)) continue;
-    if (!_isHappeningNow(r, now)) continue;
+    if (!_isHappeningNowForTimelineItem(item, now)) continue;
     return HappeningNowOverlayPlan(
       visibleIndex: i,
-      yFraction: happeningNowYFraction(r, now),
+      yFraction: happeningNowYFraction(item, now),
     );
   }
   return null;
 }
 
-double happeningNowYFraction(TeamEventsRecord r, DateTime now) {
-  final s = r.parsedStart;
-  final e = r.parsedEnd;
+double happeningNowYFraction(ScheduleDisplayItem item, DateTime now) {
+  final w = _sessionWindowForProgress(item);
+  final s = w.start;
+  final e = w.end;
   if (s == null || e == null) return 0.5;
   final totalMs = e.difference(s).inMilliseconds;
   if (totalMs <= 0) return 0.5;
@@ -1131,10 +1150,12 @@ int computeNowLineInsertIndex(
 ) {
   if (visibleTodayItems.isEmpty) return 0;
   for (var i = 0; i < visibleTodayItems.length; i++) {
-    final r = visibleTodayItems[i].record;
+    final item = visibleTodayItems[i];
+    final r = item.record;
     if (_isCancelled(r)) continue;
-    if (_isHappeningNow(r, now)) continue;
-    final s = r.parsedStart;
+    if (_isHappeningNowForTimelineItem(item, now)) continue;
+    final s =
+        _sessionWindowForProgress(item).start ?? r.parsedStart;
     if (s == null) continue;
     if (now.isBefore(s)) return i;
   }
@@ -1390,15 +1411,26 @@ class _DayDivider extends StatelessWidget {
   const _DayDivider({
     required this.label,
     this.emphasize = false,
+    this.futureDateHeader = false,
     this.gapTop = 12,
   });
 
   final String label;
   final bool emphasize;
+  /// Future calendar-day titles (e.g. TOMORROW · FRI MAY 8): stronger than MORNING/AFTERNOON.
+  final bool futureDateHeader;
   final double gapTop;
 
   @override
   Widget build(BuildContext context) {
+    final Color labelColor;
+    if (emphasize) {
+      labelColor = SwimDsTokens.primaryPurple;
+    } else if (futureDateHeader) {
+      labelColor = SwimDsTokens.textPrimary.withValues(alpha: 0.88);
+    } else {
+      labelColor = SwimDsTokens.textSecondary;
+    }
     return Padding(
       padding: EdgeInsets.only(
         left: _kTimelineLeading + 8,
@@ -1408,12 +1440,10 @@ class _DayDivider extends StatelessWidget {
       child: Text(
         label,
         style: GoogleFonts.sora(
-          fontSize: 10,
-          letterSpacing: 0.6,
+          fontSize: futureDateHeader ? 11 : 10,
+          letterSpacing: futureDateHeader ? 0.55 : 0.6,
           fontWeight: FontWeight.w700,
-          color: emphasize
-              ? SwimDsTokens.primaryPurple
-              : SwimDsTokens.textSecondary,
+          color: labelColor,
         ),
       ),
     );
@@ -1987,7 +2017,7 @@ bool _isFullyPast(
   final day = DateTime(s.year, s.month, s.day);
   if (day.isBefore(today)) return true;
   if (day.isAfter(today)) return false;
-  if (_isHappeningNow(e, now)) return false;
+  if (_isHappeningNowForTimelineItem(item, now)) return false;
   final end = e.parsedEnd;
   if (end != null) {
     return !end.isAfter(now);
@@ -2000,19 +2030,27 @@ bool _isCancelled(TeamEventsRecord e) {
   return s.contains('cancel');
 }
 
-bool _isHappeningNow(TeamEventsRecord e, DateTime now) {
+bool _isHappeningNowForTimelineItem(ScheduleDisplayItem item, DateTime now) {
+  final e = item.record;
   if (_isCancelled(e)) return false;
-  final start = e.parsedStart;
+  final w = _sessionWindowForProgress(item);
+  var start = w.start;
+  var end = w.end;
+  if (start == null) {
+    start = e.parsedStart;
+  }
+  if (end == null) {
+    end = e.parsedEnd;
+  }
   if (start == null) return false;
+
   final day = DateTime(now.year, now.month, now.day);
   final sd = DateTime(start.year, start.month, start.day);
   if (sd != day) return false;
 
-  final end = e.parsedEnd;
   if (end != null) {
     return !now.isBefore(start) && !now.isAfter(end);
   }
-  // No parsed end: avoid treating “start at midnight + display-only time” as all-day live.
   if (e.endTimeLocal.trim().isNotEmpty) {
     return false;
   }
